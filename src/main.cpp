@@ -17,15 +17,15 @@ void opcontrol() {
     std::cout << "hello world!" << std::endl;
 
     lyfast::geometry::CubicBezier cubic({ 2_in, 2_in },
-                                        { 15_in, 5_in },
                                         { 5_in, 15_in },
-                                        { 20_in, 14_in });
+                                        { 20_in, 14_in },
+                                        { 15_in, 5_in });
 
-    lyfast::mp::RobotConstraints robot_constraints(10.5_in, 1.0);
-    lyfast::mp::LinearConstraints linear_constraints(60_inps, 30_inps2, 30_inps2);
-    lyfast::mp::AngularConstraints angular_constraints(1_rps,
-                                                       1_rps2,
-                                                       1_rps2);
+    lyfast::mp::RobotConstraints robot_constraints(10.5_in, 0.1);
+    lyfast::mp::LinearConstraints linear_constraints(70_inps,
+                                                     60_inps2,
+                                                     60_inps2);
+    lyfast::mp::AngularConstraints angular_constraints(0.8_rps, 1_rps2, 1_rps2);
 
     lyfast::mp::Constraints constraints(robot_constraints,
                                         linear_constraints,
@@ -63,4 +63,22 @@ void opcontrol() {
 
     print("v_{final}", cubic_trajectory.final_vels_debug, Finps);
 
+    std::cout << "l_{times}=\\left[";
+    for (auto& point : cubic_trajectory.points) {
+        std::cout << point.travel_time.internal() << ",";
+    }
+    std::cout << "\\right]" << std::endl;
+
+    std::cout << "l_{points}=\\left[";
+    for (auto& point : cubic_trajectory.points) {
+        std::cout << "\\left(" << point.point.x.convert(in) << ","
+                  << point.point.y.convert(in) << "\\right),";
+    }
+    std::cout << "\\right]" << std::endl;
+
+    std::cout << "l_{headings}=\\left[";
+    for (auto& point : cubic_trajectory.points) {
+        std::cout << point.heading.internal() << ",";
+    }
+    std::cout << "\\right]" << std::endl;
 }

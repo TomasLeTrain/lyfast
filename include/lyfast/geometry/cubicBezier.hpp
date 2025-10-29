@@ -125,16 +125,24 @@ class CubicBezier : public Curve {
         // https://github.com/SerrialError/vmplib/blob/main/src/bezier.cpp
 
         // clang-format off
-		const std::array<float,5> gaussNodes = {-0.9061798459, -0.5384693101, 0.0, 0.5384693101, 0.9061798459};
-		const std::array<float,5> gaussWeights = {0.2369268850, 0.4786286705, 0.5688888889, 0.4786286705, 0.2369268850};
+		constexpr std::array<float,5> gaussNodes = {-0.9061798459, -0.5384693101, 0.0, 0.5384693101, 0.9061798459};
+		static constexpr std::array<float,5> gaussWeights = {0.2369268850, 0.4786286705, 0.5688888889, 0.4786286705, 0.2369268850};
         // clang-format on
 
+        // precomputes new gauss nodes to avoid some small recomputations
+        static constexpr std::array<float, 5> new_gaussNodes = [gaussNodes]() {
+            std::array<float, 5> result;
+            for (int i = 0; i < 5; i++) {
+                result[i] = 1.0 + gaussNodes[i];
+            }
+            return result;
+        }();
+
+        const float t2 = t / 2.0f;
         FLength arc_length = FLength(0.0);
 
-        float t2 = t / 2.0f;
-
         for (size_t i = 0; i < gaussNodes.size(); i++) {
-            arc_length += gaussWeights[i] * speed(t2 * (gaussNodes[i] + 1));
+            arc_length += gaussWeights[i] * speed(t2 * new_gaussNodes[i]);
         }
         return t2 * arc_length;
     }
@@ -164,7 +172,7 @@ class CubicBezier : public Curve {
     }
 
     virtual float t_by_s(FLength target) override {
-		// uses a starting guess of t = 0.5
+        // uses a starting guess of t = 0.5
         return t_by_s(target, 0.5);
     }
 

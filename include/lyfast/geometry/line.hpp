@@ -30,7 +30,7 @@ class Line : public Curve {
 
     // curvature at point c
     FCurvature c(float t) override {
-        return 0.0 / Fm;
+        return FCurvature(0.0f);
     }
 
     // gets distance at time

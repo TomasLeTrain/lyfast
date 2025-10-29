@@ -124,7 +124,7 @@ class Trajectory {
         for (MotionPoint& point : points) {
             point.vel = units::sqrt(point.vel_squared);
 
-            final_vels_debug.emplace_back(point.vel);
+            // final_vels_debug.emplace_back(point.vel);
         }
 
         printf("sqrts:%llu\n", pros::c::micros() - start_time);
@@ -194,13 +194,13 @@ class Trajectory {
             point.accel = units::min(max_kin_accel, max_turn_accel);
             point.decel = units::min(max_kin_decel, max_turn_decel);
 
-            max_kin_vel_debug.emplace_back(max_kin_vel);
-            max_turn_vel_debug.emplace_back(max_turn_vel);
-            max_kin_accel_debug.emplace_back(max_kin_accel);
-            max_turn_accel_debug.emplace_back(max_turn_accel);
-            max_kin_decel_debug.emplace_back(max_kin_decel);
-            max_turn_decel_debug.emplace_back(max_turn_decel);
-            max_friction_vel_debug.emplace_back(units::sqrt(point.vel_squared));
+            // max_kin_vel_debug.emplace_back(max_kin_vel);
+            // max_turn_vel_debug.emplace_back(max_turn_vel);
+            // max_kin_accel_debug.emplace_back(max_kin_accel);
+            // max_turn_accel_debug.emplace_back(max_turn_accel);
+            // max_kin_decel_debug.emplace_back(max_kin_decel);
+            // max_turn_decel_debug.emplace_back(max_turn_decel);
+            // max_friction_vel_debug.emplace_back(units::sqrt(point.vel_squared));
         }
 
         // sets the start and initial velocity constraints
@@ -215,7 +215,7 @@ class Trajectory {
               units::min(point.vel * point.vel, point.vel_squared);
         }
 
-        printf("vector size: %d\n", this->points.size());
+        // printf("vector size: %d\n", this->points.size());
     }
 
     // performs a forward pass to keep max acceleration constraints
@@ -233,7 +233,7 @@ class Trajectory {
             const auto max_vel_squared =
               last_point.vel_squared + last_point.accel * dd2_multiplier;
 
-            forwards_pass_debug.emplace_back(units::sqrt(max_vel_squared));
+            // forwards_pass_debug.emplace_back(units::sqrt(max_vel_squared));
 
             // keep minimum of current max vel and previous max vel
             point.vel_squared = units::min(point.vel_squared, max_vel_squared);
@@ -255,8 +255,9 @@ class Trajectory {
             const auto max_vel_squared =
               next_point.vel_squared + point.decel * dd2_multiplier;
 
-			// reversed:
-            backwards_pass_debug.insert(backwards_pass_debug.begin(), units::sqrt(max_vel_squared));
+            // reversed:
+            // backwards_pass_debug.insert(backwards_pass_debug.begin(),
+            // units::sqrt(max_vel_squared));
 
             // keep minimum of current max vel and previous max vel
             point.vel_squared = units::min(point.vel_squared, max_vel_squared);
@@ -307,6 +308,10 @@ class Trajectory {
 
         printf("total distance: %f\n", curve->s(1.0).convert(in));
         printf("delta_distance: %f\n", delta_distance.convert(in));
+        printf(
+          "allocated for points %d\n",
+          static_cast<size_t>((curve->s(1.0) / delta_distance).internal()) +
+            10);
         // makes the creation of points faster by allocating the required space
         points.reserve(
           static_cast<size_t>((curve->s(1.0) / delta_distance).internal()) +
