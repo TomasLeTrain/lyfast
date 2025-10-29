@@ -1,9 +1,32 @@
 {
     "py/object": "pros.conductor.project.Project",
     "py/state": {
-        "project_name": "default_project",
+        "project_name": "lyfast",
         "target": "v5",
         "templates": {
+            "float_units": {
+                "location": "/home/tomas/.config/pros/templates/float_units@0.7.3",
+                "metadata": {
+                    "origin": "local"
+                },
+                "name": "float_units",
+                "py/object": "pros.conductor.templates.local_template.LocalTemplate",
+                "supported_kernels": "^4.2.1",
+                "system_files": [
+                    "firmware/hot-cold-asset.mk",
+                    "include/units/Temperature.hpp",
+                    "include/units/units.hpp",
+                    "firmware/float_units.a",
+                    "include/units/all.hpp",
+                    "include/units/Pose.hpp",
+                    "include/units/Vector3D.hpp",
+                    "include/units/Vector2D.hpp",
+                    "include/units/Angle.hpp"
+                ],
+                "target": "v5",
+                "user_files": [],
+                "version": "0.7.3"
+            },
             "kernel": {
                 "location": "/home/tomass/.config/pros/templates/kernel@4.2.1",
                 "metadata": {
