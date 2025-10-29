@@ -1,6 +1,6 @@
 #pragma once
 
-#include "lyfast/geometry/curve.h"
+#include "lyfast/geometry/curve.hpp"
 #include "primitives.h"
 #include "units/Pose.hpp"
 #include "units/Vector2D.hpp"

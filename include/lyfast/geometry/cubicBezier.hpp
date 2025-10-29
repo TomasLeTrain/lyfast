@@ -1,6 +1,6 @@
 #pragma once
 
-#include "lyfast/geometry/curve.h"
+#include "lyfast/geometry/curve.hpp"
 #include "units/Pose.hpp"
 #include "units/Vector2D.hpp"
 #include "units/units.hpp"
@@ -164,7 +164,8 @@ class CubicBezier : public Curve {
     }
 
     virtual float t_by_s(FLength target) override {
-        t_by_s(target, 0.5);
+		// uses a starting guess of t = 0.5
+        return t_by_s(target, 0.5);
     }
 
     CubicBezier(std::array<Point, 4> controls)

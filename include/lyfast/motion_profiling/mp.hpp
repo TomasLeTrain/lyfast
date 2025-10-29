@@ -1,7 +1,7 @@
 #pragma once
 
-#include "lyfast/geometry/curve.h"
-#include "lyfast/motion_profiling/constraints.h"
+#include "lyfast/geometry/curve.hpp"
+#include "lyfast/motion_profiling/constraints.hpp"
 #include "pros/rtos.h"
 #include "units/Angle.hpp"
 #include "units/Pose.hpp"
@@ -61,6 +61,22 @@ struct MotionPoint {
 // each trajectory should be a continous curve
 // this means the trajectory generator takes only one curve as input
 class Trajectory {
+
+  public:
+    std::vector<FLinearVelocity> max_kin_vel_debug;
+    std::vector<FLinearVelocity> max_turn_vel_debug;
+    std::vector<FLinearVelocity> max_friction_vel_debug;
+
+    std::vector<FLinearVelocity> forwards_pass_debug;
+    std::vector<FLinearVelocity> backwards_pass_debug;
+
+    std::vector<FLinearAcceleration> max_kin_accel_debug;
+    std::vector<FLinearAcceleration> max_turn_accel_debug;
+    std::vector<FLinearAcceleration> max_kin_decel_debug;
+    std::vector<FLinearAcceleration> max_turn_decel_debug;
+
+    std::vector<FLinearVelocity> final_vels_debug;
+
   private:
     geometry::Curve* curve;
 
@@ -104,9 +120,11 @@ class Trajectory {
         // since point.vel2 has the final velocity of each particle from both
         // passes
 
-        // hopefully this is vectorized
+        // TODO: could be vectorized
         for (MotionPoint& point : points) {
             point.vel = units::sqrt(point.vel_squared);
+
+            final_vels_debug.emplace_back(point.vel);
         }
 
         printf("sqrts:%llu\n", pros::c::micros() - start_time);
@@ -115,8 +133,9 @@ class Trajectory {
 
         // update angular velocities
         for (auto&& point : points) {
-            point.ang_vel = rad * point.vel * point.curvature;
+            point.ang_vel = Frad * point.vel * point.curvature;
         }
+
         printf("update angular vels/final time:%llu\n",
                pros::c::micros() - start_time);
     }
@@ -127,24 +146,24 @@ class Trajectory {
         const FLinearAcceleration friction_multiplier =
           constraints.coeff_friction * (9.81_Fmps2);
 
+        // half the track width
+        const FLength track_radius = constraints.track_width * 0.5f;
+
         for (MotionPoint& point : points) {
-            const FCurvature abs_curvature = units::abs(point.curvature);
-            const FLength abs_radius = 1.0f / abs_curvature;
+            const FLength abs_radius = 1.0f / units::abs(point.curvature);
             const auto abs_radius_rad = abs_radius / Frad;
+
             const float kin_multiplier =
-              2.0f / (constraints.track_width * abs_curvature + 2.0f);
+              abs_radius / (abs_radius + track_radius);
 
             const FLinearVelocity max_kin_vel =
               constraints.max_vel * kin_multiplier;
             const FLinearVelocity max_turn_vel =
               constraints.max_angular_vel * abs_radius_rad;
 
-            // still considers the current point velocity in case it was set
-            // before as a constraint
-            point.vel = units::min(point.vel, max_kin_vel);
-            point.vel = units::min(point.vel, max_turn_vel);
+            point.vel = units::min(max_kin_vel, max_turn_vel);
 
-            if (units::abs(point.curvature).internal() > 1e-6) {
+            if (units::abs(point.curvature).internal() > 1e-6f) {
                 // Ff = Fg * coeff_friction -> Ff = m * g * coeff_friction
 
                 // ac = v^2 / r -> ac = v^2 * |c|
@@ -172,13 +191,25 @@ class Trajectory {
             const FLinearAcceleration max_turn_decel =
               constraints.max_angular_decel * abs_radius_rad;
 
-            point.accel = units::min(max_turn_accel, max_kin_accel);
-            point.decel = units::min(max_turn_decel, max_kin_decel);
+            point.accel = units::min(max_kin_accel, max_turn_accel);
+            point.decel = units::min(max_kin_decel, max_turn_decel);
+
+            max_kin_vel_debug.emplace_back(max_kin_vel);
+            max_turn_vel_debug.emplace_back(max_turn_vel);
+            max_kin_accel_debug.emplace_back(max_kin_accel);
+            max_turn_accel_debug.emplace_back(max_turn_accel);
+            max_kin_decel_debug.emplace_back(max_kin_decel);
+            max_turn_decel_debug.emplace_back(max_turn_decel);
+            max_friction_vel_debug.emplace_back(units::sqrt(point.vel_squared));
         }
+
+        // sets the start and initial velocity constraints
         points.front().vel = start_vel;
         points.back().vel = end_vel;
 
-        // sets points.vel2 to the right values
+        // TODO: add constrain points which get minned with the max's
+
+        // sets points.vel_squared to the right values
         for (MotionPoint& point : points) {
             point.vel_squared =
               units::min(point.vel * point.vel, point.vel_squared);
@@ -195,14 +226,17 @@ class Trajectory {
         // excludes starting point
         for (size_t i = 1; i < points.size(); i++) {
             const MotionPoint& last_point = points[i - 1];
+            MotionPoint& point = points[i];
             // (Sprunk 25)
 
             // max velocity squared
-            const auto max_vel2 =
+            const auto max_vel_squared =
               last_point.vel_squared + last_point.accel * dd2_multiplier;
 
+            forwards_pass_debug.emplace_back(units::sqrt(max_vel_squared));
+
             // keep minimum of current max vel and previous max vel
-            points[i].vel_squared = units::min(points[i].vel_squared, max_vel2);
+            point.vel_squared = units::min(point.vel_squared, max_vel_squared);
         }
     }
 
@@ -213,16 +247,19 @@ class Trajectory {
         // excludes end point
         for (int i = this->points.size() - 2; i >= 0; i--) {
             // (Sprunk 25)
-            const MotionPoint& point = points[i];
+            MotionPoint& point = points[i];
             const MotionPoint& next_point = points[i + 1];
 
-            // uses velocity from next point (before in the motion) but decel
-            // from current point
-            const auto max_vel2 =
+            // decel from current point used since the motion still goes
+            // forwards (the decel starts from the current point)
+            const auto max_vel_squared =
               next_point.vel_squared + point.decel * dd2_multiplier;
 
+			// reversed:
+            backwards_pass_debug.insert(backwards_pass_debug.begin(), units::sqrt(max_vel_squared));
+
             // keep minimum of current max vel and previous max vel
-            points[i].vel_squared = units::min(points[i].vel_squared, max_vel2);
+            point.vel_squared = units::min(point.vel_squared, max_vel_squared);
         }
     }
 
@@ -244,8 +281,8 @@ class Trajectory {
     }
 
   public:
-    FLinearVelocity start_vel, end_vel;
     Constraints constraints;
+    FLinearVelocity start_vel, end_vel;
 
     std::vector<MotionPoint> points;
 
@@ -255,14 +292,12 @@ class Trajectory {
     // total time that the motion should take
     FTime travel_time;
 
-    template<typename T,
-             typename = std::enable_if_t<std::is_base_of_v<geometry::Curve, T>>>
-    Trajectory(T&& curve,
+    Trajectory(geometry::Curve* curve,
                Constraints constraints,
                LinearVelocity start_vel,
                LinearVelocity end_vel,
                Length change_in_distance)
-        : curve(std::make_unique<T>(std::move(curve))),
+        : curve(curve),
           constraints(constraints),
           start_vel(start_vel),
           end_vel(end_vel),
@@ -271,11 +306,10 @@ class Trajectory {
         travel_time = 0_sec;
 
         printf("total distance: %f\n", curve->s(1.0).convert(in));
-        printf("this->dd: %f\n", this->delta_distance.convert(in));
+        printf("delta_distance: %f\n", delta_distance.convert(in));
         // makes the creation of points faster by allocating the required space
-        this->points.reserve(
-          static_cast<size_t>(
-            (curve->s(1.0) / this->delta_distance).internal()) +
+        points.reserve(
+          static_cast<size_t>((curve->s(1.0) / delta_distance).internal()) +
           10);
         compute();
     }

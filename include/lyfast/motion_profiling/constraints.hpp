@@ -48,8 +48,8 @@ class LinearConstraints {
 // since some constraints might not be changed for each trajectory,
 // we should have multiple ways to make the constraints
 struct Constraints : public RobotConstraints,
-                     AngularConstraints,
-                     LinearConstraints {
+                     LinearConstraints,
+                     AngularConstraints {
     Constraints(Length track_width,
                 float coeff_friction,
 

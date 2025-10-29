@@ -1,7 +1,7 @@
 #pragma once
 
-#include "lyfast/geometry/curve.h"
-#include "lyfast/geometry/primitives.h"
+#include "lyfast/geometry/curve.hpp"
+#include "lyfast/geometry/primitives.hpp"
 #include "units/Pose.hpp"
 #include "units/Vector2D.hpp"
 #include "units/units.hpp"
