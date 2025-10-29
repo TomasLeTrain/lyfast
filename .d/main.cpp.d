@@ -665,7 +665,10 @@ bin/main.cpp.o: src/main.cpp include/main.h include/api.h \
  include/pros/motors.hpp include/pros/optical.hpp include/pros/optical.h \
  include/pros/rotation.hpp include/pros/rotation.h include/pros/rtos.hpp \
  include/pros/screen.hpp include/pros/screen.h include/pros/vision.hpp \
- include/pros/vision.h
+ include/pros/vision.h include/lyfast/geometry/cubicBezier.h \
+ include/lyfast/geometry/curve.h include/lyfast/geometry/primitives.h \
+ include/units/Vector2D.hpp include/units/Angle.hpp \
+ include/units/units.hpp include/units/Pose.hpp
 include/main.h:
 include/api.h:
 include/pros/adi.h:
@@ -1404,3 +1407,10 @@ include/pros/screen.hpp:
 include/pros/screen.h:
 include/pros/vision.hpp:
 include/pros/vision.h:
+include/lyfast/geometry/cubicBezier.h:
+include/lyfast/geometry/curve.h:
+include/lyfast/geometry/primitives.h:
+include/units/Vector2D.hpp:
+include/units/Angle.hpp:
+include/units/units.hpp:
+include/units/Pose.hpp:

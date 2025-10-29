@@ -14,7 +14,7 @@ INCDIR=$(ROOT)/include
 
 WARNFLAGS+=
 EXTRA_CFLAGS=
-EXTRA_CXXFLAGS=-Wunused-variable
+EXTRA_CXXFLAGS=-Wunused-variable -Wall
 
 LIBDIR=$(INCDIR)/$(LIBNAME)
 

@@ -13,7 +13,7 @@ namespace lyfast {
 namespace geometry {
 class Spline : public Curve {
   private:
-    std::vector<Curve> curves;
+    std::vector<Curve*> curves;
 
     // stores the sum of arc lengths up to and before the i'th curve
     std::vector<FLength> distance_to_curve = { 0_m };

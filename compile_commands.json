@@ -36,6 +36,7 @@
             "-flto=auto",
             "--std=gnu++23",
             "-Wunused-variable",
+            "-Wall",
             "-o",
             "bin/main.cpp.o",
             "src/main.cpp"

@@ -173,6 +173,12 @@ class CubicBezier : public Curve {
         compute_coefficient_matrices();
     }
 
+    CubicBezier(Point start, Point control0, Point control1, Point end)
+        : Curve(start, end),
+          controls({ control0, control1 }) {
+        compute_coefficient_matrices();
+    }
+
     ~CubicBezier() override = default;
 };
 } // namespace geometry
