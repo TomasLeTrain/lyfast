@@ -33,6 +33,10 @@ class Line : public Curve {
         return FCurvature(0.0f);
     }
 
+    FCurvature c(float t, Point df) override {
+        return FCurvature(0.0f);
+    }
+
     // gets distance at time
     FLength s(float t) override {
         return t * speed;

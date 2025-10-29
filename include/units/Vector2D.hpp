@@ -288,7 +288,7 @@ class Vector2D {
      * @return Angle
      */
     constexpr Angle getAngle() const {
-        return Vector2D<T>({ T(0.0), T(0.0) }).angleTo(*this);
+        return units::atan2(y, x);
     }
 
     /**

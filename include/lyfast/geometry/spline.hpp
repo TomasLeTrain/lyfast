@@ -37,29 +37,34 @@ class Spline : public Curve {
   public:
     Point f(float t) override {
         auto [u, nt] = this->t_to_u(t);
-        return curves[u].f(nt);
+        return curves[u]->f(nt);
     }
 
     Point df(float t) override {
         auto [u, nt] = this->t_to_u(t);
-        return curves[u].df(nt);
+        return curves[u]->df(nt);
     }
 
     Point ddf(float t) override {
         auto [u, nt] = this->t_to_u(t);
-        return curves[u].ddf(nt);
+        return curves[u]->ddf(nt);
     }
 
     FCurvature c(float t) override {
         auto [u, nt] = this->t_to_u(t);
-        return curves[u].c(nt);
+        return curves[u]->c(nt);
+    }
+
+    FCurvature c(float t, Point df) override {
+        auto [u, nt] = this->t_to_u(t);
+        return curves[u]->c(nt, df);
     }
 
     FLength s(float t) override {
         // here we have to handle the past distances as well
         auto [u, nt] = this->t_to_u(t);
         FLength past_distance = this->distance_to_curve[u];
-        return past_distance + this->curves[u].s(nt);
+        return past_distance + this->curves[u]->s(nt);
     }
 
     float t_by_s(FLength target) override {
@@ -86,22 +91,22 @@ class Spline : public Curve {
         // no curve found, distance given must be invalid
         assert((found_curve) && "no valid curve found");
 
-        float curve_t = curves[current_curve].t_by_s(target - past_distance);
+        float curve_t = curves[current_curve]->t_by_s(target - past_distance);
 
         // need to convert the local curve_t to the [0,1] t
         return (static_cast<float>(current_curve) + curve_t) /
                this->curves.size();
     }
 
-    Spline(std::vector<Curve> curves)
-        : Curve(curves.front().endpoints[0], curves.back().endpoints[1]),
+    Spline(std::vector<Curve*> curves)
+        : Curve(curves.front()->endpoints[0], curves.back()->endpoints[1]),
           curves(std::move(curves)) {
         // check that endpoints between curves match
         for (size_t i = 1; i < this->curves.size(); i++) {
             assert((
                      // distance from one endpoint to another
-                     this->curves[i - 1].endpoints[1].distanceTo(
-                       this->curves[i].endpoints[0])
+                     this->curves[i - 1]->endpoints[1].distanceTo(
+                       this->curves[i]->endpoints[0])
                      // is bigger than some epsilon
                      < 1_cm) &&
                    "curve endpoints do not match");
@@ -110,8 +115,8 @@ class Spline : public Curve {
         Length distance = 0_m;
 
         // sets the distances to each curve
-        for (Curve& curve : curves) {
-            distance += curve.s(1.0);
+        for (Curve* curve : curves) {
+            distance += curve->s(1.0);
             distance_to_curve.emplace_back(distance);
         }
     }

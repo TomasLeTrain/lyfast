@@ -94,9 +94,11 @@ class Trajectory {
                 t = curve->t_by_s(curr_dist, previous_t);
             previous_t = t;
 
+            geometry::Point df = curve->df(t);
+
             points.emplace_back(curve->f(t),
-                                curve->c(t),
-                                curve->df(t).getAngle(),
+                                curve->c(t, df),
+                                df.getAngle(),
                                 curve->s(t),
                                 t);
         }

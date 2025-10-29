@@ -106,17 +106,21 @@ class CubicBezier : public Curve {
 
     // curvature at t (Sprunk 12)
     FCurvature c(float t) override {
-        Point first_derivative = df(t);
+        return c(t, df(t));
+    }
+
+    // curvature at t (Sprunk 12)
+    FCurvature c(float t, Point df_t) override {
         Point second_derivative = ddf(t);
 
         // speed function not used to avoid duplicate call to df()
         Exponentiated<Length, std::ratio<3>> speed_cubed =
-          units::pow<3>(first_derivative.magnitude());
+          units::pow<3>(df_t.magnitude());
 
         // avoids dividing by zero
         if (speed_cubed.internal() < 1e-6) return 0.0 / Fm;
 
-        return first_derivative.cross(second_derivative) / speed_cubed;
+        return df_t.cross(second_derivative) / speed_cubed;
     }
 
     virtual FLength s(float t) override {

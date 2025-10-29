@@ -40,6 +40,9 @@ class Curve {
     // curvature at point c
     virtual FCurvature c(float t) = 0;
 
+    // curvature at point c. allows using an already computed value of df
+    virtual FCurvature c(float t, Point df) = 0;
+
     // gets distance at time
     virtual FLength s(float t) = 0;
 
