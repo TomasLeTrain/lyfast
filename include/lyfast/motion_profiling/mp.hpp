@@ -95,6 +95,8 @@ class Trajectory {
                 t = curve->t_by_s(curr_dist, previous_t);
             previous_t = t;
 
+            // TODO: the s(t) is already calculated in t_by_s for cubic beziers,
+            // we could return it to save some computation
             geometry::Point df = curve->df(t);
 
             points.emplace_back(curve->f(t),
@@ -311,14 +313,14 @@ class Trajectory {
 
         printf("total distance: %f\n", curve->total_distance.convert(in));
         printf("delta_distance: %f\n", delta_distance.convert(in));
-        printf(
-          "allocated for points %d\n",
-          static_cast<size_t>((curve->total_distance / delta_distance).internal()) +
-            10);
+        printf("allocated for points %d\n",
+               static_cast<size_t>(
+                 (curve->total_distance / delta_distance).internal()) +
+                 10);
         // makes the creation of points faster by allocating the required space
-        points.reserve(
-          static_cast<size_t>((curve->total_distance / delta_distance).internal()) +
-          10);
+        points.reserve(static_cast<size_t>(
+                         (curve->total_distance / delta_distance).internal()) +
+                       10);
         compute();
     }
 };
