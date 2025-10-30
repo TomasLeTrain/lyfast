@@ -157,14 +157,15 @@ class CubicBezier : public Curve {
         // This implementation is heavily based on vmplib:
         // https://github.com/SerrialError/vmplib/blob/main/src/bezier.cpp
 
-        const FLength tol = 1e-6 * Fm;
+        constexpr FLength tol = Fin * 1e-2;
         int maxIter = 20;
-
-        for (int i = 0; i < maxIter; i++) {
+        int i = 0;
+        for (; i < maxIter; i++) {
             FLength f_t = s(t_guess) - target;
-            FLength f_der_t = speed(t_guess);
 
             if (units::abs(f_t) < tol) break;
+
+            FLength f_der_t = speed(t_guess);
 
             t_guess -= f_t / f_der_t;
 
@@ -181,15 +182,14 @@ class CubicBezier : public Curve {
     }
 
     CubicBezier(std::array<Point, 4> controls)
-        : Curve(controls[0], controls[3]),
-          controls({ controls[1], controls[2] }) {
-        compute_coefficient_matrices();
-    }
+        : CubicBezier(controls[0], controls[1], controls[2], controls[3]) {}
 
     CubicBezier(Point start, Point control0, Point control1, Point end)
         : Curve(start, end),
           controls({ control0, control1 }) {
         compute_coefficient_matrices();
+
+        total_distance = s(1.0);
     }
 
     ~CubicBezier() override = default;

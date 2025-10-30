@@ -70,7 +70,7 @@ class Spline : public Curve {
     float t_by_s(FLength target) override {
         // here we have to look up the spline in which the distance is in range
 
-        assert((target <= distance_to_curve.back()) &&
+        assert((target <= total_distance) &&
                "target is larger than total distance");
 
         FLength past_distance = 0_Fm;
@@ -116,9 +116,10 @@ class Spline : public Curve {
 
         // sets the distances to each curve
         for (Curve* curve : curves) {
-            distance += curve->s(1.0);
+            distance += curve->total_distance;
             distance_to_curve.emplace_back(distance);
         }
+        total_distance = distance;
     }
 
     ~Spline() override = default;

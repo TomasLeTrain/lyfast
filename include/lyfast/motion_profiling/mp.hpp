@@ -86,7 +86,8 @@ class Trajectory {
         // printf("total distance of curve:
         // %f\n",this->curve->total_distance.internal()); Length cd = 0_m;
         float t, previous_t = -1.0;
-        for (FLength curr_dist = 0_Fm; curr_dist < curve->s(1.0);
+
+        for (FLength curr_dist = 0_Fm; curr_dist < curve->total_distance;
              curr_dist += delta_distance) {
             if (previous_t < 0.0)
                 t = curve->t_by_s(curr_dist);
@@ -106,7 +107,7 @@ class Trajectory {
         points.emplace_back(curve->f(1),
                             curve->c(1),
                             curve->df(1).getAngle(),
-                            curve->s(1),
+                            curve->total_distance,
                             1);
 
         printf("adding points:%llu\n", pros::c::micros() - start_time);
@@ -308,15 +309,15 @@ class Trajectory {
 
         travel_time = 0_sec;
 
-        printf("total distance: %f\n", curve->s(1.0).convert(in));
+        printf("total distance: %f\n", curve->total_distance.convert(in));
         printf("delta_distance: %f\n", delta_distance.convert(in));
         printf(
           "allocated for points %d\n",
-          static_cast<size_t>((curve->s(1.0) / delta_distance).internal()) +
+          static_cast<size_t>((curve->total_distance / delta_distance).internal()) +
             10);
         // makes the creation of points faster by allocating the required space
         points.reserve(
-          static_cast<size_t>((curve->s(1.0) / delta_distance).internal()) +
+          static_cast<size_t>((curve->total_distance / delta_distance).internal()) +
           10);
         compute();
     }

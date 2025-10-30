@@ -55,6 +55,8 @@ class Line : public Curve {
         : Curve(endpoints) {
         derivative = endpoints[1] - endpoints[0];
         speed = derivative.magnitude();
+
+        total_distance = s(1.0);
     }
 
     ~Line() override = default;
