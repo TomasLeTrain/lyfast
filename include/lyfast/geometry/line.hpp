@@ -1,7 +1,7 @@
 #pragma once
 
 #include "lyfast/geometry/curve.hpp"
-#include "primitives.h"
+#include "lyfast/geometry/primitives.hpp"
 #include "units/Pose.hpp"
 #include "units/Vector2D.hpp"
 #include "units/units.hpp"
@@ -30,11 +30,11 @@ class Line : public Curve {
 
     // curvature at point c
     FCurvature c(float t) override {
-        return FCurvature(0.0f);
+        return FCurvature(0);
     }
 
     FCurvature c(float t, Point df) override {
-        return FCurvature(0.0f);
+        return FCurvature(0);
     }
 
     // gets distance at time
@@ -51,13 +51,17 @@ class Line : public Curve {
         return target / speed;
     }
 
-    Line(std::array<Point, 2> endpoints)
-        : Curve(endpoints) {
+    Line(Point start, Point end)
+        : Curve(start, end) {
+
         derivative = endpoints[1] - endpoints[0];
         speed = derivative.magnitude();
 
         total_distance = s(1.0);
     }
+
+    Line(std::array<Point, 2> endpoints)
+        : Line(endpoints[0], endpoints[1]) {}
 
     ~Line() override = default;
 };

@@ -11,7 +11,7 @@ namespace lyfast {
 namespace geometry {
 class Curve {
   public:
-	FLength total_distance;
+    FLength total_distance;
     std::array<Point, 2> endpoints;
 
     /**

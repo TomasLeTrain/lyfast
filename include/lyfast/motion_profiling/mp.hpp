@@ -7,7 +7,6 @@
 #include "units/Pose.hpp"
 #include "units/Vector2D.hpp"
 #include "units/units.hpp"
-#include <arm_neon.h>
 #include <array>
 #include <cmath>
 #include <memory>
@@ -129,7 +128,7 @@ class Trajectory {
         for (MotionPoint& point : points) {
             point.vel = units::sqrt(point.vel_squared);
 
-            // final_vels_debug.emplace_back(point.vel);
+            final_vels_debug.emplace_back(point.vel);
         }
 
         printf("sqrts:%llu\n", pros::c::micros() - start_time);
@@ -155,11 +154,15 @@ class Trajectory {
         const FLength track_radius = constraints.track_width * 0.5f;
 
         for (MotionPoint& point : points) {
-            const FLength abs_radius = 1.0f / units::abs(point.curvature);
+            // prevent divisions by zero
+            const FCurvature abs_curvature =
+              units::max(FCurvature(1e-5), units::abs(point.curvature));
+
+            const FLength abs_radius = 1.0f / abs_curvature;
             const auto abs_radius_rad = abs_radius / Frad;
 
             const float kin_multiplier =
-              abs_radius / (abs_radius + track_radius);
+              1.0 / (1.0 + (track_radius * abs_curvature));
 
             const FLinearVelocity max_kin_vel =
               constraints.max_vel * kin_multiplier;
@@ -168,23 +171,21 @@ class Trajectory {
 
             point.vel = units::min(max_kin_vel, max_turn_vel);
 
-            if (units::abs(point.curvature).internal() > 1e-6f) {
-                // Ff = Fg * coeff_friction -> Ff = m * g * coeff_friction
+            // Ff = Fg * coeff_friction -> Ff = m * g * coeff_friction
 
-                // ac = v^2 / r -> ac = v^2 * |c|
-                // Ff = m * ac  -> Ff = m * v^2 * |c|
+            // ac = v^2 / r -> ac = v^2 * |c|
+            // Ff = m * ac  -> Ff = m * v^2 * |c|
 
-                // m * v^2 * |c| = m * g * coeff_friction
-                // v^2 * |c| = g * coeff_friction
-                // v = sqrt(g * coeff_friction / |c|)
+            // m * v^2 * |c| = m * g * coeff_friction
+            // v^2 * |c| = g * coeff_friction
+            // v = sqrt(g * coeff_friction / |c|)
 
-                // const LinearVelocity max_slip_vel =
-                //     units::sqrt(
-                //         friction_multiplier * abs_radius
-                //     );
-                // point.vel = units::min(point.vel, max_slip_vel);
-                point.vel_squared = friction_multiplier * abs_radius;
-            }
+            // const LinearVelocity max_slip_vel =
+            //     units::sqrt(
+            //         friction_multiplier * abs_radius
+            //     );
+            // point.vel = units::min(point.vel, max_slip_vel);
+            point.vel_squared = friction_multiplier * abs_radius;
 
             const FLinearAcceleration max_kin_accel =
               constraints.max_accel * kin_multiplier;
@@ -199,13 +200,13 @@ class Trajectory {
             point.accel = units::min(max_kin_accel, max_turn_accel);
             point.decel = units::min(max_kin_decel, max_turn_decel);
 
-            // max_kin_vel_debug.emplace_back(max_kin_vel);
-            // max_turn_vel_debug.emplace_back(max_turn_vel);
-            // max_kin_accel_debug.emplace_back(max_kin_accel);
-            // max_turn_accel_debug.emplace_back(max_turn_accel);
-            // max_kin_decel_debug.emplace_back(max_kin_decel);
-            // max_turn_decel_debug.emplace_back(max_turn_decel);
-            // max_friction_vel_debug.emplace_back(units::sqrt(point.vel_squared));
+            max_kin_vel_debug.emplace_back(max_kin_vel);
+            max_turn_vel_debug.emplace_back(max_turn_vel);
+            max_kin_accel_debug.emplace_back(max_kin_accel);
+            max_turn_accel_debug.emplace_back(max_turn_accel);
+            max_kin_decel_debug.emplace_back(max_kin_decel);
+            max_turn_decel_debug.emplace_back(max_turn_decel);
+            max_friction_vel_debug.emplace_back(units::sqrt(point.vel_squared));
         }
 
         // sets the start and initial velocity constraints
@@ -238,7 +239,7 @@ class Trajectory {
             const auto max_vel_squared =
               last_point.vel_squared + last_point.accel * dd2_multiplier;
 
-            // forwards_pass_debug.emplace_back(units::sqrt(max_vel_squared));
+            forwards_pass_debug.emplace_back(units::sqrt(max_vel_squared));
 
             // keep minimum of current max vel and previous max vel
             point.vel_squared = units::min(point.vel_squared, max_vel_squared);
@@ -261,8 +262,8 @@ class Trajectory {
               next_point.vel_squared + point.decel * dd2_multiplier;
 
             // reversed:
-            // backwards_pass_debug.insert(backwards_pass_debug.begin(),
-            // units::sqrt(max_vel_squared));
+            backwards_pass_debug.insert(backwards_pass_debug.begin(),
+                                        units::sqrt(max_vel_squared));
 
             // keep minimum of current max vel and previous max vel
             point.vel_squared = units::min(point.vel_squared, max_vel_squared);

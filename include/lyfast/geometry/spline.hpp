@@ -13,7 +13,7 @@ namespace lyfast {
 namespace geometry {
 class Spline : public Curve {
   private:
-    std::vector<Curve*> curves;
+    std::vector<Curve*> m_curves;
 
     // stores the sum of arc lengths up to and before the i'th curve
     std::vector<FLength> distance_to_curve = { 0_m };
@@ -26,48 +26,48 @@ class Spline : public Curve {
         // initial and final endpoints
         if (t == 1) {
             // returns the endpoint of the last curve to avoid an out of range
-            return { this->curves.size() - 1, 1.0 };
+            return { m_curves.size() - 1, 1.0 };
         }
 
-        float fu = t * static_cast<float>(this->curves.size());
+        float fu = t * static_cast<float>(m_curves.size());
 
-        return { static_cast<float>(fu), std::fmod(fu, 1.0) };
+        return { static_cast<size_t>(fu), std::fmod(fu, 1.0) };
     }
 
   public:
     Point f(float t) override {
-        auto [u, nt] = this->t_to_u(t);
-        return curves[u]->f(nt);
+        auto [u, nt] = t_to_u(t);
+        return m_curves[u]->f(nt);
     }
 
     Point df(float t) override {
-        auto [u, nt] = this->t_to_u(t);
-        return curves[u]->df(nt);
+        auto [u, nt] = t_to_u(t);
+        return m_curves[u]->df(nt);
     }
 
     Point ddf(float t) override {
-        auto [u, nt] = this->t_to_u(t);
-        return curves[u]->ddf(nt);
+        auto [u, nt] = t_to_u(t);
+        return m_curves[u]->ddf(nt);
     }
 
     FCurvature c(float t) override {
-        auto [u, nt] = this->t_to_u(t);
-        return curves[u]->c(nt);
+        auto [u, nt] = t_to_u(t);
+        return m_curves[u]->c(nt);
     }
 
     FCurvature c(float t, Point df) override {
-        auto [u, nt] = this->t_to_u(t);
-        return curves[u]->c(nt, df);
+        auto [u, nt] = t_to_u(t);
+        return m_curves[u]->c(nt, df);
     }
 
     FLength s(float t) override {
         // here we have to handle the past distances as well
-        auto [u, nt] = this->t_to_u(t);
-        FLength past_distance = this->distance_to_curve[u];
-        return past_distance + this->curves[u]->s(nt);
+        auto [u, nt] = t_to_u(t);
+        FLength past_distance = distance_to_curve[u];
+        return past_distance + m_curves[u]->s(nt);
     }
 
-    float t_by_s(FLength target) override {
+    float t_by_s(FLength target, float t_guess) override {
         // here we have to look up the spline in which the distance is in range
 
         assert((target <= total_distance) &&
@@ -77,7 +77,7 @@ class Spline : public Curve {
         size_t current_curve = 0;
         bool found_curve = false;
 
-        for (size_t i = 0; i < curves.size(); i++) {
+        for (size_t i = 0; i < m_curves.size(); i++) {
             // previous spline always prioritized at endpoints
             if (distance_to_curve[i + 1] >= target) {
                 // dist is in this curve
@@ -91,22 +91,33 @@ class Spline : public Curve {
         // no curve found, distance given must be invalid
         assert((found_curve) && "no valid curve found");
 
-        float curve_t = curves[current_curve]->t_by_s(target - past_distance);
+        float curve_t;
 
-        // need to convert the local curve_t to the [0,1] t
-        return (static_cast<float>(current_curve) + curve_t) /
-               this->curves.size();
+        if (t_guess < 0.0)
+            curve_t = m_curves[current_curve]->t_by_s(target - past_distance);
+        else
+            curve_t = m_curves[current_curve]->t_by_s(
+              target - past_distance,
+              // converts t_guess into u time for current spline
+              (t_guess * m_curves.size()) - static_cast<float>(current_curve));
+
+        // need to convert the local u time to the [0,1] t
+        return (static_cast<float>(current_curve) + curve_t) / m_curves.size();
     }
 
-    Spline(std::vector<Curve*> curves)
+    float t_by_s(FLength target) override {
+        return t_by_s(target, -1.0);
+    }
+
+    Spline(std::vector<Curve*>&& curves)
         : Curve(curves.front()->endpoints[0], curves.back()->endpoints[1]),
-          curves(std::move(curves)) {
+          m_curves(std::forward<std::vector<Curve*>>(curves)) {
         // check that endpoints between curves match
-        for (size_t i = 1; i < this->curves.size(); i++) {
+        for (size_t i = 1; i < m_curves.size(); i++) {
             assert((
                      // distance from one endpoint to another
-                     this->curves[i - 1]->endpoints[1].distanceTo(
-                       this->curves[i]->endpoints[0])
+                     m_curves[i - 1]->endpoints[1].distanceTo(
+                       m_curves[i]->endpoints[0])
                      // is bigger than some epsilon
                      < 1_cm) &&
                    "curve endpoints do not match");
@@ -115,10 +126,11 @@ class Spline : public Curve {
         Length distance = 0_m;
 
         // sets the distances to each curve
-        for (Curve* curve : curves) {
+        for (Curve* curve : m_curves) {
             distance += curve->total_distance;
             distance_to_curve.emplace_back(distance);
         }
+
         total_distance = distance;
     }
 
