@@ -34,9 +34,13 @@ void spline_test() {
     // lyfast::geometry::Spline spline({ &first_cubic, &line, &second_cubic });
 
     lyfast::mp::RobotConstraints robot_constraints(10.5_in, 0.1);
-    lyfast::mp::LinearConstraints linear_constraints(74_inps,
-                                                     0.10513_mps2,
-                                                     2 * 0.10513_mps2);
+    lyfast::mp::LinearConstraints linear_constraints(
+		// 74_inps,
+		// 74_inps,
+		// 74_inps,
+		90_inps,
+                                                     8.513_mps2,
+                                                     1.25 * 8.513_mps2);
     lyfast::mp::AngularConstraints angular_constraints((rad * 74_inps / 5.25_in),
                                                        0.05_rps2,
                                                        0.05_rps2);
