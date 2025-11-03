@@ -28,14 +28,9 @@ struct MotionPoint {
     FLength arc_length;
 
     FLinearVelocity vel = LinearVelocity(infinity());
-    FAngularVelocity ang_vel = AngularVelocity(infinity());
 
     FLinearAcceleration accel = LinearAcceleration(infinity());
     FLinearAcceleration decel = LinearAcceleration(infinity());
-
-    // intermediate velocity squared
-    Exponentiated<FLinearVelocity, std::ratio<2>> vel_squared =
-      Exponentiated<FLinearVelocity, std::ratio<2>>(infinity());
 
     float spline_time;
     FTime travel_time = -1_sec;
@@ -77,25 +72,30 @@ class Trajectory {
 
         // printf("total distance of curve:
         // %f\n",this->curve->total_distance.internal()); Length cd = 0_m;
-        float t, previous_t = -1.0;
+        // float t, previous_t = -1.0;
+        float t = 0;
 
         for (FLength curr_dist = 0_Fm; curr_dist < curve->total_distance;
              curr_dist += delta_distance) {
-            if (previous_t < 0.0)
-                t = curve->t_by_s(curr_dist);
-            else
-                t = curve->t_by_s(curr_dist, previous_t);
-            previous_t = t;
+            // if (previous_t < 0.0)
+            //     t = curve->t_by_s(curr_dist);
+            // else
+            //     t = curve->t_by_s(curr_dist, previous_t);
+            // previous_t = t;
 
-            // TODO: the s(t) is already calculated in t_by_s for cubic beziers,
-            // we could return it to save some computation
             geometry::Point df = curve->df(t);
 
             points.emplace_back(curve->f(t),
                                 curve->c(t, df),
                                 df.getAngle(),
-                                curve->s(t),
+                                // curve->s(t),
+                                curr_dist,
                                 t);
+
+            // t = t + dt
+            float delta_t = delta_distance / df.magnitude();
+            // why /3 ???
+            t = units::min(t + delta_t / 3.0, 1.0);
         }
         // add last point
         points.emplace_back(curve->f(1),
@@ -119,8 +119,6 @@ class Trajectory {
 
         // TODO: could be vectorized
         for (MotionPoint& point : points) {
-            point.vel = units::sqrt(point.vel_squared);
-
             final_vels_debug.emplace_back(point.vel);
         }
 
@@ -128,13 +126,7 @@ class Trajectory {
         setTravelTimes();
         printf("travel times:%llu\n", pros::c::micros() - start_time);
 
-        // update angular velocities
-        for (auto&& point : points) {
-            point.ang_vel = Frad * point.vel * point.curvature;
-        }
-
-        printf("update angular vels/final time:%llu\n",
-               pros::c::micros() - start_time);
+        printf("final time:%llu\n", pros::c::micros() - start_time);
     }
 
     // computes the isolated constraints
@@ -172,13 +164,9 @@ class Trajectory {
             // m * v^2 * |c| = m * g * coeff_friction
             // v^2 * |c| = g * coeff_friction
             // v = sqrt(g * coeff_friction / |c|)
-
-            // const LinearVelocity max_slip_vel =
-            //     units::sqrt(
-            //         friction_multiplier * abs_radius
-            //     );
-            // point.vel = units::min(point.vel, max_slip_vel);
-            point.vel_squared = friction_multiplier * abs_radius;
+            point.vel =
+              units::min(point.vel,
+                         units::sqrt(friction_multiplier * abs_radius));
 
             // const FLinearAcceleration max_kin_accel =
             //   constraints.max_accel * kin_multiplier;
@@ -204,7 +192,7 @@ class Trajectory {
             // max_turn_accel_debug.emplace_back(max_turn_accel);
             // max_kin_decel_debug.emplace_back(max_kin_decel);
             // max_turn_decel_debug.emplace_back(max_turn_decel);
-            max_friction_vel_debug.emplace_back(units::sqrt(point.vel_squared));
+            max_friction_vel_debug.emplace_back(point.vel);
         }
 
         // sets the start and initial velocity constraints
@@ -212,14 +200,23 @@ class Trajectory {
         points.back().vel = end_vel;
 
         // TODO: add constrain points which get minned with the max's
+    }
 
-        // sets points.vel_squared to the right values
-        for (MotionPoint& point : points) {
-            point.vel_squared =
-              units::min(point.vel * point.vel, point.vel_squared);
-        }
+    FLinearAcceleration get_accel(FLinearVelocity last_vel) {
+        const FLength wheel_radius = constraints.wheel_diameter / 2.0f;
 
-        // printf("vector size: %d\n", this->points.size());
+        const FAngularVelocity last_wheel_ang_vel =
+          rot * last_vel / (constraints.wheel_diameter * M_PI);
+
+        const FTorque curr_torque =
+          motor_torque(last_wheel_ang_vel / constraints.max_wheel_ang_vel);
+        // std::cout << last_wheel_ang_vel.convert(rpm) << " " << std::endl;
+
+        const FLinearAcceleration curr_accel =
+          (curr_torque * constraints.motor_count) /
+          (wheel_radius * constraints.robot_mass);
+
+        return curr_accel;
     }
 
     // performs a forward pass to keep max acceleration constraints
@@ -233,40 +230,17 @@ class Trajectory {
             MotionPoint& point = points[i];
             // (Sprunk 25)
 
-            const FLength wheel_diameter = 3.25_in;
-            const FMass robot_mass = 13_lb;
-
-            const FLinearVelocity last_vel =
-              units::sqrt(last_point.vel_squared);
-            const FAngularVelocity last_wheel_ang_vel =
-              rad * last_vel / (wheel_diameter * 2 * M_PI);
-
-            const FTorque curr_torque =
-              motor_torque(last_wheel_ang_vel / 450_rpm);
-
-            // torque = F * r
-            // torque = (m * a) * r
-            // torque / (m * r) = a
-
-            const float motor_count = 6.0f;
-
-            const FLinearAcceleration curr_accel =
-              curr_torque * motor_count / (wheel_diameter * robot_mass);
-
-            // const FLinearAcceleration curr_accel =
-            //   last_vel < 0.92085_mps ?
-            //     10.51319_mps2 :
-            //     last_vel * (-10.0708 / sec) + 19.786906424_mps2;
+            const FLinearAcceleration accel =
+              units::min(get_accel(last_point.vel), last_point.accel);
 
             // max velocity squared
-            const auto max_vel_squared =
-              // last_point.vel_squared + last_point.accel * dd2_multiplier;
-              last_point.vel_squared + curr_accel * dd2_multiplier;
+            const FLinearVelocity max_vel = units::sqrt(
+              units::square(last_point.vel) + accel * dd2_multiplier);
 
             // keep minimum of current max vel and previous max vel
-            point.vel_squared = units::min(point.vel_squared, max_vel_squared);
+            point.vel = units::min(point.vel, max_vel);
 
-            forwards_pass_debug.emplace_back(units::sqrt(point.vel_squared));
+            forwards_pass_debug.emplace_back(point.vel);
         }
     }
 
@@ -282,15 +256,18 @@ class Trajectory {
 
             // decel from current point used since the motion still goes
             // forwards (the decel starts from the current point)
-            const auto max_vel_squared =
-              next_point.vel_squared + point.decel * dd2_multiplier;
+            const FLinearAcceleration decel =
+              units::min(get_accel(next_point.vel), point.decel);
+
+            const FLinearVelocity max_vel = units::sqrt(
+              units::square(next_point.vel) + decel * dd2_multiplier);
 
             // keep minimum of current max vel and previous max vel
-            point.vel_squared = units::min(point.vel_squared, max_vel_squared);
+            point.vel = units::min(point.vel, max_vel);
 
             // reversed:
             backwards_pass_debug.insert(backwards_pass_debug.begin(),
-                                        units::sqrt(point.vel_squared));
+                                        point.vel);
         }
     }
 
@@ -299,13 +276,13 @@ class Trajectory {
         points[0].travel_time = 0_sec;
 
         for (size_t i = 1; i < points.size(); i++) {
-            const MotionPoint& point = points[i];
+            MotionPoint& point = points[i];
             const MotionPoint& last_point = points[i - 1];
             // (Sprunk 23)
             const Time delta_travel_time =
               (delta_distance2) / (point.vel + last_point.vel);
 
-            points[i].travel_time = last_point.travel_time + delta_travel_time;
+            point.travel_time = last_point.travel_time + delta_travel_time;
         }
         // update the total travel_time
         travel_time = points.back().travel_time;
@@ -342,9 +319,11 @@ class Trajectory {
                                       travel_time_cmp);
 
         if (result_itr == points.end()) {
-            return { points.back().vel, points.back().ang_vel };
+            return { points.back().vel,
+                     Frad * points.back().vel * points.back().curvature };
         } else {
-            return { result_itr->vel, result_itr->ang_vel };
+            return { result_itr->vel,
+                     Frad * result_itr->vel * result_itr->curvature };
         }
     }
 

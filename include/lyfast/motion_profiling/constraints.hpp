@@ -13,9 +13,23 @@ struct RobotConstraints {
     FLength track_width;
     float coeff_friction;
 
-    RobotConstraints(FLength track_width, float coeff_friction)
+    FLength wheel_diameter;
+    FAngularVelocity max_wheel_ang_vel;
+    FMass robot_mass;
+    float motor_count;
+
+    RobotConstraints(FLength track_width,
+                     float coeff_friction,
+                     FLength wheel_diameter,
+                     FAngularVelocity max_wheel_ang_vel,
+                     FMass robot_mass,
+                     float motor_count)
         : track_width(track_width),
-          coeff_friction(coeff_friction) {}
+          coeff_friction(coeff_friction),
+          wheel_diameter(wheel_diameter),
+          max_wheel_ang_vel(max_wheel_ang_vel),
+          robot_mass(robot_mass),
+          motor_count(motor_count) {}
 };
 
 struct AngularConstraints {
@@ -51,22 +65,6 @@ class LinearConstraints {
 struct Constraints : public RobotConstraints,
                      LinearConstraints,
                      AngularConstraints {
-    Constraints(Length track_width,
-                float coeff_friction,
-
-                LinearVelocity max_vel,
-                LinearAcceleration max_accel,
-                LinearAcceleration max_decel,
-
-                AngularVelocity max_angular_vel,
-                AngularAcceleration max_angular_accel,
-                AngularAcceleration max_angular_decel)
-        : RobotConstraints(track_width, coeff_friction),
-          LinearConstraints(max_vel, max_accel, max_decel),
-          AngularConstraints(max_angular_vel,
-                             max_angular_accel,
-                             max_angular_decel) {}
-
     Constraints(RobotConstraints robot_constraints,
                 LinearConstraints linear_constraints,
                 AngularConstraints angular_constraints)
