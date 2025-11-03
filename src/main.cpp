@@ -20,36 +20,36 @@ void competition_initialize() {}
 void autonomous() {}
 
 void spline_test() {
-    lyfast::geometry::CubicBezier first_cubic({ 15.35_in, 47.2_in },
+	blazing::lyfast::geometry::CubicBezier first_cubic({ 15.35_in, 47.2_in },
                                               { 23.2_in, 47.2_in },
                                               { 23.2_in, 35_in },
                                               { 15.1_in, 35_in });
-    lyfast::geometry::Line line({ 15.1_in, 35_in }, { -40_in, 35_in });
-    lyfast::geometry::CubicBezier second_cubic({ -40_in, 35_in },
+    blazing::lyfast::geometry::Line line({ 15.1_in, 35_in }, { -40_in, 35_in });
+    blazing::lyfast::geometry::CubicBezier second_cubic({ -40_in, 35_in },
                                                { -50_in, 35_in },
                                                { -44_in, 47.2_in },
                                                { -56_in, 47.2_in });
 
-    lyfast::geometry::Spline spline({ &first_cubic, &line, &second_cubic });
+    blazing::lyfast::geometry::Spline spline({ &first_cubic, &line, &second_cubic });
     // lyfast::geometry::Spline spline({ &first_cubic, &line, &second_cubic });
 
-    lyfast::mp::RobotConstraints robot_constraints(10.5_in, 0.1);
-    lyfast::mp::LinearConstraints linear_constraints(
+    blazing::lyfast::mp::RobotConstraints robot_constraints(10.5_in, 0.1);
+    blazing::lyfast::mp::LinearConstraints linear_constraints(
 		// 74_inps,
 		// 74_inps,
 		// 74_inps,
 		90_inps,
                                                      8.513_mps2,
                                                      1.25 * 8.513_mps2);
-    lyfast::mp::AngularConstraints angular_constraints((rad * 74_inps / 5.25_in),
+    blazing::lyfast::mp::AngularConstraints angular_constraints((rad * 74_inps / 5.25_in),
                                                        0.05_rps2,
                                                        0.05_rps2);
 
-    lyfast::mp::Constraints constraints(robot_constraints,
+    blazing::lyfast::mp::Constraints constraints(robot_constraints,
                                         linear_constraints,
                                         angular_constraints);
 
-    lyfast::mp::Trajectory cubic_trajectory(&spline,
+    blazing::lyfast::mp::Trajectory cubic_trajectory(&spline,
                                             constraints,
                                             0_mps,
                                             0_mps,
@@ -104,22 +104,22 @@ void spline_test() {
 void cubic_test() {
     std::cout << "hello world!" << std::endl;
 
-    lyfast::geometry::CubicBezier cubic({ 2_in, 2_in },
+    blazing::lyfast::geometry::CubicBezier cubic({ 2_in, 2_in },
                                         { 5_in, 15_in },
                                         { 20_in, 14_in },
                                         { 15_in, 5_in });
 
-    lyfast::mp::RobotConstraints robot_constraints(10.5_in, 0.1);
-    lyfast::mp::LinearConstraints linear_constraints(70_inps,
+    blazing::lyfast::mp::RobotConstraints robot_constraints(10.5_in, 0.1);
+    blazing::lyfast::mp::LinearConstraints linear_constraints(70_inps,
                                                      60_inps2,
                                                      60_inps2);
-    lyfast::mp::AngularConstraints angular_constraints(0.8_rps, 1_rps2, 1_rps2);
+    blazing::lyfast::mp::AngularConstraints angular_constraints(0.8_rps, 1_rps2, 1_rps2);
 
-    lyfast::mp::Constraints constraints(robot_constraints,
+    blazing::lyfast::mp::Constraints constraints(robot_constraints,
                                         linear_constraints,
                                         angular_constraints);
 
-    lyfast::mp::Trajectory cubic_trajectory(&cubic,
+    blazing::lyfast::mp::Trajectory cubic_trajectory(&cubic,
                                             constraints,
                                             0_mps,
                                             0_mps,

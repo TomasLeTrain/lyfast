@@ -8,6 +8,7 @@
 #include <array>
 #include <vector>
 
+namespace blazing {
 namespace lyfast {
 namespace geometry {
 class Line : public Curve {
@@ -67,3 +68,4 @@ class Line : public Curve {
 };
 } // namespace geometry
 } // namespace lyfast
+} // namespace blazing

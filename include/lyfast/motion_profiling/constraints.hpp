@@ -6,6 +6,7 @@
 #include "units/units.hpp"
 #include <array>
 
+namespace blazing {
 namespace lyfast {
 namespace mp {
 struct RobotConstraints {
@@ -75,3 +76,4 @@ struct Constraints : public RobotConstraints,
 };
 } // namespace mp
 } // namespace lyfast
+} // namespace blazing

@@ -1,7 +1,9 @@
 #pragma once
 
+#include "blazing/utils.hpp"
 #include "lyfast/geometry/curve.hpp"
 #include "lyfast/motion_profiling/constraints.hpp"
+#include "lyfast/motor_dynamics.hpp"
 #include "pros/rtos.h"
 #include "units/Angle.hpp"
 #include "units/Pose.hpp"
@@ -15,6 +17,7 @@
 // #include <arm_neon.h>
 using namespace std;
 
+namespace blazing {
 namespace lyfast {
 namespace mp {
 
@@ -49,16 +52,6 @@ struct MotionPoint {
           spline_time(spline_time) {}
 };
 
-// need to make classes for:
-// path segment
-// trajectory generator
-// trajectory
-//
-// some sort of generator that makes a trajectory given a set of curves and
-// constraints
-
-// each trajectory should be a continous curve
-// this means the trajectory generator takes only one curve as input
 class Trajectory {
 
   public:
@@ -240,13 +233,30 @@ class Trajectory {
             MotionPoint& point = points[i];
             // (Sprunk 25)
 
-            // \left\{x<0.92085:10.51319,-10.0708x+19.786906424\right\}
+            const FLength wheel_diameter = 3.25_in;
+            const FMass robot_mass = 13_lb;
+
             const FLinearVelocity last_vel =
               units::sqrt(last_point.vel_squared);
+            const FAngularVelocity last_wheel_ang_vel =
+              rad * last_vel / (wheel_diameter * 2 * M_PI);
+
+            const FTorque curr_torque =
+              motor_torque(last_wheel_ang_vel / 450_rpm);
+
+            // torque = F * r
+            // torque = (m * a) * r
+            // torque / (m * r) = a
+
+            const float motor_count = 6.0f;
+
             const FLinearAcceleration curr_accel =
-              last_vel < 0.92085_mps ?
-                10.51319_mps2 :
-                last_vel * (-10.0708 / sec) + 19.786906424_mps2;
+              curr_torque * motor_count / (wheel_diameter * robot_mass);
+
+            // const FLinearAcceleration curr_accel =
+            //   last_vel < 0.92085_mps ?
+            //     10.51319_mps2 :
+            //     last_vel * (-10.0708 / sec) + 19.786906424_mps2;
 
             // max velocity squared
             const auto max_vel_squared =
@@ -313,6 +323,35 @@ class Trajectory {
     // total time that the motion should take
     FTime travel_time;
 
+    DifferentialSpeeds get_by_time(Time time) {
+        // actual values of the point don't really matter
+        // (except for travel_time)
+        MotionPoint query_point = points[0];
+
+        query_point.travel_time = time;
+
+        auto travel_time_cmp = [](const MotionPoint& lhs,
+                                  const MotionPoint& rhs) -> bool {
+            return lhs.travel_time < rhs.travel_time;
+        };
+
+        // search for time in points
+        auto result_itr = lower_bound(points.begin(),
+                                      points.end(),
+                                      query_point,
+                                      travel_time_cmp);
+
+        if (result_itr == points.end()) {
+            return { points.back().vel, points.back().ang_vel };
+        } else {
+            return { result_itr->vel, result_itr->ang_vel };
+        }
+    }
+
+    Time getTotalTime() {
+        return points.back().travel_time;
+    }
+
     Trajectory(geometry::Curve* curve,
                Constraints constraints,
                LinearVelocity start_vel,
@@ -341,3 +380,4 @@ class Trajectory {
 };
 } // namespace mp
 } // namespace lyfast
+} // namespace blazing

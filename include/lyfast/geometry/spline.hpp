@@ -9,6 +9,7 @@
 #include <cassert>
 #include <vector>
 
+namespace blazing {
 namespace lyfast {
 namespace geometry {
 class Spline : public Curve {
@@ -138,3 +139,4 @@ class Spline : public Curve {
 };
 } // namespace geometry
 } // namespace lyfast
+} // namespace blazing

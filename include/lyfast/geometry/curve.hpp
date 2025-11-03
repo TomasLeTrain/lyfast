@@ -7,6 +7,7 @@
 #include <array>
 #include <vector>
 
+namespace blazing {
 namespace lyfast {
 namespace geometry {
 class Curve {
@@ -65,3 +66,4 @@ class Curve {
 };
 } // namespace geometry
 } // namespace lyfast
+} // namespace blazing

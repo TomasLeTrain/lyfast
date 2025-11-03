@@ -1,20 +1,12 @@
 #pragma once
 
+#include "blazing/utils.hpp"
 #include "pros/motors.hpp"
 #include "units/Angle.hpp"
 #include "units/units.hpp"
 
+namespace blazing {
 namespace lyfast {
-
-struct DifferentialVoltages {
-    Voltage left_voltage;
-    Voltage right_voltage;
-};
-
-struct DifferentialSpeeds {
-    LinearVelocity linear_velocity;
-    AngularVelocity angular_velocity;
-};
 
 class VelocityController {
     Divided<Voltage, LinearVelocity> ff_linear_vel;
@@ -71,4 +63,9 @@ class VelocityController {
           ff_angular_accel(ff_angular_accel) {}
 };
 
+template<typename Controller>
+concept hasVelocityFeedforward =
+  requires(Controller controller) { controller.velocity_feedforward; };
+
 } // namespace lyfast
+} // namespace blazing

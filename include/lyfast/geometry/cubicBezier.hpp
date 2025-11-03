@@ -7,6 +7,7 @@
 #include <array>
 #include <vector>
 
+namespace blazing {
 namespace lyfast {
 namespace geometry {
 
@@ -196,3 +197,4 @@ class CubicBezier : public Curve {
 };
 } // namespace geometry
 } // namespace lyfast
+} // namespace blazing
