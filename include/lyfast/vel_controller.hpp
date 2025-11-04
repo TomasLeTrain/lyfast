@@ -1,5 +1,7 @@
 #pragma once
 
+#include "blazing/controllers/controllers.hpp"
+#include "blazing/controllers/feedforward/feedforward.hpp"
 #include "blazing/utils.hpp"
 #include "pros/motors.hpp"
 #include "units/Angle.hpp"
@@ -61,6 +63,26 @@ class VelocityController {
           ff_linear_accel(ff_linear_accel),
           ff_angular_vel(ff_angular_vel),
           ff_angular_accel(ff_angular_accel) {}
+};
+
+template<typename Controller>
+    requires Feedforward<Controller, DifferentialSpeeds, DifferentialVoltages>
+struct VelocityFeedforward : virtual ControllerBase {
+  public:
+    Controller velocity_feedforward;
+
+    VelocityFeedforward(Controller velocity_feedforward_controller)
+        : velocity_feedforward(velocity_feedforward_controller) {}
+
+    // creates a copy of the controller with different linear feedback
+    // controller
+    template<typename Self>
+    Self with_linear_feedback(this Self&& self,
+                              Controller new_velocity_feedforward) {
+        Self new_self = self;
+        new_self.velocity_feedforward = new_velocity_feedforward;
+        return new_self;
+    }
 };
 
 template<typename Controller>

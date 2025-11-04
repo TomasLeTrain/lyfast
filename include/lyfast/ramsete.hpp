@@ -25,19 +25,17 @@ template<typename ControllersType,
          typename TrackerType,
          typename TolerancesType>
     requires poseTracker<TrackerType> && linearVelocityTracker<TrackerType> &&
-               ArcadeDrivetrain<DrivetrainType> &&
-               hasVelocityFeedforward<ControllersType>
+             TankDrivetrain<DrivetrainType> &&
+             hasVelocityFeedforward<ControllersType>
 class Ramsete : public Motion<ControllersType,
                               DrivetrainType,
                               TrackerType,
-                              TolerancesType>,
-                public LinearMotion,
-                public AngularMotion {
+                              TolerancesType> {
   private:
     using zeta_units = Divided<Number, Angle>;
     using beta_units = Exponentiated<Divided<Angle, Length>, std::ratio<2>>;
 
-    std::optional<Ramsete> m_state;
+    std::optional<RamseteState> m_state;
     bool reversed = false;
 
     mp::Trajectory* target_trajectory;
@@ -112,11 +110,24 @@ class Ramsete : public Motion<ControllersType,
           this->controllers.velocity_feedforward.update(new_speeds, delta_time);
 
         // check that we haven't finished the path timewise
-        result.finished |=
+        result.finished =
           timeoutDone(target_trajectory->getTotalTime(), state.start_time);
 
-        this->drivetrain.moveVoltage(voltages.left_voltage,
-                                     voltages.right_voltage);
+        // finished if any of the available tolerances or timeout are triggered
+        if (result.finished) {
+            this->drivetrain.moveArcade(0_volt, 0_volt);
+            // returns immediately to avoid more movement
+            return result;
+        }
+
+        std::array<Voltage, 2> saturated_voltages { voltages.left_voltage,
+                                                    voltages.right_voltage };
+
+        // normalizes voltages to [-1, 1]
+        auto [normal_left_voltage, normal_right_voltage] =
+          desaturate(saturated_voltages, 1_volt);
+
+        this->drivetrain.moveTank(normal_left_voltage, normal_right_voltage);
 
         return result;
     }

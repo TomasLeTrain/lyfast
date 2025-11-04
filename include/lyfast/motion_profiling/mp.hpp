@@ -133,7 +133,7 @@ class Trajectory {
         for (MotionPoint& point : points) {
             // prevent divisions by zero
             const FCurvature abs_curvature =
-              units::max(FCurvature(1e-5), units::abs(point.curvature));
+              units::max(FCurvature(1e-5f), units::abs(point.curvature));
 
             const FLength abs_radius = 1.0f / abs_curvature;
             const auto abs_radius_rad = abs_radius / Frad;
@@ -150,30 +150,30 @@ class Trajectory {
 
             // Ff = Fg * coeff_friction -> Ff = m * g * coeff_friction
 
-            // ac = v^2 / r -> ac = v^2 * |c|
-            // Ff = m * ac  -> Ff = m * v^2 * |c|
+            // ac = v^2 / r
+            // Ff = m * ac -> Ff = m * v^2 / r
 
-            // m * v^2 * |c| = m * g * coeff_friction
-            // v^2 * |c| = g * coeff_friction
-            // v = sqrt(g * coeff_friction / |c|)
+            // m * v^2 * / r = m * g * coeff_friction
+            // v^2 / r = g * coeff_friction
+            // v = sqrt(g * coeff_friction * r)
             point.vel =
               units::min(point.vel,
                          units::sqrt(friction_multiplier * abs_radius));
 
-            // const FLinearAcceleration max_kin_accel =
-            //   constraints.max_accel * kin_multiplier;
-            // const FLinearAcceleration max_turn_accel =
-            //   constraints.max_angular_accel * abs_radius_rad;
-            //
-            // const FLinearAcceleration max_kin_decel =
-            //   constraints.max_decel * kin_multiplier;
-            // const FLinearAcceleration max_turn_decel =
-            //   constraints.max_angular_decel * abs_radius_rad;
+            const FLinearAcceleration max_kin_accel =
+              constraints.max_accel * kin_multiplier;
+            const FLinearAcceleration max_turn_accel =
+              constraints.max_angular_accel * abs_radius_rad;
 
-            // point.accel = units::min(max_kin_accel, max_turn_accel);
-            // point.decel = units::min(max_kin_decel, max_turn_decel);
-            point.accel = constraints.max_accel;
-            point.decel = constraints.max_decel;
+            const FLinearAcceleration max_kin_decel =
+              constraints.max_decel * kin_multiplier;
+            const FLinearAcceleration max_turn_decel =
+              constraints.max_angular_decel * abs_radius_rad;
+
+            point.accel = units::min(max_kin_accel, max_turn_accel);
+            point.decel = units::min(max_kin_decel, max_turn_decel);
+            // point.accel = constraints.max_accel;
+            // point.decel = constraints.max_decel;
 
             max_kin_vel_debug.emplace_back(max_kin_vel);
             max_turn_vel_debug.emplace_back(max_turn_vel);

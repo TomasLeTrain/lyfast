@@ -120,8 +120,8 @@ class Tolerances : virtual ToleranceBase,
         requires(sizeof...(U) == sizeof...(ToleranceTypes) &&
                  (std::is_constructible_v<ToleranceTypes, U> && ...))
     Tolerances(Time duration, U&&... bases)
-        : duration(duration),
-          ToleranceTypes(std::forward<U>(bases))... {}
+        : ToleranceTypes(std::forward<U>(bases))...,
+          duration(duration) {}
 
     void setDuration(Time duration) {
         this->duration = duration;
