@@ -94,8 +94,7 @@ class Trajectory {
 
             // t = t + dt
             float delta_t = delta_distance / df.magnitude();
-            // why /3 ???
-            t = units::min(t + delta_t / 3.0, 1.0);
+            t = units::min(t + delta_t, 1.0);
         }
         // add last point
         points.emplace_back(curve->f(1),
@@ -112,17 +111,10 @@ class Trajectory {
         backwardsPass();
         printf("backwards pass:%llu\n", pros::c::micros() - start_time);
 
-        // here we want to update vel, as after both passes we only kept vel2 up
-        // to date we also dont have to take the min of point.vel and point.vel2
-        // since point.vel2 has the final velocity of each particle from both
-        // passes
-
-        // TODO: could be vectorized
         for (MotionPoint& point : points) {
             final_vels_debug.emplace_back(point.vel);
         }
 
-        printf("sqrts:%llu\n", pros::c::micros() - start_time);
         setTravelTimes();
         printf("travel times:%llu\n", pros::c::micros() - start_time);
 

@@ -43,21 +43,21 @@ class CubicBezier : public Curve {
             Point a1 = (p1 * basis_matrix[i][1]);
             Point a2 = (p2 * basis_matrix[i][2]);
             Point a3 = (p3 * basis_matrix[i][3]);
-            this->coeff_matrix[i] = a0 + a1 + a2 + a3;
+            coeff_matrix[i] = a0 + a1 + a2 + a3;
         }
         for (size_t i = 0; i < derivative_basis_matrix.size(); i++) {
             Point a0 = p0 * derivative_basis_matrix[i][0];
             Point a1 = p1 * derivative_basis_matrix[i][1];
             Point a2 = p2 * derivative_basis_matrix[i][2];
             Point a3 = p3 * derivative_basis_matrix[i][3];
-            this->der_coeff_matrix[i] = a0 + a1 + a2 + a3;
+            der_coeff_matrix[i] = a0 + a1 + a2 + a3;
         }
         for (size_t i = 0; i < second_der_basis_matrix.size(); i++) {
             Point a0 = p0 * second_der_basis_matrix[i][0];
             Point a1 = p1 * second_der_basis_matrix[i][1];
             Point a2 = p2 * second_der_basis_matrix[i][2];
             Point a3 = p3 * second_der_basis_matrix[i][3];
-            this->second_der_coeff_matrix[i] = a0 + a1 + a2 + a3;
+            second_der_coeff_matrix[i] = a0 + a1 + a2 + a3;
         }
     }
 

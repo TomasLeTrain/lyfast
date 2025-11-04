@@ -14,6 +14,7 @@ namespace lyfast {
 namespace geometry {
 class Spline : public Curve {
   private:
+    float num_curves;
     std::vector<Curve*> m_curves;
 
     // stores the sum of arc lengths up to and before the i'th curve
@@ -30,7 +31,7 @@ class Spline : public Curve {
             return { m_curves.size() - 1, 1.0 };
         }
 
-        float fu = t * static_cast<float>(m_curves.size());
+        float fu = t * num_curves;
 
         return { static_cast<size_t>(fu), std::fmod(fu, 1.0) };
     }
@@ -43,12 +44,15 @@ class Spline : public Curve {
 
     Point df(float t) override {
         auto [u, nt] = t_to_u(t);
-        return m_curves[u]->df(nt);
+
+        // have to scale due to change of variables
+        return m_curves[u]->df(nt) * num_curves;
     }
 
     Point ddf(float t) override {
         auto [u, nt] = t_to_u(t);
-        return m_curves[u]->ddf(nt);
+        // have to scale due to change of variables
+        return m_curves[u]->ddf(nt) * num_curves * num_curves;
     }
 
     FCurvature c(float t) override {
@@ -58,7 +62,9 @@ class Spline : public Curve {
 
     FCurvature c(float t, Point df) override {
         auto [u, nt] = t_to_u(t);
-        return m_curves[u]->c(nt, df);
+
+		// since df from global spline time we must convert
+        return m_curves[u]->c(nt, df / num_curves);
     }
 
     FLength s(float t) override {
@@ -113,6 +119,8 @@ class Spline : public Curve {
     Spline(std::vector<Curve*>&& curves)
         : Curve(curves.front()->endpoints[0], curves.back()->endpoints[1]),
           m_curves(std::forward<std::vector<Curve*>>(curves)) {
+        num_curves = static_cast<float>(m_curves.size());
+
         // check that endpoints between curves match
         for (size_t i = 1; i < m_curves.size(); i++) {
             assert((

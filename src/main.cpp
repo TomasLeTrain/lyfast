@@ -10,7 +10,7 @@
 #include <iostream>
 
 void initialize() {
-    pros::c::serctl(SERCTL_DISABLE_COBS, NULL);
+    // pros::c::serctl(SERCTL_DISABLE_COBS, NULL);
 }
 
 void disabled() {}
@@ -56,7 +56,7 @@ void spline_test() {
                                                      constraints,
                                                      0_mps,
                                                      0_mps,
-                                                     0.3_in);
+                                                     0.1_in);
 
     // print out final trajectory and debug info
 
