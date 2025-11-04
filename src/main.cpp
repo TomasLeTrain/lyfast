@@ -266,14 +266,12 @@ void spline_test() {
     }
     std::cout << "\\right]" << std::endl;
 
-    blazing::moveTo(controllers, chassis, 0.5_in, 0.5_in) | run;
-
-    blazing::lyfast::Ramsete(controllers,
-                             chassis,
-                             &spline_trajectory,
-                             0.5,
-                             0.5) |
-      run;
+    // blazing::lyfast::Ramsete(controllers,
+    //                          chassis,
+    //                          &spline_trajectory,
+    //                          0.5,
+    //                          0.5) |
+    //   run;
 }
 
 // void cubic_test() {

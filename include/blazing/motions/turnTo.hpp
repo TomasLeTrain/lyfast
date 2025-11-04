@@ -238,38 +238,30 @@ class turnTo : public Motion<ControllersType,
     //        double target_heading)
     //     : turnTo(controllers, chassis, from_stDeg(target_heading)) {}
 
-    turnTo& getReference() {
+    virtual turnTo& getReference() {
         return *this;
     }
 
-    // changer methods
-
-    [[nodiscard("motion won't be executed unless an executor is used!")]]
-    auto reverse() {
-        this->reversed = true;
-
-        return this->getReference();
+    // changer methods - due to arc inhertance they have to be defined this way
+    motionChanger reverse(this Self&& self) {
+        self.reversed = true;
+        return self.getReference();
     }
 
-    [[nodiscard("motion won't be executed unless an executor is used!")]]
-    auto radius(Number ratio = 1.0) {
-        this->ratio = ratio;
-
-        return this->getReference();
+    motionChanger radius(this Self&& self, Number ratio = 1.0) {
+        self.ratio = ratio;
+        return self.getReference();
     }
 
-    [[nodiscard("motion won't be executed unless an executor is used!")]]
-    auto timeout(Time timeout) {
-        this->m_timeout = timeout;
-
-        return this->getReference();
+    motionChanger timeout(this Self&& self, Time timeout) {
+        self.m_timeout = timeout;
+        return self.getReference();
     }
 
-    [[nodiscard("motion won't be executed unless an executor is used!")]]
-    auto direction(std::optional<AngularDirection> direction) {
-        this->m_direction = direction;
-
-        return this->getReference();
+    motionChanger direction(this Self&& self,
+                            std::optional<AngularDirection> direction) {
+        self.m_direction = direction;
+        return self.getReference();
     }
 };
 
@@ -278,18 +270,14 @@ template<typename ControllersType,
          typename DrivetrainType,
          typename TrackerType,
          typename TolerancesType>
-    requires angleTracker<TrackerType> && angularVelocityTracker<TrackerType> &&
-               ArcadeDrivetrain<DrivetrainType> &&
-               hasAngularFeedback<ControllersType> &&
-               hasLinearFeedback<ControllersType>
-class arc : public turnTo<ControllersType,
+class Arc : public turnTo<ControllersType,
                           DrivetrainType,
                           TrackerType,
                           TolerancesType>,
             public LinearMotion {
   public:
     [[nodiscard("motion won't be executed unless run or async are used!")]]
-    arc(ControllersType controllers,
+    Arc(ControllersType controllers,
         Chassis<DrivetrainType, TrackerType, TolerancesType> chassis,
         Angle target_heading,
         double radius = 1.0)
@@ -299,6 +287,25 @@ class arc : public turnTo<ControllersType,
             target_heading) {
         // set radius (avoids nodiscard warning)
         std::ignore = this->radius(radius);
+    }
+
+    [[nodiscard("motion won't be executed unless run or async are used!")]]
+    Arc(ControllersType controllers,
+        Chassis<DrivetrainType, TrackerType, TolerancesType> chassis,
+        Length x,
+        Length y,
+        double radius = 1.0)
+        : turnTo<ControllersType, DrivetrainType, TrackerType, TolerancesType>(
+            controllers,
+            chassis,
+            x,
+            y) {
+        // set radius (avoids nodiscard warning)
+        std::ignore = this->radius(radius);
+    }
+
+    Arc& getReference() override {
+        return *this;
     }
 };
 } // namespace blazing

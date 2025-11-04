@@ -24,10 +24,10 @@ class MotionBuilder {
                                        typename Chassis::drivetrainType,
                                        typename Chassis::trackerType,
                                        typename Chassis::tolerancesType>;
-    using arcType = blazing::turnTo<Controllers,
-                                    typename Chassis::drivetrainType,
-                                    typename Chassis::trackerType,
-                                    typename Chassis::tolerancesType>;
+    using arcType = blazing::Arc<Controllers,
+                                 typename Chassis::drivetrainType,
+                                 typename Chassis::trackerType,
+                                 typename Chassis::tolerancesType>;
     using distanceAtHeadingType =
       blazing::distanceAtHeading<Controllers,
                                  typename Chassis::drivetrainType,
@@ -40,7 +40,7 @@ class MotionBuilder {
 
     using MoveToModifier = std::function<moveToType(moveToType)>;
     using TurnToModifier = std::function<turnToType(turnToType)>;
-    using ArcModifier = std::function<arcType(turnToType)>;
+    using ArcModifier = std::function<arcType(arcType)>;
     using DistanceAtHeadingModifier =
       std::function<distanceAtHeadingType(distanceAtHeadingType)>;
     using BoomerangModifier = std::function<boomerangType(boomerangType)>;
@@ -151,7 +151,17 @@ class MotionBuilder {
     arcType arc(std::variant<Angle, double, int> heading, double radius = 1.0) {
         Angle new_heading = castToUnit(heading, deg);
         return arcModifier(
-          blazing::arc(controllers, chassis, new_heading, radius));
+          blazing::Arc(controllers, chassis, new_heading, radius));
+    }
+
+    [[nodiscard("motion won't be executed unless an executor is used!")]]
+    arcType arc(std::variant<Length, double, int> x,
+                std::variant<Length, double, int> y,
+                double radius = 1.0) {
+        Length new_x = castToUnit(x, in);
+        Length new_y = castToUnit(y, in);
+        return arcModifier(
+          blazing::Arc(controllers, chassis, new_x, new_y, radius));
     }
 
     // boomerang
