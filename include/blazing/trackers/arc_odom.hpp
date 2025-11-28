@@ -137,6 +137,7 @@ class TrackingImu {
   private:
     double last_heading;
     Angle m_delta = INFINITY * rad;
+    AngularVelocity m_angular_velocity = INFINITY * radps;
     pros::Imu* sensor;
     bool disabled = false;
 
@@ -145,10 +146,16 @@ class TrackingImu {
         return m_delta;
     }
 
+    AngularVelocity getAngularVelocity() {
+        return m_angular_velocity;
+    }
+
     void update() {
         if (sensor == nullptr || !sensor->is_installed() || disabled) {
             last_heading = INFINITY;
             m_delta = Angle(INFINITY);
+            m_angular_velocity = AngularVelocity(INFINITY);
+
             // gets disabled permanently if disconnects, since measurements from
             // now on are effectively useless
             disabled = true;
@@ -168,6 +175,7 @@ class TrackingImu {
         last_heading = current;
 
         m_delta = from_stDeg(result);
+        m_angular_velocity = (-sensor->get_gyro_rate().z) * degps;
     }
 
     TrackingImu(pros::Imu* sensor)
@@ -176,10 +184,10 @@ class TrackingImu {
 
 class ArcOdomTracker {
   private:
-    std::vector<ForwardsTracker> forwards_trackers;
-    std::vector<SidewaysTracker> sideways_trackers;
+    std::vector<ForwardsTracker*> forwards_trackers;
+    std::vector<SidewaysTracker*> sideways_trackers;
 
-    std::vector<TrackingImu> imus;
+    std::vector<TrackingImu*> imus;
 
     units::Pose pose {};
     Length forward_travel = 0_in;
@@ -195,19 +203,19 @@ class ArcOdomTracker {
 
     template<TrackerOrientation orientation>
     static std::optional<Angle> calculateWheelHeading(
-      std::vector<TrackingWheel<orientation>>& trackingWheels) {
+      std::vector<TrackingWheel<orientation>*>& trackingWheels) {
         // check that there are enough tracking wheels
         if (trackingWheels.size() < 2) return std::nullopt;
         // get data
         for (size_t i = 0; i < trackingWheels.size(); i++) {
-            const Length distance1 = trackingWheels.at(i).getDelta();
-            const Length offset1 = trackingWheels.at(i).getOffset();
+            const Length distance1 = trackingWheels.at(i)->getDelta();
+            const Length offset1 = trackingWheels.at(i)->getOffset();
 
             if (!std::isfinite(distance1.internal())) continue;
 
             for (size_t j = i + 1; j < trackingWheels.size(); j++) {
-                const Length distance2 = trackingWheels.at(j).getDelta();
-                const Length offset2 = trackingWheels.at(j).getOffset();
+                const Length distance2 = trackingWheels.at(j)->getDelta();
+                const Length offset2 = trackingWheels.at(j)->getOffset();
 
                 if (!std::isfinite(distance2.internal()) || offset1 == offset2)
                     continue;
@@ -225,7 +233,7 @@ class ArcOdomTracker {
         int imu_count = 0;
 
         for (auto& imu : imus) {
-            Angle current = imu.getDelta();
+            Angle current = imu->getDelta();
             if (std::isfinite(current.internal())) {
                 heading_delta += current;
                 imu_count++;
@@ -240,9 +248,9 @@ class ArcOdomTracker {
     }
 
   public:
-    ArcOdomTracker(std::initializer_list<ForwardsTracker> forwards_trackers,
-                   std::initializer_list<SidewaysTracker> sideways_trackers,
-                   std::initializer_list<TrackingImu> imus)
+    ArcOdomTracker(std::initializer_list<ForwardsTracker*> forwards_trackers,
+                   std::initializer_list<SidewaysTracker*> sideways_trackers,
+                   std::initializer_list<TrackingImu*> imus)
         : forwards_trackers(forwards_trackers),
           sideways_trackers(sideways_trackers),
           imus(imus) {}
@@ -291,13 +299,13 @@ class ArcOdomTracker {
         const Time delta_time = deltaTime(last_time);
 
         for (auto& tracker : imus) {
-            tracker.update();
+            tracker->update();
         }
         for (auto& tracker : sideways_trackers) {
-            tracker.update();
+            tracker->update();
         }
         for (auto& tracker : forwards_trackers) {
-            tracker.update();
+            tracker->update();
         }
 
         // almost guaranteed that all trackers are undefined,
@@ -325,14 +333,14 @@ class ArcOdomTracker {
         double forwards_count = 0.0;
 
         for (auto& tracker : forwards_trackers) {
-            Length current_delta = tracker.getDelta();
+            Length current_delta = tracker->getDelta();
             if (!std::isfinite(current_delta.internal())) {
                 printf("forward tracker returned infinity!\n");
                 first_failed = true;
                 continue;
             }
             deltas.x += current_delta;
-            offsets.x += tracker.getOffset();
+            offsets.x += tracker->getOffset();
             forwards_count += 1.0;
             if (!first_failed) break;
             // break;
@@ -342,13 +350,13 @@ class ArcOdomTracker {
             deltas.x /= forwards_count, offsets.x /= forwards_count;
 
         for (auto& tracker : sideways_trackers) {
-            Length current_delta = tracker.getDelta();
+            Length current_delta = tracker->getDelta();
             if (!std::isfinite(current_delta.internal())) {
                 printf("sideways tracker returned infinity!\n");
                 continue;
             }
             deltas.y = current_delta;
-            offsets.y = tracker.getOffset();
+            offsets.y = tracker->getOffset();
             break;
         }
 
@@ -365,22 +373,13 @@ class ArcOdomTracker {
 
         // NOTE: this is not super accurate, might return 0 due to the
         // polling rate
-
-        // this somehow fixes the noisyness?
-        // TODO: check if the delta is 0, and if so then don't update. (would
-        // need to check if that actually fixes the issue or if an epsilon check
-        // is required)
-        //
-        // this is actually a horrible fix because it does not update velocity
-        // if the robot is still. Maybe an equality check would help?
-        // if (local_position_delta.y > 0.001_in) {
-        //     velocity_vector = local_position_delta / delta_time;
-        // }
-        //
         velocity_vector = local_position_delta / delta_time;
 
-        // TODO: maybe do the same with heading_delta?
         angular_velocity = heading_delta / delta_time;
+
+        // uses imu measurement directly (if available)
+        if (imus.size() > 0 && std::isfinite(imus[0]->getDelta().internal()))
+            angular_velocity = imus[0]->getAngularVelocity();
 
         forward_travel += local_position_delta.x;
         // should be magnitude instead?

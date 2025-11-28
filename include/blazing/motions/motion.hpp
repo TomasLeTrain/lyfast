@@ -6,6 +6,7 @@
 #include "blazing/controllers/voltage_clamp.hpp"
 #include "blazing/drivetrains/drivetrain.hpp"
 #include "blazing/tolerances.hpp"
+#include "pros/rtos.h"
 #include "pros/rtos.hpp"
 #include "units/units.hpp"
 #include <concepts>
@@ -39,8 +40,6 @@ struct motionExecutionResult {
 class MotionBase {
   public:
     virtual void start_motion_callback() {}
-
-    virtual void end_motion_callback() {}
 
     virtual int getLoopDelayTime() = 0;
     virtual std::optional<motionExecutionResult> execute() = 0;
@@ -93,7 +92,7 @@ class Motion : public MotionBase {
     std::function<void()> during_motion_func;
     std::function<void()> after_motion_func;
 
-    std::optional<pros::Task> custom_functions_task;
+    pros::Task custom_functions_task = nullptr;
 
   public:
     Motion(ControllersType controllers,
@@ -204,24 +203,30 @@ class Motion : public MotionBase {
     }
 
     void start_motion_callback() override {
-        custom_functions_task = pros::Task([&] {
-            before_motion_func();
-            during_motion_func();
-        });
-    }
+        // before motion should be blocking - prereq to the motion executing
+        if (before_motion_func) before_motion_func();
 
-    void end_motion_callback() override {
-        if (custom_functions_task) custom_functions_task->remove();
-
-        // run it on a separate task
-        pros::Task([&] {
-            after_motion_func();
-        });
+        custom_functions_task =
+          pros::Task([during_motion_func = this->during_motion_func] {
+              printf("before\n");
+              if (during_motion_func) during_motion_func();
+              printf("after\n");
+          });
     }
 
     ~Motion() override {
-        // stops spawned task, but don't doesn't run after_motion_func
-        if (custom_functions_task) custom_functions_task->remove();
+        printf("end motion\n");
+        if (custom_functions_task.get_state() != pros::E_TASK_STATE_INVALID &&
+            custom_functions_task.get_state() != pros::E_TASK_STATE_DELETED)
+            custom_functions_task.remove();
+        printf("after removing custom functions\n");
+
+        // run it on a separate task - take function by copy
+        pros::Task([after_motion_func = this->after_motion_func] {
+            printf("before2\n");
+            if (after_motion_func) after_motion_func();
+            printf("after2\n");
+        });
     }
 };
 
@@ -297,8 +302,7 @@ class AngularMotion {
     }
 
     // angular slew changers
-    motionChangerT turn_slew(this Self&& self,
-                                AngularSlewController new_slew)
+    motionChangerT turn_slew(this Self&& self, AngularSlewController new_slew)
         requires hasAngularSlew<typename Self::controllersType>
     {
         self.controllers.angular_slew = new_slew;
@@ -313,7 +317,7 @@ class AngularMotion {
     }
 
     motionChangerT turn_backwardsAccelSlew(this Self&& self,
-                                              T backwardsAccelSlew)
+                                           T backwardsAccelSlew)
         requires hasAngularSlew<typename Self::controllersType>
     {
         self.controllers.angular_slew.set_backwards_accel(backwardsAccelSlew);
@@ -328,7 +332,7 @@ class AngularMotion {
     }
 
     motionChangerT turn_backwardsDecelSlew(this Self&& self,
-                                              T backwardsDecelSlew)
+                                           T backwardsDecelSlew)
         requires hasAngularSlew<typename Self::controllersType>
     {
         self.controllers.angular_slew.set_backwards_decel(backwardsDecelSlew);
@@ -341,8 +345,7 @@ class AngularMotion {
         return self.getReference();
     }
 
-    motionChanger turn_largeToleranceDuration(this Self&& self,
-                                                Time duration) {
+    motionChanger turn_largeToleranceDuration(this Self&& self, Time duration) {
         self.tolerances.large_angular.setDuration(duration);
         return self.getReference();
     }
@@ -353,33 +356,31 @@ class AngularMotion {
         return self.getReference();
     }
 
-    motionChanger turn_largeErrorTolerance(this Self&& self,
-                                             Angle tolerance) {
+    motionChanger turn_largeErrorTolerance(this Self&& self, Angle tolerance) {
         self.tolerances.large_angular.setErrorTolerance(tolerance);
         return self.getReference();
     }
 
-    motionChanger turn_chainErrorTolerance(this Self&& self,
-                                             Angle tolerance) {
+    motionChanger turn_chainErrorTolerance(this Self&& self, Angle tolerance) {
         self.tolerances.chain_angular.setErrorTolerance(tolerance);
         return self.getReference();
     }
 
     // velocity tolerance changers
     motionChanger turn_VelocityTolerance(this Self&& self,
-                                           AngularVelocity tolerance) {
+                                         AngularVelocity tolerance) {
         self.tolerances.angular.setVelocityTolerance(tolerance);
         return self.getReference();
     }
 
     motionChanger turn_largeVelocityTolerance(this Self&& self,
-                                                AngularVelocity tolerance) {
+                                              AngularVelocity tolerance) {
         self.tolerances.large_angular.setVelocityTolerance(tolerance);
         return self.getReference();
     }
 
     motionChanger turn_chainVelocityTolerance(this Self&& self,
-                                                AngularVelocity tolerance) {
+                                              AngularVelocity tolerance) {
         self.tolerances.chain_angular.setVelocityTolerance(tolerance);
         return self.getReference();
     }

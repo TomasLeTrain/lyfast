@@ -106,11 +106,13 @@ pros::Rotation sideways_rotation_sensor(5);
 ForwardsTracker forwards_tracker(&forwards_rotation_sensor, -0.44_in, 1.996_in);
 SidewaysTracker sideways_tracker(&sideways_rotation_sensor, -0.15_in, 1.96_in);
 
-ArcOdomTracker arc_pose_tracker({ forwards_tracker,
-                                  left_motor_tracker,
-                                  right_motor_tracker },
-                                { sideways_tracker },
-                                { TrackingImu(&imu) });
+TrackingImu tracking_imu(&imu);
+
+ArcOdomTracker arc_pose_tracker({ &forwards_tracker,
+                                  &left_motor_tracker,
+                                  &right_motor_tracker },
+                                { &sideways_tracker },
+                                { &tracking_imu });
 
 // controller stuff
 PID<Length, Voltage> linear_pid(4.7,

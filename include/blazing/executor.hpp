@@ -61,7 +61,7 @@ class AsyncExecutorBase : public Executor {
     // returns number of queued motions
     virtual size_t numQueuedMotions() = 0;
 
-    // returns true of there are no motions to execute
+    // returns true if there are motions to execute
     virtual bool hasMotions();
 
     // start the async task
