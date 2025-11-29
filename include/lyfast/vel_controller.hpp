@@ -58,11 +58,13 @@ class VelocityController {
     VelocityController(Divided<Voltage, LinearVelocity> ff_linear_vel,
                        Divided<Voltage, LinearAcceleration> ff_linear_accel,
                        Divided<Voltage, AngularVelocity> ff_angular_vel,
-                       Divided<Voltage, AngularAcceleration> ff_angular_accel)
+                       Divided<Voltage, AngularAcceleration> ff_angular_accel,
+                       Voltage K_s)
         : ff_linear_vel(ff_linear_vel),
           ff_linear_accel(ff_linear_accel),
           ff_angular_vel(ff_angular_vel),
-          ff_angular_accel(ff_angular_accel) {}
+          ff_angular_accel(ff_angular_accel),
+          K_s(K_s) {}
 };
 
 template<typename Controller>

@@ -6,6 +6,7 @@
 #include "blazing/trackers/tracker.hpp"
 #include "blazing/utils.hpp"
 #include "lyfast/geometry/curve.hpp"
+#include "lyfast/geometry/primitives.hpp"
 #include "lyfast/motion_profiling/mp.hpp"
 #include "lyfast/vel_controller.hpp"
 #include "units/Angle.hpp"
@@ -21,7 +22,7 @@ struct StanleyState {
     std::optional<Time> last_time;
     Time start_time;
     std::optional<Angle> locked_heading;
-    float last_t;
+    size_t last_trajectory_idx;
 };
 
 template<typename ControllersType,
@@ -29,8 +30,9 @@ template<typename ControllersType,
          typename TrackerType,
          typename TolerancesType>
     requires poseTracker<TrackerType> && linearVelocityTracker<TrackerType> &&
-             TankDrivetrain<DrivetrainType> &&
-             hasVelocityFeedforward<ControllersType>
+             ArcadeDrivetrain<DrivetrainType> &&
+             hasAngularFeedback<ControllersType> &&
+             hasLinearFeedback<ControllersType>
 class Stanley : public Motion<ControllersType,
                               DrivetrainType,
                               TrackerType,
@@ -39,18 +41,19 @@ class Stanley : public Motion<ControllersType,
     std::optional<StanleyState> m_state;
     bool reversed = false;
 
-    lyfast::geometry::Curve* target_curve;
+    Length m_max_lookahead_distance = 6_in;
+    Length m_k_curvature = 20_in;
+    Divided<Voltage, LinearVelocity> m_k_voltage = 1_volt / 1_mps;
 
-    const Divided<Number, Time> k = 1 / sec;
+    std::optional<Time> m_timeout = std::nullopt;
+    Length close_threshold = 4_in;
+
+    mp::Trajectory* target_trajectory;
 
   public:
     int getLoopDelayTime() override {
         return 10;
     }
-
-    // moveTo-specific properties
-    std::optional<Time> m_timeout = std::nullopt;
-    Length close_threshold = 4_in;
 
     std::optional<motionExecutionResult> execute() override {
         if (!m_state.has_value()) {
@@ -58,7 +61,7 @@ class Stanley : public Motion<ControllersType,
                         .last_time = now(),
                         .start_time = now(),
                         .locked_heading = std::nullopt,
-                        .last_t = 0.0 };
+                        .last_trajectory_idx = 0 };
             // done to prevent values like delta_time being 0
             return std::nullopt;
         }
@@ -66,7 +69,6 @@ class Stanley : public Motion<ControllersType,
         StanleyState& state = m_state.value();
         motionExecutionResult result;
 
-        // should never equal 0_sec
         Time delta_time = deltaTime(state.last_time);
 
         const units::V2Position position = this->tracker.getPosition();
@@ -75,68 +77,74 @@ class Stanley : public Motion<ControllersType,
             return reversed ? reverseAngle(heading) : heading;
         }();
 
-        // Length linear_error =
-        //   (target - position).magnitude() * (reversed ? -1.0 : 1.0);
+        std::optional<units::V2Position> last_point;
+        std::optional<Length> last_error;
+        size_t trajectory_idx = state.last_trajectory_idx;
 
-        float t = state.last_t;
-        std::optional<Length> last_error = std::nullopt;
-        bool decreasing = false;
+        for (; trajectory_idx < target_trajectory->points.size();
+             trajectory_idx++) {
+            auto curr_point = target_trajectory->points[trajectory_idx].point;
+            auto curr_error = curr_point.distanceTo(position);
 
-        while (true) {
-            auto curve_target = target_curve->f(t);
-            auto curr_error = curve_target.distanceTo(position);
-            if (!last_error) {
-                last_error = curr_error;
-            } else if (curr_error < *last_error) {
-                decreasing = true;
-            } else if (curr_error < *last_error) {
+            // last point had lower error
+            if (last_error.has_value() && curr_error > *last_error) {
+                trajectory_idx--;
+                break;
             }
+            last_point = curr_point;
+            last_error = curr_error;
         }
 
-        units::V2Position curve_target = target_curve->f(t);
-        Angle curve_angle = target_curve->df(t).getAngle();
+        // no points better than last
+        if (trajectory_idx == target_trajectory->points.size()) {
+            trajectory_idx--;
+        }
+
+        state.last_trajectory_idx = trajectory_idx;
+
+        mp::MotionPoint motion_point =
+          target_trajectory->points[trajectory_idx];
+        units::V2Position curve_target = motion_point.point;
+        Angle curve_angle = motion_point.heading;
+        Curvature curve_abs_curvature = units::abs(motion_point.curvature);
+        LinearVelocity curve_velocity = motion_point.vel;
 
         auto local_target_error =
           (position - curve_target).rotatedBy(-curve_angle);
         Length crosstrack_error = local_target_error.y;
-        Angle theta_difference = heading - curve_angle;
+        Angle angle_error = angleError(curve_angle, heading);
 
-        LinearVelocity velocity = 10_mps;
+        // lookahead gets shortened as curvature increases to avoid overshoot on
+        // tight turns
+        Length lookahead_distance =
+          m_max_lookahead_distance / (1 + curve_abs_curvature * m_k_curvature);
 
         Angle target_steering =
-          theta_difference + units::atan(k * crosstrack_error / velocity);
+          angle_error + units::atan(crosstrack_error / lookahead_distance);
 
-        Angle position_target_heading = position.angleTo(target);
+        auto curve_endpoint = target_trajectory->points.back().point;
+        auto distance_to_end = curve_endpoint.distanceTo(position);
 
-        if (units::abs(local_target_error) < close_threshold && !state.close) {
-            state.locked_heading = position_target_heading;
+        if (units::abs(distance_to_end) < close_threshold && !state.close) {
+            // locks heading when close
+            auto curve_endpoint_heading =
+              target_trajectory->points.back().heading;
+            state.locked_heading = curve_endpoint_heading;
             state.close = true;
         }
 
         // switches to locked heading when close
-        Angle target_heading = state.locked_heading ? *state.locked_heading :
-                                                      position_target_heading;
-
-        // used to determine sign and cosine scaling of linear output
-        Angle position_target_error =
-          angleError(position_target_heading, heading);
+        Angle target_heading =
+          state.locked_heading.value_or(heading + target_steering);
 
         Angle angular_error = angleError(target_heading, heading);
 
-        // used for cosine scaling and applying correct sign for linear
-        // error/output
-        Number lin_multiplier = angular_linear_func(position_target_error);
-
-        // applies sign component here so that sign of error is accurate
-        // NOTE: sgn can be zero, which can set linear error to zero as
-        // well!
-        local_target_error *= signed_sgn(lin_multiplier);
-
-        this->tolerances.linearErrorToleranceUpdate(local_target_error);
+        // update tolerances
+        this->tolerances.linearErrorToleranceUpdate(distance_to_end);
         this->tolerances.linearVelocityToleranceUpdate(
           this->tracker.getLinearVelocity());
         this->tolerances.linearHalfcircleToleranceUpdate(position,
-                                                         target,
+                                                         curve_endpoint,
                                                          heading);
 
         result.finished = false;
@@ -168,78 +176,29 @@ class Stanley : public Motion<ControllersType,
             return result;
         }
 
-        // calculate outputs
+        // calculate angular output
         Voltage angular_output =
           this->controllers.angular_feedback.update(-angular_error,
                                                     0_stRad,
                                                     delta_time);
 
-        Voltage linear_output =
-          this->controllers.linear_feedback.update(-local_target_error,
-                                                   0.0_in,
-                                                   delta_time);
+        Voltage linear_output;
 
-        if (m_k_lat) {
-            angular_output =
-              angular_output + *m_k_lat * linear_output *
-                                 (target - position).rotatedBy(-heading).y *
-                                 sinc(angular_error);
-        }
+        // idea here is to use velocities from motion profile to move most of
+        // the way, then use pid for settling
+        // as a hack to avoid using velocity controllers (for now) we directly
+        // translate velocities to voltages with k_voltage
+        linear_output = curve_velocity * m_k_voltage;
 
-        // sign was already applied to error, only applies cosine scaling
-        // component
-        linear_output *= units::abs(lin_multiplier);
-
-        // here the robot would attempt to move backwards, when instead the
-        // robot should turn around until it should start moving towards the
-        // target
-        // the reason that this is done to linear_output and not
-        // linear_error is because otherwise linear_error would be zero and
-        // tolerances would trigger
-        if (!state.close && lin_multiplier < 0) {
-            linear_output = 0_volt;
-        }
-
-        // apply min voltage constraints
-        if constexpr (hasLinearVoltageClamp<ControllersType>) {
+        // used only when settling
+        if (state.close) {
             linear_output =
-              this->controllers.linear_voltage_clamp.applyMin(linear_output);
-        }
-        if constexpr (hasAngularVoltageClamp<ControllersType>) {
-            angular_output =
-              this->controllers.angular_voltage_clamp.applyMin(angular_output);
+              this->controllers.linear_feedback.update(-distance_to_end,
+                                                       0.0_in,
+                                                       delta_time);
         }
 
-        if (max_overturn_output) {
-            // apply overturn
-            Voltage overturn_value = units::abs(linear_output) +
-                                     units::abs(angular_output) -
-                                     *max_overturn_output;
-
-            if (overturn_value > 0_volt) {
-                linear_output -= overturn_value * units::sgn(linear_output);
-            }
-        }
-
-        // apply max voltage constraints
-        if constexpr (hasLinearVoltageClamp<ControllersType>) {
-            linear_output =
-              this->controllers.linear_voltage_clamp.applyMax(linear_output);
-        }
-        if constexpr (hasAngularVoltageClamp<ControllersType>) {
-            angular_output =
-              this->controllers.angular_voltage_clamp.applyMax(angular_output);
-        }
-
-        // apply slew
-        if constexpr (hasLinearSlew<ControllersType>) {
-            linear_output =
-              this->controllers.linear_slew.apply(linear_output, delta_time);
-        }
-        if constexpr (hasAngularSlew<ControllersType>) {
-            angular_output =
-              this->controllers.angular_slew.apply(angular_output, delta_time);
-        }
+        // constraints should already be inherent to the motion profile
 
         this->drivetrain.moveArcade(linear_output, angular_output);
 
@@ -247,32 +206,15 @@ class Stanley : public Motion<ControllersType,
     }
 
     [[nodiscard("motion won't be executed unless run or async are used!")]]
-    Ramsete(ControllersType controllers,
+    Stanley(ControllersType controllers,
             Chassis<DrivetrainType, TrackerType, TolerancesType> chassis,
-            mp::Trajectory* target_trajectory,
-            zeta_units zeta,
-            beta_units beta)
+            mp::Trajectory* target_trajectory)
         : Motion<ControllersType, DrivetrainType, TrackerType, TolerancesType>(
             controllers,
             chassis),
-          target_trajectory(target_trajectory),
-          zeta(zeta),
-          beta(beta) {}
+          target_trajectory(target_trajectory) {}
 
-    [[nodiscard("motion won't be executed unless run or async are used!")]]
-    Ramsete(ControllersType controllers,
-            Chassis<DrivetrainType, TrackerType, TolerancesType> chassis,
-            mp::Trajectory* target_trajectory,
-            double zeta,
-            double beta)
-        : Motion<ControllersType, DrivetrainType, TrackerType, TolerancesType>(
-            controllers,
-            chassis),
-          target_trajectory(target_trajectory),
-          zeta(zeta),
-          beta(beta) {}
-
-    Ramsete& getReference() {
+    Stanley& getReference() {
         return *this;
     }
 
@@ -281,6 +223,27 @@ class Stanley : public Motion<ControllersType,
     [[nodiscard("motion won't be executed unless an executor is used!")]]
     auto reverse() {
         this->reversed = true;
+
+        return this->getReference();
+    }
+
+    [[nodiscard("motion won't be executed unless an executor is used!")]]
+    auto max_lookahead_distance(Length max_lookahead_distance) {
+        this->m_max_lookahead_distance = max_lookahead_distance;
+
+        return this->getReference();
+    }
+
+    [[nodiscard("motion won't be executed unless an executor is used!")]]
+    auto k_curvature(Length k_curvature) {
+        this->m_k_curvature = k_curvature;
+
+        return this->getReference();
+    }
+
+    [[nodiscard("motion won't be executed unless an executor is used!")]]
+    auto k_voltage(Divided<Voltage, LinearVelocity> k_voltage) {
+        this->m_k_voltage = k_voltage;
 
         return this->getReference();
     }

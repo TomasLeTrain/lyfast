@@ -8,6 +8,7 @@
 #include "lyfast/motion_profiling/constraints.hpp"
 #include "lyfast/motion_profiling/mp.hpp"
 #include "lyfast/ramsete.hpp"
+#include "lyfast/stanley.hpp"
 #include "lyfast/vel_controller.hpp"
 #include "pros/apix.h"
 #include "units/Vector2D.hpp"
@@ -166,7 +167,8 @@ AsyncExecutor async;
 blazing::lyfast::VelocityController velocity_controller(0.5 * volt / mps,
                                                         0 * volt / mps2,
                                                         1 * volt / rps,
-                                                        0.3 * volt / rps2);
+                                                        0.3 * volt / rps2,
+                                                        0_volt);
 
 Controllers controllers(
   // pid controllers
@@ -268,12 +270,16 @@ void spline_test() {
     }
     std::cout << "\\right]" << std::endl;
 
-    // blazing::lyfast::Ramsete(controllers,
-    //                          chassis,
-    //                          &spline_trajectory,
-    //                          0.5,
-    //                          0.5) |
-    //   run;
+    // run spline on ramsette
+    blazing::lyfast::Ramsete(controllers,
+                             chassis,
+                             &spline_trajectory,
+                             0.5,
+                             0.5) |
+      run;
+
+    // run spline on stanley
+    blazing::lyfast::Stanley(controllers, chassis, &spline_trajectory) | run;
 }
 
 // void cubic_test() {
