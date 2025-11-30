@@ -41,6 +41,8 @@ class MotionBase {
   public:
     virtual void start_motion_callback() {}
 
+    virtual void end_motion_callback() {}
+
     virtual int getLoopDelayTime() = 0;
     virtual std::optional<motionExecutionResult> execute() = 0;
 
@@ -89,10 +91,7 @@ class Motion : public MotionBase {
     std::optional<Time> chain_time = std::nullopt;
 
     std::function<void()> before_motion_func;
-    std::function<void()> during_motion_func;
     std::function<void()> after_motion_func;
-
-    pros::Task custom_functions_task = nullptr;
 
   public:
     Motion(ControllersType controllers,
@@ -138,22 +137,12 @@ class Motion : public MotionBase {
     // tracker
     motionChanger executeBeforeMotion(this Self&& self,
                                       std::function<void()> func) {
-        // immediately executes
         self.before_motion_func = func;
-        return self.getReference();
-    }
-
-    // gets repeatedly executed while a motion is in motion
-    motionChanger executeDuringMotion(this Self&& self,
-                                      std::function<void()> func) {
-        // immediately executes
-        self.during_motion_func = func;
         return self.getReference();
     }
 
     motionChanger executeAfterMotion(this Self&& self,
                                      std::function<void()> func) {
-        // immediately executes
         self.after_motion_func = func;
         return self.getReference();
     }
@@ -205,28 +194,15 @@ class Motion : public MotionBase {
     void start_motion_callback() override {
         // before motion should be blocking - prereq to the motion executing
         if (before_motion_func) before_motion_func();
-
-        custom_functions_task =
-          pros::Task([during_motion_func = this->during_motion_func] {
-              printf("before\n");
-              if (during_motion_func) during_motion_func();
-              printf("after\n");
-          });
     }
 
-    ~Motion() override {
-        printf("end motion\n");
-        if (custom_functions_task.get_state() != pros::E_TASK_STATE_INVALID &&
-            custom_functions_task.get_state() != pros::E_TASK_STATE_DELETED)
-            custom_functions_task.remove();
-        printf("after removing custom functions\n");
-
+    void end_motion_callback() override {
         // run it on a separate task - take function by copy
-        pros::Task([after_motion_func = this->after_motion_func] {
-            printf("before2\n");
-            if (after_motion_func) after_motion_func();
-            printf("after2\n");
-        });
+        pros::Task::create(
+          [after_motion_func = this->after_motion_func] {
+              if (after_motion_func) after_motion_func();
+          },
+          "end motion task");
     }
 };
 
@@ -351,7 +327,7 @@ class AngularMotion {
     }
 
     // Error tolerance changers
-    motionChanger turn_ErrorTolerance(this Self&& self, Angle tolerance) {
+    motionChanger turn_errorTolerance(this Self&& self, Angle tolerance) {
         self.tolerances.angular.setErrorTolerance(tolerance);
         return self.getReference();
     }
@@ -367,7 +343,7 @@ class AngularMotion {
     }
 
     // velocity tolerance changers
-    motionChanger turn_VelocityTolerance(this Self&& self,
+    motionChanger turn_velocityTolerance(this Self&& self,
                                          AngularVelocity tolerance) {
         self.tolerances.angular.setVelocityTolerance(tolerance);
         return self.getReference();
@@ -479,7 +455,7 @@ class LinearMotion {
     }
 
     // tolerance changers
-    motionChanger drive_ToleranceDuration(this Self&& self, Time duration) {
+    motionChanger drive_toleranceDuration(this Self&& self, Time duration) {
         self.tolerances.linear.setDuration(duration);
         return self.getReference();
     }
@@ -490,7 +466,7 @@ class LinearMotion {
         return self.getReference();
     }
 
-    motionChanger drive_ErrorTolerance(this Self&& self, Length tolerance) {
+    motionChanger drive_errorTolerance(this Self&& self, Length tolerance) {
         self.tolerances.linear.setErrorTolerance(tolerance);
         return self.getReference();
     }
@@ -507,7 +483,7 @@ class LinearMotion {
         return self.getReference();
     }
 
-    motionChanger drive_VelocityTolerance(this Self&& self,
+    motionChanger drive_velocityTolerance(this Self&& self,
                                           LinearVelocity tolerance) {
         self.tolerances.linear.setVelocityTolerance(tolerance);
         return self.getReference();

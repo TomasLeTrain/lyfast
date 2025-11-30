@@ -137,7 +137,9 @@ class boomerang : public Motion<ControllersType,
                 abs_sideways_error < lead2_dist_threshold) {
                 state.crossed_sideways = true;
 
-                return carrot;
+                // return carrot;
+				// if crossed we likley just want mtp behavior
+                return target;
             }
 
             if (m_lead2 == 0.0) {

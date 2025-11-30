@@ -24,10 +24,10 @@ MAKEFLAGS=-j
 USE_PACKAGE:=1
 
 # Add libraries you do not wish to include in the cold image here
-EXCLUDE_COLD_LIBRARIES:=
+EXCLUDE_COLD_LIBRARIES:=$(FWDIR)/float_units.a $(FWDIR)/blazing.a
 
 # Set this to 1 to add additional rules to compile your project as a PROS library template
-IS_LIBRARY:=0
+IS_LIBRARY:=1
 
 # Be sure that your header files are in the include directory inside of a folder with the
 # same name as what you set LIBNAME to below.
@@ -40,7 +40,7 @@ EXCLUDE_SRC_FROM_LIB+=$(foreach file, $(SRCDIR)/main,$(foreach cext,$(CEXTS),$(f
 # files that get distributed to every user (beyond your source archive) - add
 # whatever files you want here. This line is configured to add all header files
 # that are in the directory include/LIBNAME
-TEMPLATE_FILES=
+TEMPLATE_FILES=$(LIBDIR)/*.hpp $(LIBDIR)/geometry/*.hpp $(LIBDIR)/motion_profiling/*.hpp
 
 .DEFAULT_GOAL=quick
 

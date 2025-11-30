@@ -24,8 +24,7 @@ template<typename ControllersType,
          typename DrivetrainType,
          typename TrackerType,
          typename TolerancesType>
-    requires poseTracker<TrackerType> && linearVelocityTracker<TrackerType> &&
-             TankDrivetrain<DrivetrainType> &&
+    requires poseTracker<TrackerType> && TankDrivetrain<DrivetrainType> &&
              hasVelocityFeedforward<ControllersType>
 class Ramsete : public Motion<ControllersType,
                               DrivetrainType,
@@ -63,7 +62,6 @@ class Ramsete : public Motion<ControllersType,
 
         units::Pose target;
 
-        // should never equal 0_sec
         Time delta_time = deltaTime(state.last_time);
 
         const units::V2Position position = this->tracker.getPosition();
@@ -73,7 +71,7 @@ class Ramsete : public Motion<ControllersType,
             return reversed ? reverseAngle(heading) : heading;
         }();
 
-        units::V2Position local_error = (target - position).rotatedBy(heading);
+        units::V2Position local_error = (target - position).rotatedBy(-heading);
 
         DifferentialSpeeds target_speeds =
           target_trajectory->get_by_time(now() - state.start_time);
@@ -83,7 +81,7 @@ class Ramsete : public Motion<ControllersType,
         // reverse linear_velocity if needed
         target_speeds.linear_velocity *= reverse_multiplier;
         // TODO: angular_velocity from target speeds might be different
-        // direction?
+        // direction (ccw vs cw?)
 
         Angle errorAngle = angleError(target.orientation, heading);
 

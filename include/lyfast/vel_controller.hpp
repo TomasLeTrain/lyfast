@@ -10,12 +10,16 @@
 namespace blazing {
 namespace lyfast {
 
-class VelocityController {
+struct VelocityControllerParams {
     Divided<Voltage, LinearVelocity> ff_linear_vel;
     Divided<Voltage, LinearAcceleration> ff_linear_accel;
     Divided<Voltage, AngularVelocity> ff_angular_vel;
     Divided<Voltage, AngularAcceleration> ff_angular_accel;
     Voltage K_s;
+};
+
+class VelocityController {
+    VelocityControllerParams m_params;
 
     std::optional<DifferentialSpeeds> last_speeds = std::nullopt;
 
@@ -37,22 +41,26 @@ class VelocityController {
           duration;
         ;
 
-        Voltage uLinear = target.linear_velocity * ff_linear_vel +
-                          linear_acceleration * ff_linear_accel;
-        Voltage uAngular = target.angular_velocity * ff_angular_vel +
-                           angular_acceleration * ff_angular_accel;
+        Voltage uLinear = target.linear_velocity * m_params.ff_linear_vel +
+                          linear_acceleration * m_params.ff_linear_accel;
+        Voltage uAngular = target.angular_velocity * m_params.ff_angular_vel +
+                           angular_acceleration * m_params.ff_angular_accel;
 
         DifferentialVoltages result;
 
         result.left_voltage = uLinear - uAngular;
         result.right_voltage = uLinear + uAngular;
 
-        result.left_voltage += units::sgn(result.left_voltage) * K_s;
-        result.right_voltage += units::sgn(result.right_voltage) * K_s;
+        result.left_voltage += units::sgn(result.left_voltage) * m_params.K_s;
+        result.right_voltage += units::sgn(result.right_voltage) * m_params.K_s;
 
         last_speeds = target;
 
         return result;
+    }
+
+    VelocityControllerParams getParams() {
+        return m_params;
     }
 
     VelocityController(Divided<Voltage, LinearVelocity> ff_linear_vel,
@@ -60,11 +68,14 @@ class VelocityController {
                        Divided<Voltage, AngularVelocity> ff_angular_vel,
                        Divided<Voltage, AngularAcceleration> ff_angular_accel,
                        Voltage K_s)
-        : ff_linear_vel(ff_linear_vel),
-          ff_linear_accel(ff_linear_accel),
-          ff_angular_vel(ff_angular_vel),
-          ff_angular_accel(ff_angular_accel),
-          K_s(K_s) {}
+        : m_params(ff_linear_vel,
+                   ff_linear_accel,
+                   ff_angular_vel,
+                   ff_angular_accel,
+                   K_s) {}
+
+    VelocityController(VelocityControllerParams params)
+        : m_params(params) {}
 };
 
 template<typename Controller>
