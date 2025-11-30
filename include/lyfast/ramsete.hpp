@@ -52,7 +52,10 @@ class Ramsete : public Motion<ControllersType,
 
     std::optional<motionExecutionResult> execute() override {
         if (!m_state.has_value()) {
-            m_state = { .last_time = now(), .start_time = now() };
+            m_state = {
+                .last_time = now(),
+                .start_time = now(),
+            };
             // done to prevent values like delta_time being 0
             return std::nullopt;
         }
@@ -93,12 +96,12 @@ class Ramsete : public Motion<ControllersType,
 
         DifferentialSpeeds new_speeds;
 
-        // v_new = cos(e_theta) * v + k * e_x;
+        // v_new = cos(e_theta) * v + k * e_x
         new_speeds.linear_velocity =
           units::cos(errorAngle) * target_speeds.linear_velocity +
           k * local_error.x;
 
-        // w_new = w + k * e_theta + beta * v * sinc(e_theta) * y;
+        // w_new = w + k * e_theta + beta * v * sinc(e_theta) * e_y
         new_speeds.angular_velocity = target_speeds.angular_velocity +
                                       k * errorAngle +
                                       beta * target_speeds.linear_velocity *
@@ -168,7 +171,7 @@ class Ramsete : public Motion<ControllersType,
 
         return this->getReference();
     }
-};
+}; // namespace lyfast
 
 } // namespace lyfast
 } // namespace blazing

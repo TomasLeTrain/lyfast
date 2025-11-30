@@ -292,6 +292,38 @@ class Trajectory {
     // total time that the motion should take
     FTime travel_time;
 
+    DifferentialSpeeds get_by_distance(FLength distance) {
+        // actual values of the point don't really matter
+        // (except for arc_length)
+        MotionPoint query_point = points[0];
+
+        query_point.arc_length = distance;
+
+        auto travel_distance_cmp = [](const MotionPoint& lhs,
+                                      const MotionPoint& rhs) -> bool {
+            return lhs.arc_length < rhs.arc_length;
+        };
+
+        // search for time in points
+        auto result_itr = lower_bound(points.begin(),
+                                      points.end(),
+                                      query_point,
+                                      travel_distance_cmp);
+
+        if (result_itr == points.end()) {
+            // result is last element
+            return { points.back().vel,
+                     Frad * points.back().vel * points.back().curvature };
+        } else {
+            return { result_itr->vel,
+                     Frad * result_itr->vel * result_itr->curvature };
+        }
+    }
+
+    FLength getTotalDistance() {
+        return points.back().arc_length;
+    }
+
     DifferentialSpeeds get_by_time(Time time) {
         // actual values of the point don't really matter
         // (except for travel_time)

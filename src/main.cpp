@@ -279,7 +279,7 @@ void spline_test() {
       run;
 
     // run spline on stanley
-    blazing::lyfast::Stanley(controllers, chassis, &spline_trajectory) | run;
+    // blazing::lyfast::Stanley(controllers, chassis, &spline_trajectory) | run;
 }
 
 // void cubic_test() {
