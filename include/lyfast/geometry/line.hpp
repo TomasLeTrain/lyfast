@@ -17,52 +17,24 @@ class Line : public Curve {
     FLength speed;
 
   public:
-    Point f(float t) override {
-        return derivative * t + endpoints[0];
-    }
+    Point f(float t) override;
 
-    Point df(float t) override {
-        return derivative;
-    }
-
-    Point ddf(float t) override {
-        return units::origin<FLength>;
-    }
+    Point df(float t) override;
+    Point ddf(float t) override;
 
     // curvature at point c
-    FCurvature c(float t) override {
-        return FCurvature(0);
-    }
-
-    FCurvature c(float t, Point df) override {
-        return FCurvature(0);
-    }
+    FCurvature c(float t) override;
+    FCurvature c(float t, Point df) override;
 
     // gets distance at time
-    FLength s(float t) override {
-        return t * speed;
-    }
-
-    float t_by_s(FLength target, float t_guess) override {
-        return t_by_s(target);
-    }
+    FLength s(float t) override;
+    float t_by_s(FLength target, float t_guess) override;
 
     // gets time by distance
-    float t_by_s(FLength target) override {
-        return target / speed;
-    }
+    float t_by_s(FLength target) override;
 
-    Line(Point start, Point end)
-        : Curve(start, end) {
-
-        derivative = endpoints[1] - endpoints[0];
-        speed = derivative.magnitude();
-
-        total_distance = s(1.0);
-    }
-
-    Line(std::array<Point, 2> endpoints)
-        : Line(endpoints[0], endpoints[1]) {}
+    Line(Point start, Point end);
+    Line(std::array<Point, 2> endpoints);
 
     ~Line() override = default;
 };

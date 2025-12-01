@@ -71,11 +71,18 @@ class ScaledIMU : public pros::IMU {
     double m_offset = 0;
 };
 
-pros::MotorGroup left_motors({ -11, -14, 13 });
-pros::MotorGroup right_motors({ 15, 16, -10 });
-ScaledIMU imu(1, (360.0 + 3.8) / 360.0);
+// clang-format off
+// motor groups
+pros::MotorGroup left_motors({ -12, -13, 14 }, pros::MotorGears::blue, pros::MotorEncoderUnits::rotations);
+pros::MotorGroup right_motors({ 7, 17, -16 }, pros::MotorGears::blue, pros::MotorEncoderUnits::rotations);
+// clang-format on
+
+ScaledIMU imu(15, (360.0 + 3.8) / 360.0);
 pros::Controller master(pros::E_CONTROLLER_MASTER);
-// ScaledImu imu(1, (360.0 + 3.8) / 360.0);
+
+// odom rotation sensors
+pros::Rotation forwards_odom_rotation(4);
+pros::Rotation sideways_odom_rotation(3);
 
 using namespace blazing;
 
@@ -86,13 +93,6 @@ Length track_width = 10.5_in;
 Length wheel_diameter = 3.25_in;
 AngularVelocity final_rpm = 450_rpm;
 
-// SimpleOdomTracker pose_tracker(&left_motors,
-//                                &right_motors,
-//                                &imu,
-//                                track_width,
-//                                wheel_diameter,
-//                                final_rpm);
-
 ForwardsTracker
   left_motor_tracker(&left_motors, -track_width / 2, wheel_diameter, final_rpm);
 
@@ -101,11 +101,8 @@ ForwardsTracker right_motor_tracker(&right_motors,
                                     wheel_diameter,
                                     final_rpm);
 
-pros::Rotation forwards_rotation_sensor(-20);
-pros::Rotation sideways_rotation_sensor(5);
-
-ForwardsTracker forwards_tracker(&forwards_rotation_sensor, -0.44_in, 1.996_in);
-SidewaysTracker sideways_tracker(&sideways_rotation_sensor, -0.15_in, 1.96_in);
+ForwardsTracker forwards_tracker(&forwards_odom_rotation, 0.1_in, 1.9654_in);
+SidewaysTracker sideways_tracker(&sideways_odom_rotation, 1.0_in, 1.9869_in);
 
 TrackingImu tracking_imu(&imu);
 
@@ -116,36 +113,36 @@ ArcOdomTracker arc_pose_tracker({ &forwards_tracker,
                                 { &tracking_imu });
 
 // controller stuff
-PID<Length, Voltage> linear_pid(4.7,
+PID<Length, Voltage> linear_pid(4.5,
                                 0.0,
-                                1,
-                                5,
+                                3.6,
+                                7,
                                 // std::nullopt,
                                 127,
                                 50_msec,
                                 1_in,
-                                (1.0 / 127.0) * volt);
+                                Voltage(1.0 / 127.0));
 
 PID<Angle, Voltage>
-  angular_pid(2.8, 0.0, 5, 10, 127, 50_msec, (1_stDeg), (1.0 / 127.0) * volt);
+  angular_pid(2.5, 0.0, 3.5, 14, 127, 50_msec, (1_stDeg), Voltage(1.0 / 127.0));
 
 // tolerance stuff
-Tolerances linearTolerances(150_msec,
-                            ErrorTolerance { 2.5_in },
-                            VelocityTolerance { 20_inps });
+Tolerances linearTolerances(200_msec,
+                            ErrorTolerance { 3_in },
+                            VelocityTolerance { 400_inps });
 // HalfCircleTolerance { 1_in });
 
-Tolerances angularTolerances(150_msec,
-                             ErrorTolerance { 4_stDeg },
-                             VelocityTolerance { 20_degps });
+Tolerances angularTolerances(200_msec,
+                             ErrorTolerance { 8_stDeg },
+                             VelocityTolerance { 400_degps });
 
 // large tolerances
-Tolerances largeLinearTolerances(1_sec, ErrorTolerance { 6_in });
+Tolerances largeLinearTolerances(1_sec, ErrorTolerance { 5_in });
 Tolerances largeAngularTolerances(1_sec, ErrorTolerance { 15_stDeg });
 
 // chain tolerances
 Tolerances chainLinearTolerances(1_sec, ErrorTolerance { 6_in });
-Tolerances chainAngularTolerances(1_sec, ErrorTolerance { 15_stDeg });
+Tolerances chainAngularTolerances(1_sec, ErrorTolerance { 20_stDeg });
 
 normalLargeChainTolerances tolerances(linearTolerances,
                                       angularTolerances,
@@ -177,8 +174,8 @@ Controllers controllers(
   lyfast::VelocityFeedforward<lyfast::VelocityController>(velocity_controller),
 
   // slew controllers
-  LinearSlewController(0.2_volt, 0.08_volt),
-  AngularSlewController(0.3_volt),
+  LinearSlewController(0.07_volt, 0.06_volt),
+  AngularSlewController(0.8_volt),
 
   // voltage constraints controllers
   // (included just so they can be set per motion)
@@ -227,48 +224,49 @@ void spline_test() {
 
     // print out final trajectory and debug info
 
-    auto print =
-      []<typename T>(std::string name, std::vector<T>& list, T target_units) {
-          std::cout << name << "=\\left[";
-          for (size_t i = 0; i < list.size(); i++) {
-              if (i != 0) std::cout << ",";
-              std::cout << list[i].convert(target_units);
-          }
-          std::cout << "\\right]" << std::endl;
-      };
+    // auto print =
+    //   []<typename T>(std::string name, std::vector<T>& list, T target_units)
+    //   {
+    //       std::cout << name << "=\\left[";
+    //       for (size_t i = 0; i < list.size(); i++) {
+    //           if (i != 0) std::cout << ",";
+    //           std::cout << list[i].convert(target_units);
+    //       }
+    //       std::cout << "\\right]" << std::endl;
+    //   };
 
-    print("a_{kin}", spline_trajectory.max_kin_accel_debug, Finps2);
-    print("a_{turn}", spline_trajectory.max_turn_accel_debug, Finps2);
-    print("d_{kin}", spline_trajectory.max_kin_decel_debug, Finps2);
-    print("d_{turn}", spline_trajectory.max_turn_decel_debug, Finps2);
+    // print("a_{kin}", spline_trajectory.max_kin_accel_debug, Finps2);
+    // print("a_{turn}", spline_trajectory.max_turn_accel_debug, Finps2);
+    // print("d_{kin}", spline_trajectory.max_kin_decel_debug, Finps2);
+    // print("d_{turn}", spline_trajectory.max_turn_decel_debug, Finps2);
+    // //
+    // print("v_{kin}", spline_trajectory.max_kin_vel_debug, Finps);
+    // print("v_{turn}", spline_trajectory.max_turn_vel_debug, Finps);
+    // print("v_{friction}", spline_trajectory.max_friction_vel_debug, Finps);
     //
-    print("v_{kin}", spline_trajectory.max_kin_vel_debug, Finps);
-    print("v_{turn}", spline_trajectory.max_turn_vel_debug, Finps);
-    print("v_{friction}", spline_trajectory.max_friction_vel_debug, Finps);
-
-    print("v_{forward}", spline_trajectory.forwards_pass_debug, Finps);
-    print("v_{backward}", spline_trajectory.backwards_pass_debug, Finps);
-
-    print("v_{final}", spline_trajectory.final_vels_debug, Finps);
-
-    std::cout << "l_{times}=\\left[";
-    for (auto& point : spline_trajectory.points) {
-        std::cout << point.travel_time.convert(sec) << ",";
-    }
-    std::cout << "\\right]" << std::endl;
-
-    std::cout << "l_{points}=\\left[";
-    for (auto& point : spline_trajectory.points) {
-        std::cout << "\\left(" << point.point.x.convert(in) << ","
-                  << point.point.y.convert(in) << "\\right),";
-    }
-    std::cout << "\\right]" << std::endl;
-
-    std::cout << "l_{headings}=\\left[";
-    for (auto& point : spline_trajectory.points) {
-        std::cout << point.heading.internal() << ",";
-    }
-    std::cout << "\\right]" << std::endl;
+    // print("v_{forward}", spline_trajectory.forwards_pass_debug, Finps);
+    // print("v_{backward}", spline_trajectory.backwards_pass_debug, Finps);
+    //
+    // print("v_{final}", spline_trajectory.final_vels_debug, Finps);
+    //
+    // std::cout << "l_{times}=\\left[";
+    // for (auto& point : spline_trajectory.points) {
+    //     std::cout << point.travel_time.convert(sec) << ",";
+    // }
+    // std::cout << "\\right]" << std::endl;
+    //
+    // std::cout << "l_{points}=\\left[";
+    // for (auto& point : spline_trajectory.points) {
+    //     std::cout << "\\left(" << point.point.x.convert(in) << ","
+    //               << point.point.y.convert(in) << "\\right),";
+    // }
+    // std::cout << "\\right]" << std::endl;
+    //
+    // std::cout << "l_{headings}=\\left[";
+    // for (auto& point : spline_trajectory.points) {
+    //     std::cout << point.heading.internal() << ",";
+    // }
+    // std::cout << "\\right]" << std::endl;
 
     // run spline on ramsette
     blazing::lyfast::Ramsete(controllers,
