@@ -21,6 +21,14 @@ namespace blazing {
 namespace lyfast {
 namespace mp {
 
+struct PointConstraint {
+    std::variant<float, FLength> timeframe;
+
+    FLinearVelocity vel = LinearVelocity(infinity());
+    FLinearAcceleration accel = LinearAcceleration(infinity());
+    FLinearAcceleration decel = LinearAcceleration(infinity());
+};
+
 struct MotionPoint {
     geometry::Point point;
     FCurvature curvature;
@@ -92,18 +100,23 @@ class Trajectory {
     // change in distance between points
     FLength delta_distance;
 
+    std::vector<PointConstraint> point_constraints;
+
     // total time that the motion should take
     FTime travel_time;
 
-    DifferentialSpeeds get_by_distance(FLength distance);
 
     FLength getTotalDistance();
 
-    DifferentialSpeeds get_by_time(Time time);
+    int get_index_by_distance(Length distance);
+    int get_index_by_time(Time time);
+
+    DifferentialSpeeds get_vel_by_time(Time time);
     Time getTotalTime();
 
     Trajectory(geometry::Curve* curve,
                Constraints constraints,
+               std::vector<PointConstraint> point_constraints,
                LinearVelocity start_vel,
                LinearVelocity end_vel,
                Length change_in_distance);

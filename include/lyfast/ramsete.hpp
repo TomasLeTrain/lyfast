@@ -18,6 +18,7 @@ namespace lyfast {
 struct RamseteState {
     std::optional<Time> last_time;
     Time start_time;
+    Length start_distance;
 };
 
 template<typename ControllersType,
@@ -55,6 +56,7 @@ class Ramsete : public Motion<ControllersType,
             m_state = {
                 .last_time = now(),
                 .start_time = now(),
+                .start_distance = this->tracker.getForwardTravel(),
             };
             // done to prevent values like delta_time being 0
             return std::nullopt;
@@ -62,8 +64,6 @@ class Ramsete : public Motion<ControllersType,
 
         RamseteState& state = m_state.value();
         motionExecutionResult result;
-
-        units::Pose target;
 
         Time delta_time = deltaTime(state.last_time);
 
@@ -74,17 +74,32 @@ class Ramsete : public Motion<ControllersType,
             return reversed ? reverseAngle(heading) : heading;
         }();
 
-        units::V2Position local_error = (target - position).rotatedBy(-heading);
+        int target_idx =
+          // target_trajectory->get_index_by_time(now() - state.start_time);
+          target_trajectory->get_index_by_distance(
+            units::max(0_in,
+                       this->tracker.getForwardTravel() - state.start_distance
+                       // lookahead some distance
+                       // + 1_in
+                       ));
 
-        DifferentialSpeeds target_speeds =
-          target_trajectory->get_by_time(now() - state.start_time);
+        mp::MotionPoint target_motion_point =
+          target_trajectory->points[target_idx];
+
+        units::Pose target = { target_motion_point.point,
+                               target_motion_point.heading };
+
+        DifferentialSpeeds target_speeds = { target_motion_point.vel,
+                                             Frad * target_motion_point.vel *
+                                               target_motion_point.curvature };
+
+        units::V2Position local_error = (target - position).rotatedBy(-heading);
 
         double reverse_multiplier = reversed ? -1.0 : 1.0;
 
         // reverse linear_velocity if needed
         target_speeds.linear_velocity *= reverse_multiplier;
-        // TODO: angular_velocity from target speeds might be different
-        // direction (ccw vs cw?)
+        // reverse angular as well?
 
         Angle errorAngle = angleError(target.orientation, heading);
 
@@ -111,8 +126,8 @@ class Ramsete : public Motion<ControllersType,
           this->controllers.velocity_feedforward.update(new_speeds, delta_time);
 
         // check that we haven't finished the path timewise
-        result.finished =
-          timeoutDone(target_trajectory->getTotalTime(), state.start_time);
+        result.finished = false;
+        // timeoutDone(target_trajectory->getTotalTime(), state.start_time);
 
         // finished if any of the available tolerances or timeout are triggered
         if (result.finished) {
@@ -127,6 +142,21 @@ class Ramsete : public Motion<ControllersType,
         // normalizes voltages to [-1, 1]
         auto [normal_left_voltage, normal_right_voltage] =
           desaturate(saturated_voltages, 1_volt);
+
+        std::cout << std::format("pos: {:.2f} {:.2f}, error: {:.2f} "
+                                 "{:.2f}, target: {:.2f} {:.2f} k {:.4f}",
+                                 // "lin/alg: {:.2f} {:.2f}, k {:.4f}",
+                                 // new_speeds.linear_velocity.convert(inps),
+                                 // new_speeds.angular_velocity.convert(radps),
+                                 // k.internal())
+                                 position.x.convert(in),
+                                 position.y.convert(in),
+                                 local_error.x.convert(in),
+                                 local_error.y.convert(in),
+                                 target.x.convert(in),
+                                 target.y.convert(in),
+                                 k.internal())
+                  << std::endl;
 
         this->drivetrain.moveTank(normal_left_voltage, normal_right_voltage);
 

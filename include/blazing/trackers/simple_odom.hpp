@@ -105,28 +105,26 @@ class SimpleOdomTracker {
         last_left_dist = left_dist;
         last_right_dist = right_dist;
 
-        const Length average_distance = (left_delta + right_delta) / 2;
+        const Length average_delta = (left_delta + right_delta) / 2;
 
         // NOTE: this is not super accurate, might return 0 due to the polling
         // rate
         linear_velocity = delta_time == 0_sec ? LinearVelocity(INFINITY) :
-                                                average_distance / delta_time;
+                                                average_delta / delta_time;
 
-        forward_travel += average_distance;
-        distance_traveled += units::abs(average_distance);
+        forward_travel += average_delta;
+        distance_traveled += units::abs(average_delta);
 
         const Angle heading = from_cDeg(imu->get_rotation());
         if (!last_heading) last_heading = heading;
 
-        Angle heading_theta = heading - *last_heading;
-        angular_velocity = delta_time == 0_sec ? AngularVelocity(INFINITY) :
-                                                 heading_theta / delta_time;
+        angular_velocity = imu->get_gyro_rate().z * degps;
         last_heading = heading;
 
         // update pose
         units::V2Position change_vector = {
-            average_distance * units::cos(heading),
-            average_distance * units::sin(heading)
+            average_delta * units::cos(heading),
+            average_delta * units::sin(heading)
         };
 
         pose = { pose + change_vector, heading };

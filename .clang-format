@@ -27,7 +27,6 @@ AlwaysBreakBeforeMultilineStrings: false
 BinPackArguments: false
 BinPackParameters: false
 BitFieldColonSpacing: Both
-BreakAdjacentStringLiterals: false
 BreakAfterAttributes: Always
 BreakAfterReturnType: None
 BreakBeforeBinaryOperators: None
@@ -38,7 +37,10 @@ BreakBeforeTernaryOperators: false
 BreakConstructorInitializers: BeforeColon
 BreakFunctionDefinitionParameters: false
 BreakInheritanceList: AfterComma
+
 BreakStringLiterals: true
+BreakAdjacentStringLiterals: true
+
 BreakTemplateDeclarations: Yes
 ColumnLimit: 80
 CompactNamespaces: false
@@ -71,7 +73,11 @@ ReflowComments: true
 RequiresClausePosition: OwnLine
 RequiresExpressionIndentation: OuterScope
 SeparateDefinitionBlocks: Always
-SortIncludes: CaseSensitive
+
+SortIncludes:
+  Enabled: true
+  IgnoreCase: false
+
 SortUsingDeclarations: Lexicographic
 SpaceAfterCStyleCast: false
 SpaceAfterLogicalNot: false
