@@ -247,6 +247,19 @@ class Stanley : public Motion<ControllersType,
 
         return this->getReference();
     }
+
+    [[nodiscard("motion won't be executed unless an executor is used!")]]
+    auto closeThreshold(Length threshold) {
+        this->close_threshold = threshold;
+        return this->getReference();
+    }
+
+    [[nodiscard("motion won't be executed unless an executor is used!")]]
+    auto timeout(Time timeout) {
+        this->m_timeout = timeout;
+
+        return this->getReference();
+    }
 };
 
 } // namespace lyfast

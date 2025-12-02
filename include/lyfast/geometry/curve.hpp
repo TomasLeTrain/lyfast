@@ -56,6 +56,8 @@ class Curve {
     // gets time by distance
     virtual float t_by_s(FLength target) = 0;
 
+    virtual double findClosestPointT(Point point) = 0;
+
     Curve(Point first_endpoint, Point last_endpoint)
         : endpoints({ first_endpoint, last_endpoint }) {}
 

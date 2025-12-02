@@ -25,12 +25,15 @@ template<typename ControllersType,
          typename DrivetrainType,
          typename TrackerType,
          typename TolerancesType>
-    requires poseTracker<TrackerType> && TankDrivetrain<DrivetrainType> &&
-             hasVelocityFeedforward<ControllersType>
+    requires poseTracker<TrackerType> && forwardTravelTracker<TrackerType> &&
+               TankDrivetrain<DrivetrainType> &&
+               hasVelocityFeedforward<ControllersType>
 class Ramsete : public Motion<ControllersType,
                               DrivetrainType,
                               TrackerType,
-                              TolerancesType> {
+                              TolerancesType>,
+                public LinearMotion,
+                public AngularMotion {
   private:
     using zeta_units = Divided<Number, Angle>;
     using beta_units = Exponentiated<Divided<Angle, Length>, std::ratio<2>>;
@@ -45,6 +48,9 @@ class Ramsete : public Motion<ControllersType,
     // beta = rad^2 / length^2
     const Exponentiated<Divided<Angle, Length>, std::ratio<2>> beta =
       0.5 * units::pow<2>(rad / m);
+
+    std::optional<Time> m_timeout = std::nullopt;
+    Length close_threshold = 4_in;
 
   public:
     int getLoopDelayTime() override {
@@ -75,13 +81,11 @@ class Ramsete : public Motion<ControllersType,
         }();
 
         int target_idx =
-          // target_trajectory->get_index_by_time(now() - state.start_time);
-          target_trajectory->get_index_by_distance(
-            units::max(0_in,
-                       this->tracker.getForwardTravel() - state.start_distance
-                       // lookahead some distance
-                       // + 1_in
-                       ));
+          // target_trajectory->get_index_by_distance(
+          //        units::max(0_in,
+          //                   this->tracker.getForwardTravel() -
+          //                   state.start_distance));
+          target_trajectory->findClosestPointIndex(position);
 
         mp::MotionPoint target_motion_point =
           target_trajectory->points[target_idx];
@@ -125,11 +129,42 @@ class Ramsete : public Motion<ControllersType,
         DifferentialVoltages voltages =
           this->controllers.velocity_feedforward.update(new_speeds, delta_time);
 
-        // check that we haven't finished the path timewise
-        result.finished = false;
-        // timeoutDone(target_trajectory->getTotalTime(), state.start_time);
+        auto curve_endpoint = target_trajectory->points.back().point;
+        auto curve_endpoint_heading = target_trajectory->points.back().heading;
+        auto distance_to_end = curve_endpoint.distanceTo(position);
 
-        // finished if any of the available tolerances or timeout are triggered
+        // update tolerances
+        this->tolerances.linearErrorToleranceUpdate(distance_to_end);
+        this->tolerances.linearVelocityToleranceUpdate(
+          this->tracker.getLinearVelocity());
+        this->tolerances.linearHalfcircleToleranceUpdate(
+          position,
+          curve_endpoint,
+          curve_endpoint_heading);
+
+        result.finished = false;
+
+        // check tolerances
+        if constexpr (hasLinearTolerance<TolerancesType>) {
+            result.inSmallTolerance = this->tolerances.linear.withinTolerance();
+            result.finished |= this->tolerances.linear.finished();
+        }
+        if constexpr (hasLargeLinearTolerance<TolerancesType>) {
+            result.inLargeTolerance =
+              this->tolerances.large_linear.withinTolerance();
+            result.finished |= this->tolerances.large_linear.finished();
+        }
+        // dont use to check if we have finished
+        if constexpr (hasChainLinearTolerance<TolerancesType>) {
+            result.inChainTolerance =
+              this->tolerances.chain_linear.withinTolerance();
+        }
+
+        // check timeout
+        result.finished |= timeoutDone(m_timeout, state.start_time);
+
+        // finished if any of the available tolerances or timeout are
+        // triggered
         if (result.finished) {
             this->drivetrain.moveArcade(0_volt, 0_volt);
             // returns immediately to avoid more movement
@@ -143,20 +178,21 @@ class Ramsete : public Motion<ControllersType,
         auto [normal_left_voltage, normal_right_voltage] =
           desaturate(saturated_voltages, 1_volt);
 
-        std::cout << std::format("pos: {:.2f} {:.2f}, error: {:.2f} "
-                                 "{:.2f}, target: {:.2f} {:.2f} k {:.4f}",
-                                 // "lin/alg: {:.2f} {:.2f}, k {:.4f}",
-                                 // new_speeds.linear_velocity.convert(inps),
-                                 // new_speeds.angular_velocity.convert(radps),
-                                 // k.internal())
-                                 position.x.convert(in),
-                                 position.y.convert(in),
-                                 local_error.x.convert(in),
-                                 local_error.y.convert(in),
-                                 target.x.convert(in),
-                                 target.y.convert(in),
-                                 k.internal())
-                  << std::endl;
+        // std::cout << std::format("pos: {:.2f} {:.2f}, error: {:.2f} "
+        //                          "{:.2f}, target: {:.2f} {:.2f} k {:.4f}",
+        //                          // "lin/alg: {:.2f} {:.2f}, k {:.4f}",
+        //                          // new_speeds.linear_velocity.convert(inps),
+        //                          //
+        //                          new_speeds.angular_velocity.convert(radps),
+        //                          // k.internal())
+        //                          position.x.convert(in),
+        //                          position.y.convert(in),
+        //                          local_error.x.convert(in),
+        //                          local_error.y.convert(in),
+        //                          target.x.convert(in),
+        //                          target.y.convert(in),
+        //                          k.internal())
+        //           << std::endl;
 
         this->drivetrain.moveTank(normal_left_voltage, normal_right_voltage);
 
@@ -201,6 +237,20 @@ class Ramsete : public Motion<ControllersType,
 
         return this->getReference();
     }
+
+    [[nodiscard("motion won't be executed unless an executor is used!")]]
+    auto closeThreshold(Length threshold) {
+        this->close_threshold = threshold;
+        return this->getReference();
+    }
+
+    [[nodiscard("motion won't be executed unless an executor is used!")]]
+    auto timeout(Time timeout) {
+        this->m_timeout = timeout;
+
+        return this->getReference();
+    }
+
 }; // namespace lyfast
 
 } // namespace lyfast

@@ -37,6 +37,22 @@ class Spline : public Curve {
     float t_by_s(FLength target, float t_guess) override;
     float t_by_s(FLength target) override;
 
+    double findClosestPointT(Point point) override {
+        Length best = Length(INFINITY);
+        double result = 0;
+
+        double samples = 800;
+
+        for (double t = 0; t <= 1; t += 1.0 / samples) {
+            Length curr_distance = point.distanceTo(f(t));
+            if (curr_distance < best) {
+                best = curr_distance;
+                result = t;
+            }
+        }
+        return result;
+    }
+
     Spline(std::vector<Curve*>&& curves);
 
     ~Spline() override = default;

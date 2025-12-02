@@ -104,7 +104,6 @@ class Trajectory {
     // total time that the motion should take
     FTime travel_time;
 
-
     FLength getTotalDistance();
 
     int get_index_by_distance(Length distance);
@@ -112,6 +111,21 @@ class Trajectory {
 
     DifferentialSpeeds get_vel_by_time(Time time);
     Time getTotalTime();
+
+    int findClosestPointIndex(geometry::Point point) {
+        Length best = Length(INFINITY);
+        double result = 0;
+
+        for (int i = 0; i < points.size(); i++) {
+            auto& motion_point = points[i];
+            Length curr_distance = point.distanceTo(motion_point.point);
+            if (curr_distance < best) {
+                best = curr_distance;
+                result = i;
+            }
+        }
+        return result;
+    }
 
     Trajectory(geometry::Curve* curve,
                Constraints constraints,

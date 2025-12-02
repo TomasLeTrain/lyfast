@@ -60,7 +60,7 @@ class CubicBezier : public Curve {
 
     // curvature at t (Sprunk 12)
     FCurvature c(float t) override;
-	
+
     // curvature at t (Sprunk 12)
     FCurvature c(float t, Point df_t) override;
 
@@ -70,6 +70,20 @@ class CubicBezier : public Curve {
     float t_by_s(FLength target, float t_guess) override;
 
     float t_by_s(FLength target) override;
+
+    double findClosestPointT(Point point) override {
+        Length best = Length(INFINITY);
+        double result = 0;
+
+        for (double t = 0; t <= 1; t += 1.0 / 400) {
+            Length curr_distance = point.distanceTo(f(t));
+            if (curr_distance < best) {
+                best = curr_distance;
+                result = t;
+            }
+        }
+        return result;
+    }
 
     CubicBezier(std::array<Point, 4> controls);
     CubicBezier(Point start, Point control0, Point control1, Point end);
