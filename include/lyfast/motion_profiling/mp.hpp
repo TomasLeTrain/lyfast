@@ -14,7 +14,6 @@
 #include <memory>
 #include <vector>
 
-// #include <arm_neon.h>
 using namespace std;
 
 namespace blazing {

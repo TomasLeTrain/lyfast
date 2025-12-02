@@ -1,17 +1,6 @@
 #include "main.h"
 #include "blazing/api.hpp"
-#include "blazing/drivetrains/differential.hpp"
-#include "blazing/utils.hpp"
-#include "lyfast/geometry/cubicBezier.hpp"
-#include "lyfast/geometry/curve.hpp"
-#include "lyfast/geometry/line.hpp"
-#include "lyfast/geometry/spline.hpp"
-#include "lyfast/motion_profiling/constraints.hpp"
-#include "lyfast/motion_profiling/mp.hpp"
-#include "lyfast/ramsete.hpp"
-#include "lyfast/stanley.hpp"
-#include "lyfast/vel_controller.hpp"
-#include "pros/abstract_motor.hpp"
+#include "lyfast/api.hpp"
 #include "pros/apix.h"
 #include "pros/imu.h"
 #include "pros/motor_group.hpp"
@@ -205,36 +194,35 @@ Controllers controllers(
 
 void spline_test() {
 
-    blazing::lyfast::geometry::CubicBezier test_cubic({ -24_in, -12_in },
-                                                      // { -29_in, -32_in },
-                                                      { -37_in, -47.1_in },
-                                                      { -37_in, -47.1_in },
-                                                      { -56.18_in, -47.1_in });
+    blazing::lyfast::geometry::Line line({ -23.6_in, -23.6_in },
+                                         { -34.72_in, -39.79_in });
+    // blazing::lyfast::geometry::CubicBezier test_cubic({ -34.72_in, -39.79_in
+    // },
+    //                                                   { -37.84_in, -42.28_in
+    //                                                   }, { -43.38_in,
+    //                                                   -47.1_in }, { -56_in,
+    //                                                   -47.1_in });
 
-    blazing::lyfast::geometry::CubicBezier first_cubic({ 15.35_in, 47.2_in },
-                                                       { 23.2_in, 47.2_in },
-                                                       { 23.2_in, 35_in },
-                                                       { 15.1_in, 35_in });
-    blazing::lyfast::geometry::Line line({ 15.1_in, 35_in }, { -40_in, 35_in });
-    blazing::lyfast::geometry::CubicBezier second_cubic({ -40_in, 35_in },
-                                                        { -50_in, 35_in },
-                                                        { -44_in, 47.2_in },
-                                                        { -56_in, 47.2_in });
+    blazing::lyfast::geometry::CubicBezier test_cubic({ -34.72_in, -39.79_in },
+                                                      { -36.58_in, -41.79_in },
+                                                      { -36.86_in, -46.17_in },
+                                                      { -56_in, -47.1_in });
 
-    blazing::lyfast::geometry::Spline spline(
-      { &first_cubic, &line, &second_cubic });
-    // lyfast::geometry::Spline spline({ &first_cubic, &line, &second_cubic });
+    blazing::lyfast::geometry::Spline spline({ &line, &test_cubic });
 
     blazing::lyfast::mp::RobotConstraints robot_constraints(10.5_in,
-                                                            0.04,
+                                                            // 0.043,
+                                                            // 0.08,
+                                                            0.2,
                                                             3.25_in,
                                                             450_rpm,
                                                             12_lb,
                                                             6.0f);
 
     blazing::lyfast::mp::LinearConstraints linear_constraints(70_inps,
-                                                              10.0_mps2,
-                                                              1.5_mps2);
+                                                              20.0_mps2,
+                                                              2.0_mps2);
+    // 1.6_mps2);
     // effectively infinity
     blazing::lyfast::mp::AngularConstraints angular_constraints(20_radps,
                                                                 20_radps2,
@@ -244,15 +232,8 @@ void spline_test() {
                                                  linear_constraints,
                                                  angular_constraints);
 
-    // blazing::lyfast::mp::Trajectory spline_trajectory(&spline,
-    //                                                   constraints,
-    //                                                   {},
-    //                                                   0_mps,
-    //                                                   0_mps,
-    //                                                   0.1_in);
-
     blazing::lyfast::mp::Trajectory cubic_trajectory(
-      &test_cubic,
+      &spline,
       constraints,
       {
         // lyfast::mp::PointConstraint {
@@ -316,7 +297,7 @@ void spline_test() {
                              chassis,
                              &cubic_trajectory,
                              0.7,
-                             25.0) |
+                             35.0) |
       run;
 
     // run spline on stanley
@@ -394,7 +375,7 @@ void manual_vel_testing() {
 }
 
 void opcontrol() {
-    arc_pose_tracker.setPose({ -23.6_in, -23.6_in / 2, 270_stDeg });
+    arc_pose_tracker.setPose({ -23.6_in, -23.6_in, 270_stDeg });
     spline_test();
     std::cout << "finished motion!" << std::endl;
     // drivetrain.moveTank(0_volt, 0_volt);
