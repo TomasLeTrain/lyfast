@@ -162,18 +162,28 @@ class Motion : public MotionBase {
     // }
 
     // half circle tolerances
-    motionChanger halfcircleTolerance(this Self&& self, Length tolerance) {
-        self.tolerances.linear.setHalfcircleTolerance(tolerance);
+    motionChanger halfcircleTolerance(this Self&& self,
+                                      std::optional<Length> back_tolerance,
+                                      Length radius_tolerance = 5_in) {
+        self.tolerances.linear.setHalfcircleTolerance(back_tolerance,
+                                                      radius_tolerance);
         return self.getReference();
     }
 
-    motionChanger largeHalfcircleTolerance(this Self&& self, Length tolerance) {
-        self.tolerances.large_linear.setHalfcircleTolerance(tolerance);
+    motionChanger largeHalfcircleTolerance(this Self&& self,
+                                           std::optional<Length> back_tolerance,
+                                           Length radius_tolerance = 5_in) {
+        self.tolerances.large_linear.setHalfcircleTolerance(back_tolerance,
+                                                            radius_tolerance);
         return self.getReference();
     }
 
-    motionChanger chainHalfcircleTolerance(this Self&& self, Length tolerance) {
-        self.tolerances.chain_linear.setHalfcircleTolerance(tolerance);
+    motionChanger chainHalfcircleTolerance(this Self&& self,
+                                           std::optional<Length> back_tolerance,
+                                           Length radius_tolerance = 5_in) {
+
+        self.tolerances.chain_linear.setHalfcircleTolerance(back_tolerance,
+                                                            radius_tolerance);
         return self.getReference();
     }
 

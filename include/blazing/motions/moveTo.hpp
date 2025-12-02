@@ -28,15 +28,15 @@ template<typename ControllersType,
          typename TrackerType,
          typename TolerancesType>
     requires poseTracker<TrackerType> && linearVelocityTracker<TrackerType> &&
-             ArcadeDrivetrain<DrivetrainType> &&
-             hasAngularFeedback<ControllersType> &&
-             hasLinearFeedback<ControllersType>
+               ArcadeDrivetrain<DrivetrainType> &&
+               hasAngularFeedback<ControllersType> &&
+               hasLinearFeedback<ControllersType>
 class moveTo : public Motion<ControllersType,
                              DrivetrainType,
                              TrackerType,
                              TolerancesType>,
-                  public LinearMotion,
-                  public AngularMotion {
+               public LinearMotion,
+               public AngularMotion {
   private:
     units::V2Position target;
 
@@ -114,9 +114,10 @@ class moveTo : public Motion<ControllersType,
         this->tolerances.linearErrorToleranceUpdate(linear_error);
         this->tolerances.linearVelocityToleranceUpdate(
           this->tracker.getLinearVelocity());
+		// TODO: does half circle exit make sense here?
         this->tolerances.linearHalfcircleToleranceUpdate(position,
                                                          target,
-                                                         heading);
+                                                         target_heading);
 
         result.finished = false;
 

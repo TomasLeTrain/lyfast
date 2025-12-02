@@ -11,12 +11,17 @@ namespace blazing {
 class ToleranceBase {
   protected:
     std::optional<bool> in_tolerance = std::nullopt;
+    bool m_stop_instantly = false;
 
-    void update_in_tolerance(bool tolerance) {
+    void update_in_tolerance(std::optional<bool> tolerance,
+                             bool stop_instantly = false) {
         if (in_tolerance.has_value()) {
-            in_tolerance = in_tolerance.value() && tolerance;
+            if (tolerance.has_value())
+                in_tolerance = in_tolerance.value() && tolerance.value();
+            m_stop_instantly |= stop_instantly;
         } else {
-            in_tolerance = tolerance;
+            if (tolerance.has_value()) in_tolerance = tolerance.value();
+            m_stop_instantly = stop_instantly;
         }
     }
 };
@@ -76,33 +81,58 @@ VelocityTolerance(T) -> VelocityTolerance<Multiplied<T, Time>>;
 
 class HalfCircleTolerance : virtual ToleranceBase {
   private:
-    std::optional<Length> radius_tolerance = std::nullopt;
+    std::optional<Length> back_tolerance = std::nullopt;
+    Length radius_tolerance = 5_in;
+
     std::optional<bool> prev_side = std::nullopt;
 
   public:
-    HalfCircleTolerance(Length radius_tolerance)
-        : radius_tolerance(radius_tolerance) {}
+    HalfCircleTolerance(std::optional<Length> back_tolerance,
+                        Length radius_tolerance = 5_in)
+        : back_tolerance(back_tolerance),
+          radius_tolerance(radius_tolerance) {}
 
-    void setHalfcircleTolerance(Length radius_tolerance) {
+    void setHalfcircleTolerance(std::optional<Length> back_tolerance,
+                                Length radius_tolerance = 5_in) {
+        this->back_tolerance = back_tolerance;
         this->radius_tolerance = radius_tolerance;
     }
 
     void halfcircleToleranceUpdate(units::V2Position pose,
                                    units::V2Position target,
-                                   Angle theta) {
-        bool side =
-          radius_tolerance
-            .transform([pose, target, theta](Length tolerance) -> bool {
-                return (pose.y - target.y) * -units::sin(theta) >=
-                       units::cos(theta) * (pose.x - target.y) + tolerance;
-            })
-            .value_or(false);
+                                   Angle target_theta) {
+        // don't do anything if back tolerance is not specified
+        // done to be able to disable tolerance entirely
+        if (!back_tolerance.has_value()) {
+            return;
+        }
 
-        if (prev_side == std::nullopt) prev_side = side;
-        bool curr_tolerance_active = side != *prev_side;
+        bool side = [this, pose, target, target_theta] -> bool {
+            auto unit_vector =
+              units::Vector2D<Number>::fromPolar(target_theta, 1);
+            Length dot_product = (target - pose) * unit_vector;
+
+            // applied so that it shifts back tolerance
+            if (prev_side && back_tolerance)
+                dot_product -= units::sgn(*prev_side) * back_tolerance.value();
+
+            return dot_product <= 0_m;
+        }();
+
+        if (!prev_side) prev_side = side;
+
+        // if side's switched, tolerance is active
+        bool curr_tolerance_active = (side != *prev_side);
+
+        // only applies when close enough
+        curr_tolerance_active &= pose.distanceTo(target) < radius_tolerance;
+
         prev_side = side;
 
-        update_in_tolerance(curr_tolerance_active);
+        // does not mess with other tolerances, only determines an instant exit
+        // TODO: should it be a normal exit (with timeout) but override whether
+        // others are active?
+        update_in_tolerance(std::nullopt, curr_tolerance_active);
     }
 };
 
@@ -128,12 +158,13 @@ class Tolerances : virtual ToleranceBase,
     }
 
     bool withinTolerance() {
-        return in_tolerance.value_or(false);
+        return in_tolerance.value_or(false) || m_stop_instantly;
     }
 
     // assumes each tolerance check has been performed
     bool finished() {
         if (withinTolerance()) {
+            // reset in_tolerance
             in_tolerance = std::nullopt;
 
             // set timestamp if it doesn't have one
@@ -148,6 +179,9 @@ class Tolerances : virtual ToleranceBase,
                   .value_or(false)) {
                 return true;
             }
+
+            if (m_stop_instantly) return true;
+
             // not enough time has passed
             // return false but don't reset anything
             return false;
@@ -276,32 +310,30 @@ concept hasChainAngularVelocityTolerance =
 // half circle
 template<typename TolerancesType>
 concept hasLinearHalfcircleTolerance = requires(TolerancesType tolerances,
-                                                Length tolerance,
                                                 units::V2Position pose,
                                                 units::V2Position target,
-                                                Angle theta) {
-    tolerances.linear.setHalfcircleTolerance(tolerance);
-    tolerances.linear.halfcircleToleranceUpdate(pose, target, theta);
+                                                Angle target_theta) {
+    tolerances.linear.halfcircleToleranceUpdate(pose, target, target_theta);
 };
 
 template<typename TolerancesType>
 concept hasLargeLinearHalfcircleTolerance = requires(TolerancesType tolerances,
-                                                     Length tolerance,
                                                      units::V2Position pose,
                                                      units::V2Position target,
-                                                     Angle theta) {
-    tolerances.large_linear.setHalfcircleTolerance(tolerance);
-    tolerances.large_linear.halfcircleToleranceUpdate(pose, target, theta);
+                                                     Angle target_theta) {
+    tolerances.large_linear.halfcircleToleranceUpdate(pose,
+                                                      target,
+                                                      target_theta);
 };
 
 template<typename TolerancesType>
 concept hasChainLinearHalfcircleTolerance = requires(TolerancesType tolerances,
-                                                     Length tolerance,
                                                      units::V2Position pose,
                                                      units::V2Position target,
-                                                     Angle theta) {
-    tolerances.chain_linear.setHalfcircleTolerance(tolerance);
-    tolerances.chain_linear.halfcircleToleranceUpdate(pose, target, theta);
+                                                     Angle target_theta) {
+    tolerances.chain_linear.halfcircleToleranceUpdate(pose,
+                                                      target,
+                                                      target_theta);
 };
 
 struct TolerancesGroup {
@@ -312,7 +344,7 @@ struct TolerancesGroup {
 
     virtual void linearHalfcircleToleranceUpdate(units::V2Position pose,
                                                  units::V2Position target,
-                                                 Angle theta) {}
+                                                 Angle target_theta) {}
 
     virtual void angularErrorToleranceUpdate(Angle error) {}
 
@@ -344,9 +376,9 @@ struct SimpleTolerances : public TolerancesGroup {
 
     void linearHalfcircleToleranceUpdate(units::V2Position pose,
                                          units::V2Position target,
-                                         Angle theta) override {
+                                         Angle target_theta) override {
         if constexpr (hasLinearHalfcircleTolerance<SimpleTolerances>) {
-            linear.halfcircleToleranceUpdate(pose, target, theta);
+            linear.halfcircleToleranceUpdate(pose, target, target_theta);
         }
     }
 
@@ -402,12 +434,14 @@ struct normalLargeTolerances
 
     void linearHalfcircleToleranceUpdate(units::V2Position pose,
                                          units::V2Position target,
-                                         Angle theta) override {
-        inherited_type::linearHalfcircleToleranceUpdate(pose, target, theta);
+                                         Angle target_theta) override {
+        inherited_type::linearHalfcircleToleranceUpdate(pose,
+                                                        target,
+                                                        target_theta);
 
         if constexpr (hasLargeLinearHalfcircleTolerance<
                         normalLargeTolerances>) {
-            large_linear.halfcircleToleranceUpdate(pose, target, theta);
+            large_linear.halfcircleToleranceUpdate(pose, target, target_theta);
         }
     }
 
@@ -477,12 +511,14 @@ struct normalLargeChainTolerances
 
     void linearHalfcircleToleranceUpdate(units::V2Position pose,
                                          units::V2Position target,
-                                         Angle theta) override {
-        inherited_type::linearHalfcircleToleranceUpdate(pose, target, theta);
+                                         Angle target_theta) override {
+        inherited_type::linearHalfcircleToleranceUpdate(pose,
+                                                        target,
+                                                        target_theta);
 
         if constexpr (hasChainLinearHalfcircleTolerance<
                         normalLargeChainTolerances>) {
-            chain_linear.halfcircleToleranceUpdate(pose, target, theta);
+            chain_linear.halfcircleToleranceUpdate(pose, target, target_theta);
         }
     }
 

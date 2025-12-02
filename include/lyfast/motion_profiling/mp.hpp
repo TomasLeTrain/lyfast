@@ -116,7 +116,7 @@ class Trajectory {
         Length best = Length(INFINITY);
         double result = 0;
 
-        for (int i = 0; i < points.size(); i++) {
+        for (size_t i = 0; i < points.size(); i++) {
             auto& motion_point = points[i];
             Length curr_distance = point.distanceTo(motion_point.point);
             if (curr_distance < best) {

@@ -138,7 +138,7 @@ class boomerang : public Motion<ControllersType,
                 state.crossed_sideways = true;
 
                 // return carrot;
-				// if crossed we likley just want mtp behavior
+                // if crossed we likely just want mtp behavior
                 return target;
             }
 
@@ -201,7 +201,7 @@ class boomerang : public Motion<ControllersType,
           this->tracker.getLinearVelocity());
         this->tolerances.linearHalfcircleToleranceUpdate(position,
                                                          target,
-                                                         heading);
+                                                         target.orientation);
 
         result.finished = false;
 
