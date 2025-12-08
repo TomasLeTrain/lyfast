@@ -14,8 +14,6 @@
 #include <memory>
 #include <vector>
 
-using namespace std;
-
 namespace blazing {
 namespace lyfast {
 namespace mp {
