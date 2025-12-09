@@ -22,7 +22,6 @@ struct StanleyState {
     std::optional<Time> last_time;
     Time start_time;
     std::optional<Angle> locked_heading;
-    size_t last_trajectory_idx;
 };
 
 template<typename ControllersType,
@@ -30,20 +29,24 @@ template<typename ControllersType,
          typename TrackerType,
          typename TolerancesType>
     requires poseTracker<TrackerType> && linearVelocityTracker<TrackerType> &&
-             ArcadeDrivetrain<DrivetrainType> &&
-             hasAngularFeedback<ControllersType> &&
-             hasLinearFeedback<ControllersType>
+               ArcadeDrivetrain<DrivetrainType> &&
+               hasAngularFeedback<ControllersType> &&
+               hasLinearFeedback<ControllersType> &&
+               hasVelocityFeedforward<ControllersType>
 class Stanley : public Motion<ControllersType,
                               DrivetrainType,
                               TrackerType,
-                              TolerancesType> {
+                              TolerancesType>,
+                public LinearMotion,
+                public AngularMotion {
+
   private:
     std::optional<StanleyState> m_state;
     bool reversed = false;
 
-    Length m_max_lookahead_distance = 6_in;
-    Length m_k_curvature = 20_in;
-    Divided<Voltage, LinearVelocity> m_k_voltage = 1_volt / 1_mps;
+    // Length m_max_lookahead_distance = 6_in;
+    // Length m_k_curvature = 20_in;
+    Divided<Number, Time> m_k = 1 / sec;
 
     std::optional<Time> m_timeout = std::nullopt;
     Length close_threshold = 4_in;
@@ -60,8 +63,7 @@ class Stanley : public Motion<ControllersType,
             m_state = { .close = false,
                         .last_time = now(),
                         .start_time = now(),
-                        .locked_heading = std::nullopt,
-                        .last_trajectory_idx = 0 };
+                        .locked_heading = std::nullopt };
             // done to prevent values like delta_time being 0
             return std::nullopt;
         }
@@ -77,36 +79,14 @@ class Stanley : public Motion<ControllersType,
             return reversed ? reverseAngle(heading) : heading;
         }();
 
-        std::optional<units::V2Position> last_point;
-        std::optional<Length> last_error;
-        size_t trajectory_idx = state.last_trajectory_idx;
-
-        for (; trajectory_idx < target_trajectory->points.size();
-             trajectory_idx++) {
-            auto curr_point = target_trajectory->points[trajectory_idx].point;
-            auto curr_error = curr_point.distanceTo(position);
-
-            // last point had lower error
-            if (last_error.has_value() && curr_error > *last_error) {
-                trajectory_idx--;
-                break;
-            }
-            last_point = curr_point;
-            last_error = curr_error;
-        }
-
-        // no points better than last
-        if (trajectory_idx == target_trajectory->points.size()) {
-            trajectory_idx--;
-        }
-
-        state.last_trajectory_idx = trajectory_idx;
+        size_t trajectory_idx =
+          target_trajectory->findClosestPointIndex(position);
 
         mp::MotionPoint motion_point =
           target_trajectory->points[trajectory_idx];
         units::V2Position curve_target = motion_point.point;
         Angle curve_angle = motion_point.heading;
-        Curvature curve_abs_curvature = units::abs(motion_point.curvature);
+        // Curvature curve_abs_curvature = units::abs(motion_point.curvature);
         LinearVelocity curve_velocity = motion_point.vel;
 
         auto local_target_error =
@@ -114,13 +94,8 @@ class Stanley : public Motion<ControllersType,
         Length crosstrack_error = local_target_error.y;
         Angle angle_error = angleError(curve_angle, heading);
 
-        // lookahead gets shortened as curvature increases to avoid overshoot on
-        // tight turns
-        Length lookahead_distance =
-          m_max_lookahead_distance / (1 + curve_abs_curvature * m_k_curvature);
-
         Angle target_steering =
-          angle_error + units::atan(crosstrack_error / lookahead_distance);
+          angle_error + units::atan(m_k * crosstrack_error / curve_velocity);
 
         auto curve_endpoint = target_trajectory->points.back().point;
         auto distance_to_end = curve_endpoint.distanceTo(position);
@@ -184,11 +159,11 @@ class Stanley : public Motion<ControllersType,
 
         Voltage linear_output;
 
-        // idea here is to use velocities from motion profile to move most of
-        // the way, then use pid for settling
-        // as a hack to avoid using velocity controllers (for now) we directly
-        // translate velocities to voltages with k_voltage
-        linear_output = curve_velocity * m_k_voltage;
+        // used only for linear output (?)
+        DifferentialSpeeds new_speeds = { curve_velocity, 0_radps };
+        DifferentialVoltages voltages =
+          this->controllers.velocity_feedforward.update(new_speeds, delta_time);
+        linear_output = (voltages.left_voltage + voltages.right_voltage) / 2.0;
 
         // used only when settling
         if (state.close) {
@@ -228,22 +203,8 @@ class Stanley : public Motion<ControllersType,
     }
 
     [[nodiscard("motion won't be executed unless an executor is used!")]]
-    auto max_lookahead_distance(Length max_lookahead_distance) {
-        this->m_max_lookahead_distance = max_lookahead_distance;
-
-        return this->getReference();
-    }
-
-    [[nodiscard("motion won't be executed unless an executor is used!")]]
-    auto k_curvature(Length k_curvature) {
-        this->m_k_curvature = k_curvature;
-
-        return this->getReference();
-    }
-
-    [[nodiscard("motion won't be executed unless an executor is used!")]]
-    auto k_voltage(Divided<Voltage, LinearVelocity> k_voltage) {
-        this->m_k_voltage = k_voltage;
+    auto k(Divided<Number, Time> k) {
+        m_k = k;
 
         return this->getReference();
     }

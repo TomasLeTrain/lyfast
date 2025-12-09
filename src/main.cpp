@@ -374,7 +374,6 @@ void manual_vel_testing() {
     }
 }
 
-
 void stanley_test() {
 
     blazing::lyfast::geometry::Line line({ -23.6_in, -23.6_in },
@@ -469,15 +468,17 @@ void stanley_test() {
     drivetrain.setBrakeMode(pros::v5::MotorBrake::hold);
 
     // run spline on ramsette
-    blazing::lyfast::Ramsete(controllers,
-                             chassis,
-                             &cubic_trajectory,
-                             0.7,
-                             35.0) |
-      run;
+    // blazing::lyfast::Ramsete(controllers,
+    //                          chassis,
+    //                          &cubic_trajectory,
+    //                          0.7,
+    //                          35.0) |
+    //   run;
 
     // run spline on stanley
-    // blazing::lyfast::Stanley(controllers, chassis, &spline_trajectory) | run;
+    blazing::lyfast::Stanley(controllers, chassis, &cubic_trajectory)
+        .k(1.0 / sec) |
+      run;
 }
 
 void opcontrol() {
