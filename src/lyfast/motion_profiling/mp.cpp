@@ -1,4 +1,5 @@
 #include "lyfast/motion_profiling/mp.hpp"
+#include "units/Angle.hpp"
 #include <iterator>
 #include <variant>
 
@@ -9,26 +10,17 @@ namespace mp {
 void Trajectory::compute() {
     auto start_time = pros::c::micros();
 
-    // printf("total distance of curve:
-    // %f\n",this->curve->total_distance.internal()); Length cd = 0_m;
-    // float t, previous_t = -1.0;
     float t = 0;
 
     for (FLength curr_dist = 0_Fm; curr_dist < curve->total_distance;
          curr_dist += delta_distance) {
-        // if (previous_t < 0.0)
-        //     t = curve->t_by_s(curr_dist);
-        // else
-        //     t = curve->t_by_s(curr_dist, previous_t);
-        // previous_t = t;
 
         // reused for getting heading and calculating curvature
         geometry::Point df = curve->df(t);
 
         points.emplace_back(curve->f(t),
                             curve->c(t, df),
-                            df.getAngle(),
-                            // curve->s(t),
+                            units::constrainAngle2pi(df.getAngle()),
                             curr_dist,
                             t);
 
@@ -39,7 +31,7 @@ void Trajectory::compute() {
     // add last point
     points.emplace_back(curve->f(1),
                         curve->c(1),
-                        curve->df(1).getAngle(),
+                        units::constrainAngle2pi(curve->df(1).getAngle()),
                         curve->total_distance,
                         1);
 

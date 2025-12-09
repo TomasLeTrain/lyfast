@@ -98,12 +98,16 @@ class Stanley : public Motion<ControllersType,
           angle_error + units::atan(m_k * crosstrack_error / curve_velocity);
 
         auto curve_endpoint = target_trajectory->points.back().point;
+        auto curve_endpoint_heading = target_trajectory->points.back().heading;
         auto distance_to_end = curve_endpoint.distanceTo(position);
+
+        double distance_sign =
+          signed_sgn(units::cos(angleError(curve_endpoint_heading, heading)));
 
         if (units::abs(distance_to_end) < close_threshold && !state.close) {
             // locks heading when close
-            auto curve_endpoint_heading =
-              target_trajectory->points.back().heading;
+            std::cout << "locked heading as "
+                      << curve_endpoint_heading.convert(deg) << std::endl;
             state.locked_heading = curve_endpoint_heading;
             state.close = true;
         }
@@ -167,10 +171,13 @@ class Stanley : public Motion<ControllersType,
 
         // used only when settling
         if (state.close) {
-            linear_output =
-              this->controllers.linear_feedback.update(-distance_to_end,
-                                                       0.0_in,
-                                                       delta_time);
+            std::cout << "using pid: "
+                      << -distance_to_end.convert(in) * distance_sign
+                      << std::endl;
+            linear_output = this->controllers.linear_feedback.update(
+              -distance_to_end * distance_sign,
+              0.0_in,
+              delta_time);
         }
 
         // constraints should already be inherent to the motion profile
