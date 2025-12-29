@@ -5,7 +5,7 @@
         "target": "v5",
         "templates": {
             "blazing": {
-                "location": "/home/tomas/.config/pros/templates/blazing@0.0.10",
+                "location": "/home/tomas/.config/pros/templates/blazing@0.0.11",
                 "metadata": {
                     "origin": "local"
                 },
@@ -39,10 +39,10 @@
                 ],
                 "target": "v5",
                 "user_files": [],
-                "version": "0.0.10"
+                "version": "0.0.11"
             },
             "float_units": {
-                "location": "/home/tomas/.config/pros/templates/float_units@0.7.3",
+                "location": "/home/tomas/.config/pros/templates/float_units@0.7.4",
                 "metadata": {
                     "origin": "local"
                 },
@@ -54,15 +54,15 @@
                     "include/units/Temperature.hpp",
                     "include/units/units.hpp",
                     "firmware/float_units.a",
+                    "include/units/Angle.hpp",
                     "include/units/all.hpp",
                     "include/units/Pose.hpp",
-                    "include/units/Vector3D.hpp",
                     "include/units/Vector2D.hpp",
-                    "include/units/Angle.hpp"
+                    "include/units/Vector3D.hpp"
                 ],
                 "target": "v5",
                 "user_files": [],
-                "version": "0.7.3"
+                "version": "0.7.4"
             },
             "kernel": {
                 "location": "/home/tomass/.config/pros/templates/kernel@4.2.1",

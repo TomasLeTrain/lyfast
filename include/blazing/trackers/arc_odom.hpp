@@ -188,6 +188,7 @@ class ArcOdomTracker {
     std::vector<SidewaysTracker*> sideways_trackers;
 
     std::vector<TrackingImu*> imus;
+    bool m_logging;
 
     units::Pose pose {};
     Length forward_travel = 0_in;
@@ -238,7 +239,9 @@ class ArcOdomTracker {
                 heading_delta += current;
                 imu_count++;
             } else {
-                printf("imu returned infinity!\n");
+                if (m_logging) {
+                    printf("imu returned infinity!\n");
+                }
             }
         }
 
@@ -250,10 +253,12 @@ class ArcOdomTracker {
   public:
     ArcOdomTracker(std::initializer_list<ForwardsTracker*> forwards_trackers,
                    std::initializer_list<SidewaysTracker*> sideways_trackers,
-                   std::initializer_list<TrackingImu*> imus)
+                   std::initializer_list<TrackingImu*> imus,
+                   bool logging = false)
         : forwards_trackers(forwards_trackers),
           sideways_trackers(sideways_trackers),
-          imus(imus) {}
+          imus(imus),
+          m_logging(logging) {}
 
     Angle getAngle() {
         return pose.orientation;
@@ -335,7 +340,10 @@ class ArcOdomTracker {
         for (auto& tracker : forwards_trackers) {
             Length current_delta = tracker->getDelta();
             if (!std::isfinite(current_delta.internal())) {
-                printf("forward tracker returned infinity!\n");
+                if (m_logging) {
+                    printf("forward tracker returned infinity!\n");
+                }
+
                 first_failed = true;
                 continue;
             }
@@ -352,7 +360,9 @@ class ArcOdomTracker {
         for (auto& tracker : sideways_trackers) {
             Length current_delta = tracker->getDelta();
             if (!std::isfinite(current_delta.internal())) {
-                printf("sideways tracker returned infinity!\n");
+                if (m_logging) {
+                    printf("sideways tracker returned infinity!\n");
+                }
                 continue;
             }
             deltas.y = current_delta;

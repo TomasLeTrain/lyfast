@@ -232,15 +232,6 @@ class Vector2D {
     }
 
     /**
-     * @brief magnitude of the vector
-     *
-     * @return T
-     */
-    constexpr T magnitude() const {
-        return sqrt(square(this->x) + square(this->y));
-    }
-
-    /**
      * @brief the cross product between two vectors
      *
      * @param other the other vector
@@ -249,6 +240,16 @@ class Vector2D {
     template<isQuantity Q>
     constexpr Multiplied<Q, T> cross(const Vector2D<Q>& other) const {
         return this->x * other.y - this->y * other.x;
+    }
+
+
+    /**
+     * @brief magnitude of the vector
+     *
+     * @return T
+     */
+    constexpr T magnitude() const {
+        return sqrt(square(this->x) + square(this->y));
     }
 
     /**
@@ -288,7 +289,7 @@ class Vector2D {
      * @return Angle
      */
     constexpr Angle getAngle() const {
-        return units::atan2(y, x);
+        return Vector2D<T>({ T(0.0), T(0.0) }).angleTo(*this);
     }
 
     /**
