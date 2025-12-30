@@ -3,6 +3,7 @@
 #include "blazing/controllers/controllers.hpp"
 #include "blazing/controllers/feedforward/feedforward.hpp"
 #include "blazing/utils.hpp"
+#include "lyfast/system_identification.hpp"
 #include "pros/motors.hpp"
 #include "units/Angle.hpp"
 #include "units/units.hpp"
@@ -11,50 +12,66 @@ namespace blazing {
 namespace lyfast {
 
 struct VelocityControllerParams {
-    Divided<Voltage, LinearVelocity> ff_linear_vel;
-    Divided<Voltage, LinearAcceleration> ff_linear_accel;
-    Divided<Voltage, AngularVelocity> ff_angular_vel;
-    Divided<Voltage, AngularAcceleration> ff_angular_accel;
-    Voltage K_s;
+    KvUnits left_Kv;
+    KaUnits left_Ka;
+    KsUnits left_Ks;
+
+    KvUnits right_Kv;
+    KaUnits right_Ka;
+    KsUnits right_Ks;
+};
+
+struct LeftRightSpeeds {
+    LinearVelocity left_vel;
+    LinearVelocity right_vel;
 };
 
 class VelocityController {
     VelocityControllerParams m_params;
 
-    std::optional<DifferentialSpeeds> last_speeds = std::nullopt;
+    std::optional<LeftRightSpeeds> last_speeds = std::nullopt;
 
   public:
     DifferentialVoltages update(DifferentialSpeeds target, Time duration) {
-        LinearAcceleration linear_acceleration =
-          (target.linear_velocity -
-           last_speeds
-             // if no last speeds then we assume zero acceleration
-             .value_or(target)
-             .linear_velocity) /
+        // TODO: make configurable
+        Length track_width = 10.5_in;
+
+        LinearVelocity left_vel =
+          target.linear_velocity -
+          target.angular_velocity / rad * (track_width / 2);
+        LinearVelocity right_vel =
+          target.linear_velocity +
+          target.angular_velocity / rad * (track_width / 2);
+
+        LinearAcceleration left_accel =
+          (left_vel - last_speeds
+                        // if no last speeds then we assume zero acceleration
+                        .transform([](auto speeds) {
+                            return speeds.left_vel;
+                        })
+                        .value_or(left_vel)) /
           duration;
-        AngularAcceleration angular_acceleration =
-          (target.angular_velocity -
-           last_speeds
-             // if no last speeds then we assume zero acceleration
-             .value_or(target)
-             .angular_velocity) /
+
+        LinearAcceleration right_accel =
+          (right_vel - last_speeds
+                         // if no last speeds then we assume zero acceleration
+                         .transform([](auto speeds) {
+                             return speeds.right_vel;
+                         })
+                         .value_or(right_vel)) /
           duration;
-        ;
 
-        Voltage uLinear = target.linear_velocity * m_params.ff_linear_vel +
-                          linear_acceleration * m_params.ff_linear_accel;
-        Voltage uAngular = target.angular_velocity * m_params.ff_angular_vel +
-                           angular_acceleration * m_params.ff_angular_accel;
+        DifferentialVoltages result {
+            left_vel * m_params.left_Kv + left_accel * m_params.left_Ka,
+            right_vel * m_params.right_Kv + right_accel * m_params.right_Ka
+        };
 
-        DifferentialVoltages result;
+        result.left_voltage +=
+          units::sgn(result.left_voltage) * m_params.left_Ks;
+        result.right_voltage +=
+          units::sgn(result.right_voltage) * m_params.right_Ks;
 
-        result.left_voltage = uLinear - uAngular;
-        result.right_voltage = uLinear + uAngular;
-
-        result.left_voltage += units::sgn(result.left_voltage) * m_params.K_s;
-        result.right_voltage += units::sgn(result.right_voltage) * m_params.K_s;
-
-        last_speeds = target;
+        last_speeds = { left_vel, right_vel };
 
         return result;
     }
@@ -62,17 +79,6 @@ class VelocityController {
     VelocityControllerParams getParams() {
         return m_params;
     }
-
-    VelocityController(Divided<Voltage, LinearVelocity> ff_linear_vel,
-                       Divided<Voltage, LinearAcceleration> ff_linear_accel,
-                       Divided<Voltage, AngularVelocity> ff_angular_vel,
-                       Divided<Voltage, AngularAcceleration> ff_angular_accel,
-                       Voltage K_s)
-        : m_params(ff_linear_vel,
-                   ff_linear_accel,
-                   ff_angular_vel,
-                   ff_angular_accel,
-                   K_s) {}
 
     VelocityController(VelocityControllerParams params)
         : m_params(params) {}
