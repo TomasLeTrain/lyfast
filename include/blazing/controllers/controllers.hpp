@@ -2,6 +2,8 @@
 
 #include "blazing/controllers/feedback/feedback.hpp"
 #include "blazing/controllers/feedback/pid.hpp"
+#include "blazing/controllers/feedforward/feedforward.hpp"
+#include "blazing/trackers/tracker.hpp"
 #include "units/Angle.hpp"
 #include "units/units.hpp"
 #include <concepts>
@@ -9,6 +11,50 @@
 namespace blazing {
 
 struct ControllerBase {};
+
+// allows chaining controllers together
+// really only works for feedback -> feedforward or feedforward -> feedforward
+// since having feedback on the second controller would require having a
+// measurement
+template<typename Controller1,
+         typename Controller2,
+         typename Input,
+         typename Intermediate,
+         typename Output>
+// first controller can be either feedback or feedforward
+    requires(Feedforward<Controller1, Input, Intermediate> ||
+             Feedback<Controller1, Input, Intermediate>) &&
+            Feedforward<Controller2, Intermediate, Output>
+struct CascadedControllers : virtual ControllerBase {
+  public:
+    Controller1 controller1;
+    Controller2 controller2;
+
+    CascadedControllers(Controller1 controller1, Controller2 controller2)
+        : controller1(controller1),
+          controller2(controller2) {}
+
+    // feedback
+    // only useful if first controller is feedback
+    Output update(Input measurement, Input target, Time duration)
+        requires Feedback<Controller1, Input, Intermediate>
+    {
+        Intermediate intermediate =
+          controller1.update(measurement, target, duration);
+        Output result2 = controller2.update(intermediate, duration);
+        return result2;
+    }
+
+    // feedforward
+    // only useful if first controller is feedforward
+    Output update(Input target, Time duration)
+        requires Feedforward<Controller1, Input, Intermediate>
+    {
+        Intermediate intermediate = controller1.update(target, duration);
+        Output result = controller2.update(intermediate, duration);
+        return result;
+    }
+};
 
 template<typename Controller>
     requires Feedback<Controller, Length, Voltage>
@@ -74,9 +120,10 @@ Controllers(ControllerTypes&&...)
 // Linear/Angular Feedback Concepts
 template<typename Controller>
 concept hasLinearFeedback =
-  requires(Controller controller) { controller.linear_feedback; };
+  Feedback<decltype(Controller::linear_feedback), Length, Voltage>;
 
 template<typename Controller>
 concept hasAngularFeedback =
-  requires(Controller controller) { controller.angular_feedback; };
+  Feedback<decltype(Controller::angular_feedback), Angle, Voltage>;
+
 } // namespace blazing

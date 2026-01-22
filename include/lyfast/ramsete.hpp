@@ -126,7 +126,7 @@ class Ramsete : public Motion<ControllersType,
                                       beta * target_speeds.linear_velocity *
                                         sinc(errorAngle) * local_error.y;
 
-        DifferentialVoltages voltages =
+        LeftRightVoltages voltages =
           this->controllers.velocity_feedforward.update(new_speeds, delta_time);
 
         auto curve_endpoint = target_trajectory->points.back().point;

@@ -165,7 +165,7 @@ class Stanley : public Motion<ControllersType,
 
         // used only for linear output (?)
         DifferentialSpeeds new_speeds = { curve_velocity, 0_radps };
-        DifferentialVoltages voltages =
+        LeftRightVoltages voltages =
           this->controllers.velocity_feedforward.update(new_speeds, delta_time);
         linear_output = (voltages.left_voltage + voltages.right_voltage) / 2.0;
 

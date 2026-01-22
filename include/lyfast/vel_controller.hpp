@@ -28,20 +28,18 @@ struct LeftRightSpeeds {
 
 class VelocityController {
     VelocityControllerParams m_params;
+    Length m_track_width;
 
     std::optional<LeftRightSpeeds> last_speeds = std::nullopt;
 
   public:
-    DifferentialVoltages update(DifferentialSpeeds target, Time duration) {
-        // TODO: make configurable
-        Length track_width = 10.5_in;
-
+    LeftRightVoltages update(DifferentialSpeeds target, Time duration) {
         LinearVelocity left_vel =
           target.linear_velocity -
-          target.angular_velocity / rad * (track_width / 2);
+          (target.angular_velocity / rad) * (m_track_width / 2);
         LinearVelocity right_vel =
           target.linear_velocity +
-          target.angular_velocity / rad * (track_width / 2);
+          (target.angular_velocity / rad) * (m_track_width / 2);
 
         LinearAcceleration left_accel =
           (left_vel - last_speeds
@@ -61,31 +59,49 @@ class VelocityController {
                          .value_or(right_vel)) /
           duration;
 
-        DifferentialVoltages result {
+        LeftRightVoltages result {
             left_vel * m_params.left_Kv + left_accel * m_params.left_Ka,
             right_vel * m_params.right_Kv + right_accel * m_params.right_Ka
         };
 
-        result.left_voltage +=
-          units::sgn(result.left_voltage) * m_params.left_Ks;
-        result.right_voltage +=
-          units::sgn(result.right_voltage) * m_params.right_Ks;
+        result.left_voltage += units::sgn(left_vel) * m_params.left_Ks;
+        result.right_voltage += units::sgn(right_vel) * m_params.right_Ks;
 
         last_speeds = { left_vel, right_vel };
 
         return result;
     }
 
+    // allows using as only a linear feedforward
+    Voltage update(LinearVelocity target, Time duration) {
+        auto left_right_voltages =
+          update(DifferentialSpeeds { target, 0_radps }, duration);
+        return (left_right_voltages.right_voltage +
+                left_right_voltages.left_voltage) /
+               2.0;
+    }
+
+    // allows using as only an angular feedforward
+    Voltage update(AngularVelocity target, Time duration) {
+        auto left_right_voltages =
+          update(DifferentialSpeeds { 0_inps, target }, duration);
+
+        return (left_right_voltages.right_voltage -
+                left_right_voltages.left_voltage) /
+               2.0;
+    }
+
     VelocityControllerParams getParams() {
         return m_params;
     }
 
-    VelocityController(VelocityControllerParams params)
-        : m_params(params) {}
+    VelocityController(VelocityControllerParams params, Length track_width)
+        : m_params(params),
+          m_track_width(track_width) {}
 };
 
 template<typename Controller>
-    requires Feedforward<Controller, DifferentialSpeeds, DifferentialVoltages>
+    requires Feedforward<Controller, DifferentialSpeeds, LeftRightVoltages>
 struct VelocityFeedforward : virtual ControllerBase {
   public:
     Controller velocity_feedforward;

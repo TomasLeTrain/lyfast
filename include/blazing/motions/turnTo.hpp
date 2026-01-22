@@ -217,12 +217,18 @@ class turnTo : public Motion<ControllersType,
             chassis),
           target(units::V2Position(x, y)) {}
 
-    // turnTo(ControllersType controllers,
-    //        Chassis<DrivetrainType, TrackerType, TolerancesType> chassis,
-    //        double x,
-    //        double y)
-    //     : turnTo(controllers, chassis, from_in(x), from_in(y)) {}
-    //
+    [[nodiscard("motion won't be executed unless an executor is used!")]]
+    turnTo(ControllersType controllers,
+           Chassis<DrivetrainType, TrackerType, TolerancesType> chassis,
+           units::V2Position point)
+      // requires tracker to be able to track position without making it a
+      // requirement for target heading
+        requires positionTracker<TrackerType>
+        : Motion<ControllersType, DrivetrainType, TrackerType, TolerancesType>(
+            controllers,
+            chassis),
+          target(point) {}
+
     [[nodiscard("motion won't be executed unless an executor is used!")]]
     turnTo(ControllersType controllers,
            Chassis<DrivetrainType, TrackerType, TolerancesType> chassis,
@@ -300,6 +306,19 @@ class Arc : public turnTo<ControllersType,
             chassis,
             x,
             y) {
+        // set radius (avoids nodiscard warning)
+        std::ignore = this->radius(radius);
+    }
+
+    [[nodiscard("motion won't be executed unless run or async are used!")]]
+    Arc(ControllersType controllers,
+        Chassis<DrivetrainType, TrackerType, TolerancesType> chassis,
+        units::V2Position target_point,
+        double radius = 1.0)
+        : turnTo<ControllersType, DrivetrainType, TrackerType, TolerancesType>(
+            controllers,
+            chassis,
+            target_point) {
         // set radius (avoids nodiscard warning)
         std::ignore = this->radius(radius);
     }

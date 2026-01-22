@@ -1,12 +1,16 @@
 #include "main.h"
 #include "blazing/api.hpp"
+#include "blazing/utils.hpp"
 #include "lyfast/api.hpp"
+#include "lyfast/system_identification.hpp"
 #include "pros/apix.h"
 #include "pros/imu.h"
 #include "pros/motor_group.hpp"
+#include "pros/optical.h"
 #include "units/Vector2D.hpp"
 #include <iostream>
 #include <mutex>
+#include <numeric>
 
 void disabled() {}
 
@@ -72,8 +76,20 @@ class ScaledIMU : public pros::IMU {
 
 // clang-format off
 // motor groups
-pros::MotorGroup left_motors({ -12, -13, 14 }, pros::MotorGears::blue, pros::MotorEncoderUnits::rotations);
-pros::MotorGroup right_motors({ 7, 17, -16 }, pros::MotorGears::blue, pros::MotorEncoderUnits::rotations);
+
+
+int8_t left_front = 3;
+int8_t left_middle = -1;
+int8_t left_back = -15;
+
+int8_t right_front = -13;
+int8_t right_middle = 14;
+int8_t right_back = 12;
+
+bool vexmaps_logging_enabled = false;
+
+pros::MotorGroup left_motors({ left_front, left_middle, left_back }, pros::MotorGears::blue, pros::MotorEncoderUnits::rotations);
+pros::MotorGroup right_motors({ right_front, right_middle, right_back }, pros::MotorGears::blue, pros::MotorEncoderUnits::rotations);
 // clang-format on
 
 ScaledIMU imu(15, (360.0 + 3.8) / 360.0);
@@ -171,12 +187,17 @@ AsyncExecutor async;
 //   accel  = -0.0107677 volt / radps2
 //   k_s  = -0.0743809 volt
 
-blazing::lyfast::VelocityController
-  velocity_controller((0.58345 - 0.05) * volt / mps,
-                      0.00297879 * volt / mps2,
-                      0.107902 * volt / radps,
-                      0.0107677 * volt / radps2,
-                      0.0041 * volt);
+blazing::lyfast::VelocityController velocity_controller(
+  {
+    .left_Kv = 0.5 * volt / mps,
+    .left_Ka = 0.05 * volt / mps2,
+    .left_Ks = 0.004 * volt,
+
+    .right_Kv = 0.5 * volt / mps,
+    .right_Ka = 0.05 * volt / mps2,
+    .right_Ks = 0.004 * volt,
+  },
+  track_width);
 
 Controllers controllers(
   // pid controllers
@@ -197,17 +218,22 @@ Controllers controllers(
 //
 //     blazing::lyfast::geometry::Line line({ -23.6_in, -23.6_in },
 //                                          { -34.72_in, -39.79_in });
-//     // blazing::lyfast::geometry::CubicBezier test_cubic({ -34.72_in, -39.79_in
+//     // blazing::lyfast::geometry::CubicBezier test_cubic({ -34.72_in,
+//     -39.79_in
 //     // },
-//     //                                                   { -37.84_in, -42.28_in
+//     //                                                   { -37.84_in,
+//     -42.28_in
 //     //                                                   }, { -43.38_in,
-//     //                                                   -47.1_in }, { -56_in,
+//     //                                                   -47.1_in }, {
+//     -56_in,
 //     //                                                   -47.1_in });
 //
-//     blazing::lyfast::geometry::CubicBezier test_cubic({ -34.72_in, -39.79_in },
-//                                                       { -36.58_in, -41.79_in },
-//                                                       { -36.86_in, -46.17_in },
-//                                                       { -56_in, -47.1_in });
+//     blazing::lyfast::geometry::CubicBezier test_cubic({ -34.72_in, -39.79_in
+//     },
+//                                                       { -36.58_in, -41.79_in
+//                                                       }, { -36.86_in,
+//                                                       -46.17_in }, { -56_in,
+//                                                       -47.1_in });
 //
 //     blazing::lyfast::geometry::Spline spline({ &line, &test_cubic });
 //
@@ -249,7 +275,8 @@ Controllers controllers(
 //     // print out final trajectory and debug info
 //
 //     auto print =
-//       []<typename T>(std::string name, std::vector<T>& list, T target_units) {
+//       []<typename T>(std::string name, std::vector<T>& list, T target_units)
+//       {
 //           std::cout << name << "=\\left[";
 //           for (size_t i = 0; i < list.size(); i++) {
 //               if (i != 0) std::cout << ",";
@@ -482,10 +509,201 @@ void stanley_test() {
       run;
 }
 
+void sysid() {
+    std::vector<lyfast::SysIdVoltageCommands> left_voltage_commands;
+    std::vector<lyfast::SysIdVoltageCommands> right_voltage_commands;
+
+    // linear commands
+    // for (int left_motor = 0; left_motor <= 1; left_motor++) {
+    // for (int i = -10; i <= 10; i += 1) {
+    //     voltage_commands.emplace_back(left_motor * i * 0.1 * volt,
+    //                                   (1 - left_motor) * i * 0.1 * volt,
+    //                                   1.0_sec);
+    // }
+
+    drivetrain.setBrakeMode(pros::MotorBrake::hold);
+
+    // left_voltage_commands.emplace_back(0_volt, 0_volt, 300_msec);
+    std::vector<lyfast::SysIdVoltageCommands> mixed_voltage_commands = {
+        // linear movements
+        { 0.5_volt,  0.5_volt,  500_msec },
+        { 0.7_volt,  0.7_volt,  600_msec },
+        { 0.2_volt,  0.2_volt,  600_msec },
+        { 0.0_volt,  0.0_volt,  300_msec },
+        { -0.7_volt, -0.7_volt, 800_msec },
+        { -0.2_volt, -0.2_volt, 800_msec },
+        { 0.0_volt,  0.0_volt,  300_msec },
+
+        { 0.5_volt,  0.5_volt,  500_msec },
+        { 0.7_volt,  0.7_volt,  600_msec },
+        { 0.2_volt,  0.2_volt,  600_msec },
+        { 0.0_volt,  0.0_volt,  300_msec },
+        { -0.7_volt, -0.7_volt, 800_msec },
+        { -0.2_volt, -0.2_volt, 800_msec },
+        { 0.0_volt,  0.0_volt,  300_msec },
+
+        // angular
+        { 0.5_volt,  -0.5_volt, 500_msec },
+        { 1.0_volt,  -1.0_volt, 400_msec },
+        { -0.5_volt, 0.5_volt,  800_msec },
+        { -0.2_volt, 0.2_volt,  800_msec },
+        { 1.0_volt,  -1.0_volt, 400_msec },
+        { -0.2_volt, 0.2_volt,  300_msec },
+        { 0.5_volt,  -0.5_volt, 500_msec },
+        { 1.0_volt,  -1.0_volt, 400_msec },
+        { -0.5_volt, 0.5_volt,  800_msec },
+        { -0.2_volt, 0.2_volt,  800_msec },
+        { 1.0_volt,  -1.0_volt, 400_msec },
+        { -0.2_volt, 0.2_volt,  300_msec },
+        { 0.5_volt,  -0.5_volt, 500_msec },
+        { 1.0_volt,  -1.0_volt, 400_msec },
+        { -0.5_volt, 0.5_volt,  800_msec },
+        { -0.2_volt, 0.2_volt,  800_msec },
+        { 1.0_volt,  -1.0_volt, 400_msec },
+        { -0.2_volt, 0.2_volt,  300_msec },
+
+        { -0.5_volt, 0.5_volt,  500_msec },
+        { -1.0_volt, 1.0_volt,  400_msec },
+        { 0.5_volt,  -0.5_volt, 800_msec },
+        { 0.2_volt,  -0.2_volt, 800_msec },
+        { -1.0_volt, 1.0_volt,  400_msec },
+        { 0.2_volt,  -0.2_volt, 300_msec },
+        { -0.5_volt, 0.5_volt,  500_msec },
+        { -1.0_volt, 1.0_volt,  400_msec },
+        { 0.5_volt,  -0.5_volt, 800_msec },
+        { 0.2_volt,  -0.2_volt, 800_msec },
+        { -1.0_volt, 1.0_volt,  400_msec },
+        { 0.2_volt,  -0.2_volt, 300_msec },
+        { -0.5_volt, 0.5_volt,  500_msec },
+        { -1.0_volt, 1.0_volt,  400_msec },
+        { 0.5_volt,  -0.5_volt, 800_msec },
+        { 0.2_volt,  -0.2_volt, 800_msec },
+        { -1.0_volt, 1.0_volt,  400_msec },
+        { 0.2_volt,  -0.2_volt, 300_msec },
+    };
+
+    // for (int i = -10; i <= 10; i += 1) {
+    //     if (i == 0)
+    //         left_voltage_commands.emplace_back(0 * volt, 0 * volt, 0.3_sec);
+    //     else
+    //         left_voltage_commands.emplace_back(i * 0.1 * volt,
+    //                                            0 * volt,
+    //                                            0.5_sec);
+    // }
+
+    // for (int i = -10; i <= 10; i += 1) {
+    //     if (i == 0)
+    //         right_voltage_commands.emplace_back(0 * volt,
+    //                                             i * 0 * volt,
+    //                                             0.3_sec);
+    //     else
+    //         right_voltage_commands.emplace_back(0 * volt,
+    //                                             i * 0.1 * volt,
+    //                                             0.5_sec);
+    // }
+
+    auto mixed_linear_data = lyfast::createData(mixed_voltage_commands,
+                                                &left_motors,
+                                                &right_motors,
+                                                3.25_in,
+                                                450_rpm);
+
+    // auto left_data = lyfast::createData(left_voltage_commands,
+    //                                     &left_motors,
+    //                                     &right_motors,
+    //                                     3.25_in,
+    //                                     450_rpm);
+
+    drivetrain.setBrakeMode(pros::MotorBrake::brake);
+    left_motors.move(0);
+    right_motors.move(0);
+    pros::delay(1000);
+    drivetrain.setBrakeMode(pros::MotorBrake::hold);
+
+    // auto right_data = lyfast::createData(right_voltage_commands,
+    //                                      &left_motors,
+    //                                      &right_motors,
+    //                                      3.25_in,
+    //                                      450_rpm);
+
+    // voltage_commands.emplace_back(0 * volt, 0 * volt, 1.0_sec, false);
+    // }
+
+    // angular commands
+    // for (int sign = -1; sign <= 1; sign += 2) {
+    //     for (double i = 0.1; i <= 1; i += 0.1) {
+    //         voltage_commands.emplace_back(i * -1 * sign * volt,
+    //                                       i * sign * volt,
+    //                                       1.0_sec);
+    //     }
+    //     voltage_commands.emplace_back(0 * volt, 0 * volt, 1.0_sec,
+    //     false);
+    // }
+
+    while (true) {
+        left_motors.move(0);
+        right_motors.move(0);
+
+        if (master.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_X)) {
+            std::cout << "mixed linear data: " << std::endl;
+            lyfast::printData(mixed_linear_data);
+
+            // std::cout << "actual left motor data: " << std::endl;
+            // lyfast::printData(left_data);
+            // std::cout << "actual right motor data: " << std::endl;
+            // lyfast::printData(right_data);
+        }
+        pros::delay(10);
+    }
+}
+
 void opcontrol() {
-    arc_pose_tracker.setPose({ -23.6_in, -23.6_in, 270_stDeg });
-    std::cout << "what!" << std::endl;
-    stanley_test();
-    std::cout << "finished motion!" << std::endl;
+    // sysid();
+
+    while (true) {
+        // double throttle =
+        // master.get_analog(pros::E_CONTROLLER_ANALOG_LEFT_Y); double turn =
+        // -master.get_analog(pros::E_CONTROLLER_ANALOG_RIGHT_X);
+        //
+        // throttle /= 127.0;
+        // turn /= 127.0;
+
+        constexpr auto max_vel = (7.5_rpm * 3.25_in * M_PI / rad);
+
+        LeftRightVoltages volts = controllers.velocity_feedforward.update(
+          // DifferentialSpeeds { throttle * max_vel,
+          //                      turn * rad * (max_vel * 2 / track_width) },
+
+          DifferentialSpeeds { 15_inps, 0_radps },
+          10_msec);
+        //
+        // double leftPower = throttle + turn;
+        // double rightPower = throttle - turn;
+
+        left_motors.move_voltage(to_mvolt(12 * volts.left_voltage));
+        right_motors.move_voltage(to_mvolt(12 * volts.right_voltage));
+
+        std::cout << "volt l/r: " << volts.left_voltage.internal() << " "
+                  << volts.right_voltage.internal() << std::endl;
+
+        std::cout << "l/r: "
+                  << (left_motors.get_actual_velocity(0) +
+                      left_motors.get_actual_velocity(1) +
+                      left_motors.get_actual_velocity(2)) /
+                       3.0
+                  << " "
+                  << (right_motors.get_actual_velocity(0) +
+                      right_motors.get_actual_velocity(1) +
+                      right_motors.get_actual_velocity(2)) /
+                       3.0
+                  << std::endl;
+
+        pros::delay(10);
+    }
+
+    // arc_pose_tracker.setPose({ -23.6_in, -23.6_in, 270_stDeg });
+    // std::cout << "what!" << std::endl;
+    // stanley_test();
+    // std::cout << "finished motion!" << std::endl;
     // drivetrain.moveTank(0_volt, 0_volt);
 }

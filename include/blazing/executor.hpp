@@ -89,6 +89,8 @@ class AsyncExecutorBase : public Executor {
 
     // waits until the finished index matches the given index
     virtual void waitUntilIndex(size_t index);
+
+	virtual void checkCompStatus();
 };
 
 class AsyncExecutor : public AsyncExecutorBase {

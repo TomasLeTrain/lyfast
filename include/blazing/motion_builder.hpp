@@ -5,6 +5,7 @@
 #include "blazing/motions/turnTo.hpp"
 #include "blazing/utils.hpp"
 #include "motions/boomerang.hpp"
+#include "units/Vector2D.hpp"
 #include <iterator>
 #include <variant>
 
@@ -107,6 +108,22 @@ class MotionBuilder {
     }
 
     [[nodiscard("motion won't be executed unless an executor is used!")]]
+    moveToType moveTo(units::V2Position point) {
+        return moveToModifier(blazing::moveTo(controllers, chassis, point));
+    }
+
+    [[nodiscard("motion won't be executed unless an executor is used!")]]
+    moveToType moveTo(std::function<units::V2Position()> point_func) {
+        return moveToModifier(
+          blazing::moveTo(controllers, chassis, point_func));
+    }
+
+    [[nodiscard("motion won't be executed unless an executor is used!")]]
+    turnToType turnTo(units::V2Position point) {
+        return turnToModifier(blazing::turnTo(controllers, chassis, point));
+    }
+
+    [[nodiscard("motion won't be executed unless an executor is used!")]]
     turnToType turnTo(std::variant<Length, double, int> x,
                       std::variant<Length, double, int> y) {
         Length new_x = castToUnit(x, in);
@@ -164,11 +181,24 @@ class MotionBuilder {
           blazing::Arc(controllers, chassis, new_x, new_y, radius));
     }
 
+    [[nodiscard("motion won't be executed unless an executor is used!")]]
+    arcType arc(units::V2Position target_point, double radius = 1.0) {
+        return arcModifier(
+          blazing::Arc(controllers, chassis, target_point, radius));
+    }
+
     // boomerang
     [[nodiscard("motion won't be executed unless an executor is used!")]]
     boomerangType boomerang(units::Pose pose) {
         return boomerangModifier(
           blazing::boomerang(controllers, chassis, pose));
+    }
+
+    // boomerang
+    [[nodiscard("motion won't be executed unless an executor is used!")]]
+    boomerangType boomerang(std::function<units::Pose()> pose_func) {
+        return boomerangModifier(
+          blazing::boomerang(controllers, chassis, pose_func));
     }
 
     [[nodiscard("motion won't be executed unless an executor is used!")]]

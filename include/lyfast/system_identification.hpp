@@ -31,14 +31,17 @@ struct SysIdVoltageCommands {
     Voltage left_voltage;
     Voltage right_voltage;
     Time time;
+    bool record = true;
 };
+
+void calculate_kv_ks();
 
 std::vector<OLS_data>
 createData(std::vector<SysIdVoltageCommands> voltage_commands,
            pros::MotorGroup* left_motors,
            pros::MotorGroup* right_motors,
            Length wheel_diameter,
-           Length final_rpm);
+           AngularVelocity final_rpm);
 
 void printData(std::vector<OLS_data> data);
 

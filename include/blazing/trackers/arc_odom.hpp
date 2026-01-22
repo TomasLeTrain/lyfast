@@ -188,11 +188,16 @@ class ArcOdomTracker {
     std::vector<SidewaysTracker*> sideways_trackers;
 
     std::vector<TrackingImu*> imus;
+    units::V2Position m_tracking_center_offsets;
     bool m_logging;
 
     units::Pose pose {};
     Length forward_travel = 0_in;
     Length distance_traveled = 0_in;
+
+    units::V2Position last_local_position_delta = { 0_in, 0_in };
+    Angle last_heading_delta = 0_stDeg;
+
     units::V2Velocity velocity_vector;
 
     AngularVelocity angular_velocity;
@@ -250,14 +255,20 @@ class ArcOdomTracker {
         return heading_delta / imu_count;
     }
 
+    Time getTargetDeltaTime() {
+        return 10_msec;
+    }
+
   public:
     ArcOdomTracker(std::initializer_list<ForwardsTracker*> forwards_trackers,
                    std::initializer_list<SidewaysTracker*> sideways_trackers,
                    std::initializer_list<TrackingImu*> imus,
+                   units::V2Position tracking_center_offsets = { 0_in, 0_in },
                    bool logging = false)
         : forwards_trackers(forwards_trackers),
           sideways_trackers(sideways_trackers),
           imus(imus),
+          m_tracking_center_offsets(tracking_center_offsets),
           m_logging(logging) {}
 
     Angle getAngle() {
@@ -265,11 +276,11 @@ class ArcOdomTracker {
     }
 
     units::V2Position getPosition() {
-        return pose;
+        // add offsets to go from center of rotation to tracking center
+        return pose + m_tracking_center_offsets.rotatedBy(getAngle());
     }
 
     LinearVelocity getLinearVelocity() {
-        // Should be magnitude instead?
         return velocity_vector.x;
     }
 
@@ -277,7 +288,7 @@ class ArcOdomTracker {
         return velocity_vector.y;
     }
 
-    units::V2Velocity getVelocityVector() {
+    units::V2Velocity getLocalVelocityVector() {
         return velocity_vector;
     }
 
@@ -294,6 +305,8 @@ class ArcOdomTracker {
     }
 
     void setPose(units::Pose new_pose) {
+        // subtract rotated offsets to get pose of center of rotation
+        new_pose -= m_tracking_center_offsets.rotatedBy(getAngle());
         pose = new_pose;
     }
 
@@ -381,15 +394,20 @@ class ArcOdomTracker {
             }
         }();
 
-        // NOTE: this is not super accurate, might return 0 due to the
-        // polling rate
-        velocity_vector = local_position_delta / delta_time;
+        // average of last two deltas to prevent noise due to polling rate
+        velocity_vector = (last_local_position_delta + local_position_delta) /
+                          (getTargetDeltaTime() * 2);
 
-        angular_velocity = heading_delta / delta_time;
+        angular_velocity =
+          (last_heading_delta + heading_delta) / (getTargetDeltaTime() * 2);
 
         // uses imu measurement directly (if available)
-        if (imus.size() > 0 && std::isfinite(imus[0]->getDelta().internal()))
-            angular_velocity = imus[0]->getAngularVelocity();
+        for (TrackingImu* imu : imus) {
+            if (imu && std::isfinite(imu->getAngularVelocity().internal())) {
+                angular_velocity = imu->getAngularVelocity();
+                break;
+            }
+        }
 
         forward_travel += local_position_delta.x;
         // should be magnitude instead?
@@ -399,6 +417,9 @@ class ArcOdomTracker {
         pose +=
           local_position_delta.rotatedBy(pose.orientation + heading_delta / 2);
         pose.orientation += heading_delta;
+
+        last_local_position_delta = local_position_delta;
+        last_heading_delta = heading_delta;
     }
 };
 } // namespace blazing

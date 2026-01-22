@@ -13,7 +13,9 @@
 #include "units/Pose.hpp"
 #include "units/Vector2D.hpp"
 #include "units/units.hpp"
+#include <functional>
 #include <iostream>
+#include <variant>
 
 namespace blazing {
 struct BoomerangState {
@@ -43,7 +45,8 @@ class boomerang : public Motion<ControllersType,
                   public LinearMotion,
                   public AngularMotion {
   private:
-    units::Pose target;
+    using pose_func_t = std::function<units::Pose()>;
+    std::variant<units::Pose, pose_func_t> target;
 
     // boomerang-specific properties
     std::optional<Time> m_timeout = std::nullopt;
@@ -94,15 +97,21 @@ class boomerang : public Motion<ControllersType,
 
         const Angle heading = [&] {
             const Angle heading = this->tracker.getAngle();
-            // return heading;
             return reversed ? reverseAngle(heading) : heading;
         }();
 
-        // takes reverse into account
-        const Angle target_orientation =
-          reversed ? reverseAngle(target.orientation) : target.orientation;
+        units::Pose target_pose = std::holds_alternative<units::Pose>(target) ?
+                                    // either a target pose
+                                    get<units::Pose>(target) :
+                                    // or custom function returning a pose
+                                    get<pose_func_t>(target)();
 
-        const Length pose_target_distance = position.distanceTo(target);
+        // takes reverse into account
+        // const Angle target_orientation =
+        //   reversed ? reverseAngle(target.orientation) : target.orientation;
+        const Angle target_orientation = target_pose.orientation;
+
+        const Length pose_target_distance = position.distanceTo(target_pose);
 
         // when close gets activated it switches to move to point behavior
 
@@ -112,10 +121,10 @@ class boomerang : public Motion<ControllersType,
         }
 
         const units::V2Position carrot = [&] -> units::V2Position {
-            if (state.close) return target;
-            auto carrot = target - units::V2Position::fromPolar(
-                                     target_orientation,
-                                     pose_target_distance * m_lead);
+            if (state.close) return target_pose;
+            auto carrot = target_pose - units::V2Position::fromPolar(
+                                          target_orientation,
+                                          pose_target_distance * m_lead);
 
             // // lead2 not active anymore, use normal carrot
             // if (pose_target_distance < lead2_dist_threshold || m_lead2 ==
@@ -125,7 +134,7 @@ class boomerang : public Motion<ControllersType,
             // sideways error relative to the target angle
             // used to determine of to use lead2 or not
             Length sideways_error =
-              (target - position) *
+              (target_pose - position) *
               units::Vector2D { -units::sin(target_orientation),
                                 units::cos(target_orientation) };
 
@@ -139,7 +148,7 @@ class boomerang : public Motion<ControllersType,
 
                 // return carrot;
                 // if crossed we likely just want mtp behavior
-                return target;
+                return target_pose;
             }
 
             if (m_lead2 == 0.0) {
@@ -199,9 +208,10 @@ class boomerang : public Motion<ControllersType,
         this->tolerances.linearErrorToleranceUpdate(linear_error);
         this->tolerances.linearVelocityToleranceUpdate(
           this->tracker.getLinearVelocity());
-        this->tolerances.linearHalfcircleToleranceUpdate(position,
-                                                         target,
-                                                         target.orientation);
+        this->tolerances.linearHalfcircleToleranceUpdate(
+          position,
+          target_pose,
+          target_pose.orientation);
 
         result.finished = false;
 
@@ -243,10 +253,10 @@ class boomerang : public Motion<ControllersType,
 
         if (m_k_lat && (!k_lat_only_settling ||
                         (k_lat_only_settling && state.crossed_sideways))) {
-            angular_output =
-              angular_output + *m_k_lat * linear_output *
-                                 (target - position).rotatedBy(-heading).y *
-                                 sinc(angular_error);
+            angular_output = angular_output +
+                             *m_k_lat * linear_output *
+                               (target_pose - position).rotatedBy(-heading).y *
+                               sinc(angular_error);
         }
 
         // sign was already applied to error, only applies cosine scaling
@@ -316,6 +326,15 @@ class boomerang : public Motion<ControllersType,
             controllers,
             chassis),
           target(pose) {}
+
+    [[nodiscard("motion won't be executed unless run or async are used!")]]
+    boomerang(ControllersType controllers,
+              Chassis<DrivetrainType, TrackerType, TolerancesType> chassis,
+              pose_func_t pose_func)
+        : Motion<ControllersType, DrivetrainType, TrackerType, TolerancesType>(
+            controllers,
+            chassis),
+          target(pose_func) {}
 
     [[nodiscard("motion won't be executed unless run or async are used!")]]
     boomerang(ControllersType controllers,

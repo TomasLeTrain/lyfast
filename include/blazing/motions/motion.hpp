@@ -90,6 +90,7 @@ class Motion : public MotionBase {
   protected:
     std::optional<Time> chain_time = std::nullopt;
 
+    bool before_motion_func_blocking = false;
     std::function<void()> before_motion_func;
     std::function<void()> after_motion_func;
 
@@ -136,8 +137,10 @@ class Motion : public MotionBase {
 
     // tracker
     motionChanger executeBeforeMotion(this Self&& self,
-                                      std::function<void()> func) {
+                                      std::function<void()> func,
+                                      bool blocking = false) {
         self.before_motion_func = func;
+        self.before_motion_func_blocking = blocking;
         return self.getReference();
     }
 
@@ -203,7 +206,16 @@ class Motion : public MotionBase {
 
     void start_motion_callback() override {
         // before motion should be blocking - prereq to the motion executing
-        if (before_motion_func) before_motion_func();
+
+        if (before_motion_func_blocking) {
+            if (before_motion_func) before_motion_func();
+        } else {
+            pros::Task::create(
+              [before_motion_func = this->before_motion_func] {
+                  if (before_motion_func) before_motion_func();
+              },
+              "end motion task");
+        }
     }
 
     void end_motion_callback() override {
@@ -370,6 +382,34 @@ class AngularMotion {
         self.tolerances.chain_angular.setVelocityTolerance(tolerance);
         return self.getReference();
     }
+
+    // velocity pid changers
+    motionChangerT turn_vel_kp(this Self&& self, T kp) {
+        self.controllers.angular_feedback.controller1.set_kp(kp);
+        return self.getReference();
+    }
+
+    motionChangerT turn_vel_ki(this Self&& self, T ki) {
+        self.controllers.angular_feedback.controller1.set_ki(ki);
+        return self.getReference();
+    }
+
+    motionChangerT turn_vel_kd(this Self&& self, T kd) {
+        self.controllers.angular_feedback.controller1.set_kd(kd);
+        return self.getReference();
+    }
+
+    motionChangerT turn_vel_windupRange(this Self&& self, T windupRange) {
+        self.controllers.angular_feedback.controller1.set_windupRange(
+          windupRange);
+        return self.getReference();
+    }
+
+    motionChangerT turn_vel_PIDmaxVolt(this Self&& self, T maxVoltage) {
+        self.controllers.angular_feedback.controller1.set_maxVoltage(
+          maxVoltage);
+        return self.getReference();
+    }
 };
 
 class LinearMotion {
@@ -396,6 +436,7 @@ class LinearMotion {
                                    PIDLinearController>
     {
         self.controllers.linear_feedback.set_kd(kd);
+
         return self.getReference();
     }
 
@@ -457,6 +498,22 @@ class LinearMotion {
         return self.getReference();
     }
 
+    motionChangerT drive_backwardsAccelSlew(this Self&& self,
+                                            T backwardsAccelSlew)
+        requires hasLinearSlew<typename Self::controllersType>
+    {
+        self.controllers.linear_slew.set_backwards_accel(backwardsAccelSlew);
+        return self.getReference();
+    }
+
+    motionChangerT drive_backwardsDecelSlew(this Self&& self,
+                                            T backwardsDecelSlew)
+        requires hasLinearSlew<typename Self::controllersType>
+    {
+        self.controllers.linear_slew.set_backwards_decel(backwardsDecelSlew);
+        return self.getReference();
+    }
+
     motionChangerT drive_decelSlew(this Self&& self, T decelSlew)
         requires hasLinearSlew<typename Self::controllersType>
     {
@@ -508,6 +565,33 @@ class LinearMotion {
     motionChanger drive_chainVelocityTolerance(this Self&& self,
                                                LinearVelocity tolerance) {
         self.tolerances.change_linear.setVelocityTolerance(tolerance);
+        return self.getReference();
+    }
+
+    // velocity pid changers
+    motionChangerT drive_vel_kp(this Self&& self, T kp) {
+        self.controllers.linear_feedback.controller1.set_kp(kp);
+        return self.getReference();
+    }
+
+    motionChangerT drive_vel_ki(this Self&& self, T ki) {
+        self.controllers.linear_feedback.controller1.set_ki(ki);
+        return self.getReference();
+    }
+
+    motionChangerT drive_vel_kd(this Self&& self, T kd) {
+        self.controllers.linear_feedback.controller1.set_kd(kd);
+        return self.getReference();
+    }
+
+    motionChangerT drive_vel_windupRange(this Self&& self, T windupRange) {
+        self.controllers.linear_feedback.controller1.set_windupRange(
+          windupRange);
+        return self.getReference();
+    }
+
+    motionChangerT drive_vel_PIDmaxVolt(this Self&& self, T maxVoltage) {
+        self.controllers.linear_feedback.controller1.set_maxVoltage(maxVoltage);
         return self.getReference();
     }
 };
