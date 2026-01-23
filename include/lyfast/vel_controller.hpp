@@ -6,6 +6,7 @@
 #include "lyfast/system_identification.hpp"
 #include "pros/motors.hpp"
 #include "units/Angle.hpp"
+#include "units/Vector2D.hpp"
 #include "units/units.hpp"
 
 namespace blazing {
@@ -15,10 +16,14 @@ struct VelocityControllerParams {
     KvUnits left_Kv;
     KaUnits left_Ka;
     KsUnits left_Ks;
+    Divided<Voltage, LinearVelocity> left_Kp { 0 };
+    Divided<Voltage, Length> left_Ki { 0 };
 
     KvUnits right_Kv;
     KaUnits right_Ka;
     KsUnits right_Ks;
+    Divided<Voltage, LinearVelocity> right_Kp { 0 };
+    Divided<Voltage, Length> right_Ki { 0 };
 };
 
 struct LeftRightSpeeds {
@@ -32,7 +37,68 @@ class VelocityController {
 
     std::optional<LeftRightSpeeds> last_speeds = std::nullopt;
 
+    Length left_integral = 0_in;
+    Length right_integral = 0_in;
+
   public:
+    LeftRightVoltages update(LeftRightSpeeds measurement,
+                             DifferentialSpeeds target,
+                             Time duration) {
+        LinearVelocity target_left_vel =
+          target.linear_velocity -
+          (target.angular_velocity / rad) * (m_track_width / 2);
+        LinearVelocity target_right_vel =
+          target.linear_velocity +
+          (target.angular_velocity / rad) * (m_track_width / 2);
+
+        LinearAcceleration target_left_accel =
+          (target_left_vel -
+           // combines measurement and last_speeds
+           last_speeds
+             .transform([](auto e) {
+                 return e.left_vel;
+             })
+             .value_or(0_inps)) /
+          duration;
+
+        LinearAcceleration target_right_accel =
+          (target_right_vel -
+           // combines measurement and last_speeds
+           last_speeds
+             .transform([](auto e) {
+                 return e.right_vel;
+             })
+             .value_or(0_inps)) /
+          duration;
+
+        LinearVelocity left_error = target_left_vel - measurement.left_vel;
+        LinearVelocity right_error = target_right_vel - measurement.right_vel;
+
+        left_integral += left_error * duration;
+        right_integral += right_error * duration;
+
+		// TODO: add integral reset
+
+        LeftRightVoltages result {
+            target_left_vel * m_params.left_Kv +
+              target_left_accel * m_params.left_Ka +
+              m_params.left_Kp * left_error + m_params.left_Ki * left_integral,
+
+            target_right_vel * m_params.right_Kv +
+              target_right_accel * m_params.right_Ka +
+              m_params.right_Kp * right_error +
+              m_params.right_Ki * right_integral,
+        };
+
+        result.left_voltage += units::sgn(target_left_vel) * m_params.left_Ks;
+        result.right_voltage +=
+          units::sgn(target_right_vel) * m_params.right_Ks;
+
+        last_speeds = { target_left_vel, target_right_vel };
+
+        return result;
+    }
+
     LeftRightVoltages update(DifferentialSpeeds target, Time duration) {
         LinearVelocity left_vel =
           target.linear_velocity -

@@ -3,14 +3,17 @@
 #include "blazing/utils.hpp"
 #include "lyfast/api.hpp"
 #include "lyfast/system_identification.hpp"
+#include "lyfast/vel_controller.hpp"
 #include "pros/apix.h"
 #include "pros/imu.h"
 #include "pros/motor_group.hpp"
 #include "pros/optical.h"
 #include "units/Vector2D.hpp"
+#include "units/units.hpp"
 #include <iostream>
 #include <mutex>
 #include <numeric>
+#include <utility>
 
 void disabled() {}
 
@@ -188,14 +191,18 @@ AsyncExecutor async;
 //   k_s  = -0.0743809 volt
 
 blazing::lyfast::VelocityController velocity_controller(
-  {
-    .left_Kv = 0.5 * volt / mps,
-    .left_Ka = 0.05 * volt / mps2,
-    .left_Ks = 0.004 * volt,
+  lyfast::VelocityControllerParams {
+    .left_Kv = 0.426161 * volt / mps,
+    .left_Ka = 0.0890043738963 * volt / mps2,
+    .left_Ks = 0.0481902 * volt,
+    .left_Kp = 0.934514846239 * volt / mps,
+    .left_Ki = 4.58736473058 * volt / m,
 
-    .right_Kv = 0.5 * volt / mps,
-    .right_Ka = 0.05 * volt / mps2,
-    .right_Ks = 0.004 * volt,
+    .right_Kv = 0.425642 * volt / mps,
+    .right_Ka = 0.0915356456147 * volt / mps2,
+    .right_Ks = 0.0499037 * volt,
+    .right_Kp = 0.940127699096 * volt / mps,
+    .right_Ki = 4.65515950473 * volt / m,
   },
   track_width);
 
@@ -657,25 +664,241 @@ void sysid() {
     }
 }
 
-void opcontrol() {
-    // sysid();
+void sysid2() {
+    // std::vector<lyfast::SysIdVoltageCommands> voltage_commands = {
+    //     // linear movements
+    //     { -0.1_volt, -0.1_volt, 400_msec  },
+    //     { 0.2_volt,  0.2_volt,  1000_msec },
+    //     { -0.3_volt, -0.3_volt, 1000_msec },
+    //     { 0.4_volt,  0.4_volt,  1000_msec },
+    //     { -0.5_volt, -0.5_volt, 1000_msec },
+    //     { 0.6_volt,  0.6_volt,  1000_msec },
+    //     { -0.7_volt, -0.7_volt, 1000_msec },
+    // };
+    //
+    // auto data = lyfast::calculate_kv_ks(voltage_commands,
+    //                                     &left_motors,
+    //                                     &right_motors,
+    //                                     3.25_in,
+    //                                     450_rpm);
+
+    std::vector<lyfast::SysIdVoltageCommands> mixed_voltage_commands = {
+        // linear movements
+        { 0.5_volt,  0.5_volt,  500_msec },
+        { 0.7_volt,  0.7_volt,  600_msec },
+        { 0.2_volt,  0.2_volt,  600_msec },
+        { 0.0_volt,  0.0_volt,  300_msec },
+        { -0.7_volt, -0.7_volt, 800_msec },
+        { -0.2_volt, -0.2_volt, 800_msec },
+        { 0.0_volt,  0.0_volt,  300_msec },
+
+        { 0.5_volt,  0.5_volt,  500_msec },
+        { 0.7_volt,  0.7_volt,  600_msec },
+        { 0.2_volt,  0.2_volt,  600_msec },
+        { 0.0_volt,  0.0_volt,  300_msec },
+        { -0.7_volt, -0.7_volt, 800_msec },
+        { -0.2_volt, -0.2_volt, 800_msec },
+        { 0.0_volt,  0.0_volt,  300_msec },
+
+        // angular
+        { 0.5_volt,  -0.5_volt, 500_msec },
+        { 1.0_volt,  -1.0_volt, 400_msec },
+        { -0.5_volt, 0.5_volt,  800_msec },
+        { -0.2_volt, 0.2_volt,  800_msec },
+        { 1.0_volt,  -1.0_volt, 400_msec },
+        { -0.2_volt, 0.2_volt,  300_msec },
+
+        // { 0.5_volt,  -0.5_volt, 500_msec },
+        // { 1.0_volt,  -1.0_volt, 400_msec },
+        // { -0.5_volt, 0.5_volt,  800_msec },
+        // { -0.2_volt, 0.2_volt,  800_msec },
+        // { 1.0_volt,  -1.0_volt, 400_msec },
+        // { -0.2_volt, 0.2_volt,  300_msec },
+        //
+        // { 0.5_volt,  -0.5_volt, 500_msec },
+        // { 1.0_volt,  -1.0_volt, 400_msec },
+        // { -0.5_volt, 0.5_volt,  800_msec },
+        // { -0.2_volt, 0.2_volt,  800_msec },
+        // { 1.0_volt,  -1.0_volt, 400_msec },
+        // { -0.2_volt, 0.2_volt,  300_msec },
+
+        // { -0.5_volt, 0.5_volt,  500_msec },
+        // { -1.0_volt, 1.0_volt,  400_msec },
+        // { 0.5_volt,  -0.5_volt, 800_msec },
+        // { 0.2_volt,  -0.2_volt, 800_msec },
+        // { -1.0_volt, 1.0_volt,  400_msec },
+        // { 0.2_volt,  -0.2_volt, 300_msec },
+        //
+        // { -0.5_volt, 0.5_volt,  500_msec },
+        // { -1.0_volt, 1.0_volt,  400_msec },
+        // { 0.5_volt,  -0.5_volt, 800_msec },
+        // { 0.2_volt,  -0.2_volt, 800_msec },
+        // { -1.0_volt, 1.0_volt,  400_msec },
+        // { 0.2_volt,  -0.2_volt, 300_msec },
+
+        { -0.5_volt, 0.5_volt,  500_msec },
+        { -1.0_volt, 1.0_volt,  400_msec },
+        { 0.5_volt,  -0.5_volt, 800_msec },
+        { 0.2_volt,  -0.2_volt, 800_msec },
+        { -1.0_volt, 1.0_volt,  400_msec },
+        { 0.2_volt,  -0.2_volt, 300_msec },
+    };
+
+    auto accel_data =
+      lyfast::calculate_ka(mixed_voltage_commands,
+                           &left_motors,
+                           &right_motors,
+                           3.25_in,
+                           450_rpm,
+                           velocity_controller.getParams().left_Kv,
+                           velocity_controller.getParams().left_Ks,
+                           velocity_controller.getParams().right_Kv,
+                           velocity_controller.getParams().right_Ks);
 
     while (true) {
+        left_motors.move(0);
+        right_motors.move(0);
+
+        if (master.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_X)) {
+            // std::cout << "vel data: " << std::endl;
+            // lyfast::printData(data);
+            std::cout << "accel_data: " << std::endl;
+            lyfast::printData(accel_data);
+        }
+        pros::delay(10);
+    }
+}
+
+void sysid3() {
+    std::vector<lyfast::SysIdVoltageCommands> accel_voltage_commands = {
+        // linear movements
+        { 0.5_volt, 0.5_volt, 2_sec },
+    };
+
+    auto accel_data = lyfast::createData(accel_voltage_commands,
+                                         &left_motors,
+                                         &right_motors,
+                                         3.25_in,
+                                         450_rpm);
+
+    while (true) {
+        left_motors.move(0);
+        right_motors.move(0);
+
+        if (master.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_X)) {
+            // std::cout << "vel data: " << std::endl;
+            // lyfast::printData(data);
+            std::cout << "accel_data: " << std::endl;
+            lyfast::printData(accel_data);
+        }
+        pros::delay(10);
+    }
+}
+
+void opcontrol() {
+    // sysid3();
+    // sysid2();
+
+    std::vector<std::pair<DifferentialSpeeds, lyfast::LeftRightSpeeds>> data;
+    std::vector<LeftRightVoltages> voltages;
+
+    Time start_time = from_msec(pros::millis());
+
+    LinearAcceleration max_acceleration = 50_inps2;
+    LinearVelocity max_velocity = 40_inps;
+
+    Length distance = 54_in;
+
+    Time end_time = 2 * distance / units::sqrt(distance * max_acceleration);
+
+    auto t_4 = (max_velocity / max_acceleration);
+    auto t_5 = (max_velocity / max_acceleration +
+                (distance -
+                 (1.f / 4.f * max_velocity / max_acceleration * max_velocity)) /
+                  max_velocity);
+    auto b = (distance - units::pow<2>(max_velocity) / max_acceleration);
+
+    while (true) {
+        Time curr_time = from_msec(pros::millis());
+        Time motion_time = curr_time - start_time;
+
+        if (motion_time >= end_time) {
+            break;
+        }
+
         // double throttle =
-        // master.get_analog(pros::E_CONTROLLER_ANALOG_LEFT_Y); double turn =
-        // -master.get_analog(pros::E_CONTROLLER_ANALOG_RIGHT_X);
-        //
+        // master.get_analog(pros::E_CONTROLLER_ANALOG_LEFT_Y); double turn
+        // = -master.get_analog(pros::E_CONTROLLER_ANALOG_RIGHT_X);
+        // //
         // throttle /= 127.0;
         // turn /= 127.0;
+        //
+        // // constexpr auto max_vel = (7.5_rpm * 3.25_in * M_PI / rad);
+        // constexpr auto max_vel = 2_mps;
+        // // constexpr auto max_rad = 2_mps * ;
+        // //
+        // DifferentialSpeeds target {
+        //     .linear_velocity = throttle * max_vel,
+        //     .angular_velocity = turn * rad * (max_vel / (track_width *
+        //     0.5))
+        // };
 
-        constexpr auto max_vel = (7.5_rpm * 3.25_in * M_PI / rad);
+        auto mp = [&](Time time) -> LinearVelocity {
+            if (b < 0.0_in) {
+                if (time < end_time / 2) {
+                    return (max_acceleration * time);
+                } else {
+                    return (-max_acceleration * (time - end_time / 2.f) +
+                            max_acceleration * end_time / 2.f);
+                }
+            } else {
+                if (time < t_4) {
+                    return (max_acceleration * time);
+                } else {
+                    if (time <= t_5) {
+                        return (max_velocity);
+                    } else {
+                        return (-max_acceleration * (time - t_5) +
+                                max_velocity);
+                    }
+                }
+            }
+            // targets velocity 10 msec into the future
+        };
 
-        LeftRightVoltages volts = controllers.velocity_feedforward.update(
-          // DifferentialSpeeds { throttle * max_vel,
-          //                      turn * rad * (max_vel * 2 / track_width) },
+        // target speed in the future
+        LinearVelocity curr_target_speed = mp(motion_time + 10_msec);
 
-          DifferentialSpeeds { 15_inps, 0_radps },
-          10_msec);
+        // use desired speed now in logs
+        LinearVelocity desired_curr_speed = mp(motion_time);
+
+        DifferentialSpeeds target { .linear_velocity = curr_target_speed,
+                                    .angular_velocity = 0_radps };
+
+        DifferentialSpeeds desired_target { .linear_velocity =
+                                              desired_curr_speed,
+                                            .angular_velocity = 0_radps };
+
+        LinearVelocity curr_left_vel =
+          LinearVelocity((left_motors.get_actual_velocity(0) +
+                          left_motors.get_actual_velocity(1) +
+                          left_motors.get_actual_velocity(2)) *
+                         0.00324173091942 / 3.0);
+        LinearVelocity curr_right_vel =
+          LinearVelocity((right_motors.get_actual_velocity(0) +
+                          right_motors.get_actual_velocity(1) +
+                          right_motors.get_actual_velocity(2)) *
+                         0.00324173091942 / 3.0);
+
+        LinearVelocity curr_lin_vel = (curr_left_vel + curr_right_vel) / 2.0;
+
+        LeftRightVoltages volts =
+          // controllers.velocity_feedforward.update(target, 10_msec);
+          controllers.velocity_feedforward.update(
+            { curr_left_vel, curr_right_vel },
+            target,
+            10_msec);
+        //
         //
         // double leftPower = throttle + turn;
         // double rightPower = throttle - turn;
@@ -683,21 +906,61 @@ void opcontrol() {
         left_motors.move_voltage(to_mvolt(12 * volts.left_voltage));
         right_motors.move_voltage(to_mvolt(12 * volts.right_voltage));
 
-        std::cout << "volt l/r: " << volts.left_voltage.internal() << " "
-                  << volts.right_voltage.internal() << std::endl;
+        // std::cout << "volt l/r: " << volts.left_voltage.internal() << " "
+        //           << volts.right_voltage.internal() << std::endl;
 
-        std::cout << "l/r: "
-                  << (left_motors.get_actual_velocity(0) +
-                      left_motors.get_actual_velocity(1) +
-                      left_motors.get_actual_velocity(2)) /
-                       3.0
-                  << " "
-                  << (right_motors.get_actual_velocity(0) +
-                      right_motors.get_actual_velocity(1) +
-                      right_motors.get_actual_velocity(2)) /
-                       3.0
-                  << std::endl;
+        // std::cout << "targetv l/a: " << target.linear_velocity.internal()
+        // << " "
+        //           << target.angular_velocity.internal() << std::endl;
 
+        // std::cout << "l/r: "
+        //           << (left_motors.get_actual_velocity(0) +
+        //               left_motors.get_actual_velocity(1) +
+        //               left_motors.get_actual_velocity(2)) *
+        //                0.00324173091942 / 3.0
+        //           << " "
+        //           << (right_motors.get_actual_velocity(0) +
+        //               right_motors.get_actual_velocity(1) +
+        //               right_motors.get_actual_velocity(2)) *
+        //                0.00324173091942 / 3.0
+        //           << std::endl;
+
+        data.emplace_back(
+          desired_target,
+          lyfast::LeftRightSpeeds { curr_left_vel, curr_right_vel });
+        voltages.emplace_back(volts);
+
+        pros::delay(10);
+    }
+
+    while (true) {
+        left_motors.move(0);
+        right_motors.move(0);
+
+        if (master.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_X)) {
+            // std::cout << "vel data: " << std::endl;
+            // lyfast::printData(data);
+            std::cout << "data: " << std::endl;
+            std::cout << "\\left[";
+            for (auto [target, actual] : data) {
+                std::cout << "\\left(" << target.linear_velocity.internal()
+                          << ","
+                          << (actual.left_vel + actual.right_vel).internal() /
+                               2.0
+                          << "\\right),";
+            }
+            std::cout << "\\right]," << std::endl;
+
+            std::cout << "voltages:";
+            std::cout << "\\left[";
+            for (auto curr_voltages : voltages) {
+                std::cout << "\\left(" << curr_voltages.left_voltage.internal()
+                          << "," << curr_voltages.right_voltage.internal()
+                          << "\\right),";
+            }
+
+            std::cout << "\\right]," << std::endl;
+        }
         pros::delay(10);
     }
 
