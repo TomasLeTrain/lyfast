@@ -2,6 +2,7 @@
 
 #include "blazing/controllers/controllers.hpp"
 #include "blazing/controllers/feedforward/feedforward.hpp"
+#include "blazing/drivetrains/differential.hpp"
 #include "blazing/utils.hpp"
 #include "lyfast/system_identification.hpp"
 #include "pros/motors.hpp"
@@ -11,6 +12,15 @@
 
 namespace blazing {
 namespace lyfast {
+
+template<typename T>
+struct SimpleVelocityControllerParams {
+    Divided<Voltage, T> Kv;
+    Divided<Voltage, Divided<T, Time>> Ka;
+    Voltage Ks;
+    Divided<Voltage, T> Kp { 0 };
+    Divided<Voltage, Multiplied<T, Time>> Ki { 0 };
+};
 
 struct VelocityControllerParams {
     KvUnits left_Kv;
@@ -24,21 +34,106 @@ struct VelocityControllerParams {
     KsUnits right_Ks;
     Divided<Voltage, LinearVelocity> right_Kp { 0 };
     Divided<Voltage, Length> right_Ki { 0 };
+
+    // construct both sides with equal gains
+    static VelocityControllerParams
+    fromSimple(SimpleVelocityControllerParams<LinearVelocity> params) {
+        return { .left_Kv = params.Kv,
+                 .left_Ka = params.Ka,
+                 .left_Ks = params.Ks,
+                 .left_Kp = params.Kp,
+                 .left_Ki = params.Ki,
+                 .right_Kv = params.Kv,
+                 .right_Ka = params.Ka,
+                 .right_Ks = params.Ks,
+                 .right_Kp = params.Kp,
+                 .right_Ki = params.Ki };
+    }
 };
 
-struct LeftRightSpeeds {
-    LinearVelocity left_vel;
-    LinearVelocity right_vel;
+template<typename T>
+class SimpleVelocityController {
+    SimpleVelocityControllerParams<T> m_params;
+
+    std::optional<T> last_speed = std::nullopt;
+
+    Multiplied<T, Time> integral = 0_in;
+    Multiplied<T, Time> right_integral = 0_in;
+
+    std::optional<T> last_error = std::nullopt;
+
+  public:
+    Voltage update(T measurement, T target, Time duration) {
+        LinearAcceleration target_accel =
+          (target -
+           // combines measurement and last_speeds
+           last_speed.value_or(T(0))) /
+          duration;
+
+        LinearVelocity error = target - measurement;
+
+        integral += error * duration;
+
+        // if (last_error && units::sgn(error) != units::sgn(*last_error)) {
+        //     integral = Length { 0 };
+        // }
+
+        Voltage result {
+            // kv
+            target * m_params.Kv +
+              // ka
+              target_accel * m_params.Ka +
+              // ks
+              units::sgn(target) * m_params.Ks +
+              // kp
+              m_params.Kp * error +
+              // ki
+              m_params.Ki * integral,
+        };
+
+        last_speed = { target };
+        last_error = error;
+
+        return result;
+    }
+
+    Voltage update(T target, Time duration) {
+        LinearAcceleration target_accel =
+          (target -
+           // combines measurement and last_speeds
+           last_speed.value_or(T(0))) /
+          duration;
+
+        Voltage result { // kv
+                         target * m_params.Kv +
+                         // ka
+                         target_accel * m_params.Ka +
+                         // ks
+                         units::sgn(target) * m_params.Ks
+        };
+
+        last_speed = { target };
+
+        return result;
+    }
+
+    SimpleVelocityControllerParams<T> getParams() {
+        return m_params;
+    }
+
+    SimpleVelocityController(SimpleVelocityControllerParams<T> params)
+        : m_params(params) {}
 };
 
 class VelocityController {
     VelocityControllerParams m_params;
+
+    SimpleVelocityController<LinearVelocity> left_controller;
+    SimpleVelocityController<LinearVelocity> right_controller;
+
     Length m_track_width;
 
-    std::optional<LeftRightSpeeds> last_speeds = std::nullopt;
-
-    Length left_integral = 0_in;
-    Length right_integral = 0_in;
+    DifferentialDrivetrain& drivetrain;
 
   public:
     LeftRightVoltages update(LeftRightSpeeds measurement,
@@ -51,91 +146,36 @@ class VelocityController {
           target.linear_velocity +
           (target.angular_velocity / rad) * (m_track_width / 2);
 
-        LinearAcceleration target_left_accel =
-          (target_left_vel -
-           // combines measurement and last_speeds
-           last_speeds
-             .transform([](auto e) {
-                 return e.left_vel;
-             })
-             .value_or(0_inps)) /
-          duration;
+        auto left_voltage = left_controller.update(measurement.left_vel,
+                                                   target_left_vel,
+                                                   duration);
+        auto right_voltage = right_controller.update(measurement.right_vel,
+                                                     target_right_vel,
+                                                     duration);
 
-        LinearAcceleration target_right_accel =
-          (target_right_vel -
-           // combines measurement and last_speeds
-           last_speeds
-             .transform([](auto e) {
-                 return e.right_vel;
-             })
-             .value_or(0_inps)) /
-          duration;
-
-        LinearVelocity left_error = target_left_vel - measurement.left_vel;
-        LinearVelocity right_error = target_right_vel - measurement.right_vel;
-
-        left_integral += left_error * duration;
-        right_integral += right_error * duration;
-
-		// TODO: add integral reset
-
-        LeftRightVoltages result {
-            target_left_vel * m_params.left_Kv +
-              target_left_accel * m_params.left_Ka +
-              m_params.left_Kp * left_error + m_params.left_Ki * left_integral,
-
-            target_right_vel * m_params.right_Kv +
-              target_right_accel * m_params.right_Ka +
-              m_params.right_Kp * right_error +
-              m_params.right_Ki * right_integral,
-        };
-
-        result.left_voltage += units::sgn(target_left_vel) * m_params.left_Ks;
-        result.right_voltage +=
-          units::sgn(target_right_vel) * m_params.right_Ks;
-
-        last_speeds = { target_left_vel, target_right_vel };
+        LeftRightVoltages result = { left_voltage, right_voltage };
 
         return result;
     }
 
     LeftRightVoltages update(DifferentialSpeeds target, Time duration) {
-        LinearVelocity left_vel =
-          target.linear_velocity -
-          (target.angular_velocity / rad) * (m_track_width / 2);
-        LinearVelocity right_vel =
-          target.linear_velocity +
-          (target.angular_velocity / rad) * (m_track_width / 2);
+        // fall back to using specified drivetrain
+        return update(drivetrain.getDrivetrainVelocities(), target, duration);
 
-        LinearAcceleration left_accel =
-          (left_vel - last_speeds
-                        // if no last speeds then we assume zero acceleration
-                        .transform([](auto speeds) {
-                            return speeds.left_vel;
-                        })
-                        .value_or(left_vel)) /
-          duration;
-
-        LinearAcceleration right_accel =
-          (right_vel - last_speeds
-                         // if no last speeds then we assume zero acceleration
-                         .transform([](auto speeds) {
-                             return speeds.right_vel;
-                         })
-                         .value_or(right_vel)) /
-          duration;
-
-        LeftRightVoltages result {
-            left_vel * m_params.left_Kv + left_accel * m_params.left_Ka,
-            right_vel * m_params.right_Kv + right_accel * m_params.right_Ka
-        };
-
-        result.left_voltage += units::sgn(left_vel) * m_params.left_Ks;
-        result.right_voltage += units::sgn(right_vel) * m_params.right_Ks;
-
-        last_speeds = { left_vel, right_vel };
-
-        return result;
+        // LinearVelocity target_left_vel =
+        //   target.linear_velocity -
+        //   (target.angular_velocity / rad) * (m_track_width / 2);
+        // LinearVelocity target_right_vel =
+        //   target.linear_velocity +
+        //   (target.angular_velocity / rad) * (m_track_width / 2);
+        //
+        // auto left_voltage = left_controller.update(target_left_vel,
+        // duration); auto right_voltage =
+        //   right_controller.update(target_right_vel, duration);
+        //
+        // LeftRightVoltages result = { left_voltage, right_voltage };
+        //
+        // return result;
     }
 
     // allows using as only a linear feedforward
@@ -161,9 +201,35 @@ class VelocityController {
         return m_params;
     }
 
-    VelocityController(VelocityControllerParams params, Length track_width)
+    VelocityController(VelocityControllerParams params,
+                       Length track_width,
+                       DifferentialDrivetrain& drivetrain)
         : m_params(params),
-          m_track_width(track_width) {}
+          left_controller({
+            .Kv = this->m_params.left_Kv,
+            .Ka = this->m_params.left_Ka,
+            .Ks = this->m_params.left_Ks,
+            .Kp = this->m_params.left_Kp,
+            .Ki = this->m_params.left_Ki,
+          }),
+          right_controller({
+            .Kv = this->m_params.right_Kv,
+            .Ka = this->m_params.right_Ka,
+            .Ks = this->m_params.right_Ks,
+            .Kp = this->m_params.right_Kp,
+            .Ki = this->m_params.right_Ki,
+          }),
+          m_track_width(track_width),
+          drivetrain(drivetrain) {}
+
+    VelocityController(SimpleVelocityControllerParams<LinearVelocity> params,
+                       Length track_width,
+                       DifferentialDrivetrain& drivetrain)
+        : m_params(VelocityControllerParams::fromSimple(params)),
+          left_controller(params),
+          right_controller(params),
+          m_track_width(track_width),
+          drivetrain(drivetrain) {}
 };
 
 template<typename Controller>
@@ -178,8 +244,8 @@ struct VelocityFeedforward : virtual ControllerBase {
     // creates a copy of the controller with different linear feedback
     // controller
     template<typename Self>
-    Self with_linear_feedback(this Self&& self,
-                              Controller new_velocity_feedforward) {
+    Self with_linear_feedforward(this Self&& self,
+                                 Controller new_velocity_feedforward) {
         Self new_self = self;
         new_self.velocity_feedforward = new_velocity_feedforward;
         return new_self;
@@ -189,6 +255,30 @@ struct VelocityFeedforward : virtual ControllerBase {
 template<typename Controller>
 concept hasVelocityFeedforward =
   requires(Controller controller) { controller.velocity_feedforward; };
+
+template<typename Controller>
+    requires Feedback<Controller, DifferentialSpeeds, LeftRightVoltages>
+struct VelocityFeedback : virtual ControllerBase {
+  public:
+    Controller velocity_feedback;
+
+    VelocityFeedback(Controller velocity_feedforward_controller)
+        : velocity_feedback(velocity_feedforward_controller) {}
+
+    // creates a copy of the controller with different linear feedback
+    // controller
+    template<typename Self>
+    Self with_linear_feedback(this Self&& self,
+                              Controller new_velocity_feedback) {
+        Self new_self = self;
+        new_self.velocity_feedback = new_velocity_feedback;
+        return new_self;
+    }
+};
+
+template<typename Controller>
+concept hasVelocityFeedback =
+  requires(Controller controller) { controller.velocity_feedback; };
 
 } // namespace lyfast
 } // namespace blazing

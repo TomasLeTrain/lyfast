@@ -1,5 +1,6 @@
 #pragma once
 
+#include "blazing/drivetrains/differential.hpp"
 #include "blazing/utils.hpp"
 #include "pros/motor_group.hpp"
 #include "pros/rtos.h"
@@ -64,6 +65,10 @@ createData(std::vector<SysIdVoltageCommands> voltage_commands,
            AngularVelocity final_rpm);
 
 void printData(std::vector<OLS_data> data);
+
+std::vector<OLS_data>
+calculate_ka_kp_ki_fopdt(SysIdVoltageCommands voltage_command,
+                         DifferentialDrivetrain& drivetrain);
 
 } // namespace lyfast
 } // namespace blazing

@@ -4,6 +4,7 @@
 #include "blazing/utils.hpp"
 #include "pros/abstract_motor.hpp"
 #include "pros/motor_group.hpp"
+#include "units/Angle.hpp"
 #include "units/units.hpp"
 #include <array>
 
@@ -16,13 +17,18 @@ class DifferentialDrivetrain : public ChainableDrivetrain {
 
     std::array<Voltage, 2> voltages { 0_volt, 0_volt };
 
-	bool m_brakeMode;
+    Length wheel_diameter = 3.25_in;
+    AngularVelocity final_rpm = 450_rpm;
 
   public:
     DifferentialDrivetrain(pros::MotorGroup* left_motors,
-                           pros::MotorGroup* right_motors)
+                           pros::MotorGroup* right_motors,
+                           Length wheel_diameter,
+                           AngularVelocity final_rpm)
         : left_motors(left_motors),
-          right_motors(right_motors) {}
+          right_motors(right_motors),
+          wheel_diameter(wheel_diameter),
+          final_rpm(final_rpm) {}
 
     void moveVoltages(std::vector<Voltage> voltages) override {
         // if voltages are invalid then the .at should throw an error
@@ -59,10 +65,21 @@ class DifferentialDrivetrain : public ChainableDrivetrain {
         moveTank(left_voltage, right_voltage);
     }
 
-	void setBrakeMode(pros::MotorBrake brake_mode){
-		left_motors->set_brake_mode_all(brake_mode);
-		right_motors->set_brake_mode_all(brake_mode);
-	}
+    void setBrakeMode(pros::MotorBrake brake_mode) {
+        left_motors->set_brake_mode_all(brake_mode);
+        right_motors->set_brake_mode_all(brake_mode);
+    }
 
+    LeftRightSpeeds getDrivetrainVelocities() {
+        return LeftRightSpeeds {
+            get_group_velocity(left_motors, wheel_diameter, final_rpm),
+            get_group_velocity(right_motors, wheel_diameter, final_rpm)
+        };
+    }
+
+    LeftRightVoltages getDrivetrainVoltages() {
+        return LeftRightVoltages { get_group_voltage(left_motors),
+                                   get_group_voltage(right_motors) };
+    }
 };
 } // namespace blazing
