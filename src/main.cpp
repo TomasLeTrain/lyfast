@@ -1,5 +1,7 @@
 #include "main.h"
 #include "blazing/api.hpp"
+#include "blazing/controllers/controllers.hpp"
+#include "blazing/controllers/slew.hpp"
 #include "blazing/utils.hpp"
 #include "lyfast/api.hpp"
 #include "lyfast/system_identification.hpp"
@@ -8,6 +10,7 @@
 #include "pros/imu.h"
 #include "pros/motor_group.hpp"
 #include "pros/optical.h"
+#include "units/Angle.hpp"
 #include "units/Vector2D.hpp"
 #include "units/units.hpp"
 #include <iostream>
@@ -246,12 +249,12 @@ blazing::lyfast::VelocityController linear_velocity_controller(
     // .right_Kp = 0.940127699096 * volt / mps,
     // .right_Ki = 4.65515950473 * volt / m,
 
-		// auto tuner acceleration is not really good atm
-		// using desmos constants for now
+    // auto tuner acceleration is not really good atm
+    // using desmos constants for now
     .left_Kv = 0.427641833333 * volt / mps,
     .left_Ka = 0.0918263592271 * volt / mps2,
     .left_Ks = 0.0546282666667 * volt,
-		// lambda 0.55
+    // lambda 0.55
     .left_Kp = 0.857349891834 * volt / mps,
     .left_Ki = 4.40262320937 * volt / m,
 
@@ -282,16 +285,62 @@ blazing::lyfast::VelocityController angular_velocity_controller(
   track_width,
   drivetrain);
 
+lyfast::LinearAngularVelocityController vel_controller {
+    linear_velocity_controller,
+    angular_velocity_controller
+};
+
+PID<Length, LinearVelocity> linear_vel_pid(0.5,
+                                           0.0,
+                                           3.6,
+                                           7,
+                                           // std::nullopt,
+                                           127,
+                                           50_msec,
+                                           1_in,
+                                           1_inps);
+
+CascadedControllers<decltype(linear_vel_pid),
+                    decltype(vel_controller),
+                    Length,
+                    LinearVelocity,
+                    Voltage>
+  linear_control(linear_vel_pid, vel_controller);
+
+PID<Angle, AngularVelocity> angular_vel_pid(4.5,
+                                            0.0,
+                                            3.6,
+                                            7,
+                                            // std::nullopt,
+                                            127,
+                                            50_msec,
+                                            1_stDeg,
+                                            1_degps);
+
+CascadedControllers<decltype(angular_vel_pid),
+                    decltype(vel_controller),
+                    Angle,
+                    AngularVelocity,
+                    Voltage>
+  angular_control(angular_vel_pid, vel_controller);
+
 Controllers controllers(
   // pid controllers
-  PIDLinearController(linear_pid),
-  PIDAngularController(angular_pid),
-  lyfast::VelocityFeedforward<lyfast::VelocityController>(
-    linear_velocity_controller),
+  // PIDLinearController(linear_pid),
+  // PIDAngularController(angular_pid),
+
+  LinearFeedbackController<decltype(linear_control)>(linear_control),
+  AngularFeedbackController<decltype(angular_control)>(angular_control),
+
+  lyfast::VelocityFeedforward<lyfast::LinearAngularVelocityController>(
+    vel_controller),
 
   // slew controllers
-  LinearSlewController(0.07_volt, 0.06_volt),
-  AngularSlewController(0.8_volt),
+  // LinearSlewController(0.07_volt, 0.06_volt),
+  // AngularSlewController(0.8_volt),
+
+  LinearSlewController {},
+  AngularSlewController {},
 
   // voltage constraints controllers
   // (included just so they can be set per motion)

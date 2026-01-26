@@ -1,6 +1,7 @@
 #include "lyfast/system_identification.hpp"
 #include "Eigen/Dense"
 #include "blazing/drivetrains/differential.hpp"
+#include "blazing/utils.hpp"
 #include "pros/abstract_motor.hpp"
 #include "pros/motor_group.hpp"
 #include "units/Angle.hpp"
@@ -9,6 +10,7 @@
 
 namespace blazing {
 namespace lyfast {
+namespace sysid {
 
 std::vector<OLS_data>
 calculate_kv_ks(std::vector<SysIdVoltageCommands> voltage_commands,
@@ -119,54 +121,15 @@ calculate_ka(std::vector<SysIdVoltageCommands> voltage_commands,
         auto start_time = blazing::now();
         uint32_t prev_time;
 
-        auto get_group_velocity =
-          [&](pros::MotorGroup* motor_group) -> LinearVelocity {
-            AngularVelocity average_rpm = 0_rpm;
-
-            for (std::int8_t motor_i = 0; motor_i < motor_group->size();
-                 motor_i++) {
-                double velocity = motor_group->get_actual_velocity(motor_i);
-                pros::MotorGears encoder_units =
-                  motor_group->get_gearing(motor_i);
-                AngularVelocity start_rpm;
-
-                switch (encoder_units) {
-                    case pros::MotorGears::blue: start_rpm = 600_rpm; break;
-                    case pros::MotorGears::green: start_rpm = 200_rpm; break;
-                    case pros::MotorGears::red: start_rpm = 100_rpm; break;
-                    default: 200_rpm; break;
-                }
-
-                AngularVelocity actual_rpm =
-                  (velocity * rpm) * final_rpm / start_rpm;
-
-                average_rpm += actual_rpm;
-            }
-
-            average_rpm /= motor_group->size();
-
-            LinearVelocity velocity =
-              average_rpm * (wheel_diameter * M_PI) / rot;
-
-            return velocity;
-        };
-
-        auto get_voltage = [](pros::MotorGroup* motors) -> Voltage {
-            Voltage result = 0_volt;
-            for (auto voltage : motors->get_voltage_all()) {
-                result += from_mvolt(voltage) / 12;
-            }
-            result /= motors->size();
-            return result;
-        };
-
         while (!timeoutDone(target_time, start_time)) {
             // amount of time to measure the steady state
-            auto left_velocity = get_group_velocity(left_motors);
-            auto left_voltage = get_voltage(left_motors);
+            auto left_velocity =
+              get_group_velocity(left_motors, wheel_diameter, final_rpm);
+            auto left_voltage = get_group_voltage(left_motors);
 
-            auto right_velocity = get_group_velocity(right_motors);
-            auto right_voltage = get_voltage(right_motors);
+            auto right_velocity =
+              get_group_velocity(right_motors, wheel_diameter, final_rpm);
+            auto right_voltage = get_group_voltage(right_motors);
 
             data.emplace_back(left_velocity,
                               right_velocity,
@@ -252,55 +215,15 @@ createData(std::vector<SysIdVoltageCommands> voltage_commands,
 
         auto start_time = blazing::now();
         uint32_t prev_time;
-
-        auto get_group_velocity =
-          [&](pros::MotorGroup* motor_group) -> LinearVelocity {
-            AngularVelocity average_rpm = 0_rpm;
-
-            for (std::int8_t motor_i = 0; motor_i < motor_group->size();
-                 motor_i++) {
-                double velocity = motor_group->get_actual_velocity(motor_i);
-                pros::MotorGears encoder_units =
-                  motor_group->get_gearing(motor_i);
-                AngularVelocity start_rpm;
-
-                switch (encoder_units) {
-                    case pros::MotorGears::blue: start_rpm = 600_rpm; break;
-                    case pros::MotorGears::green: start_rpm = 200_rpm; break;
-                    case pros::MotorGears::red: start_rpm = 100_rpm; break;
-                    default: 200_rpm; break;
-                }
-
-                AngularVelocity actual_rpm =
-                  (velocity * rpm) * final_rpm / start_rpm;
-
-                average_rpm += actual_rpm;
-            }
-
-            average_rpm /= motor_group->size();
-
-            LinearVelocity velocity =
-              average_rpm * (wheel_diameter * M_PI) / rot;
-
-            return velocity;
-        };
-
-        auto get_voltage = [](pros::MotorGroup* motors) -> Voltage {
-            Voltage result = 0_volt;
-            for (auto voltage : motors->get_voltage_all()) {
-                result += from_mvolt(voltage) / 12;
-            }
-            result /= motors->size();
-            return result;
-        };
-
         while (!timeoutDone(target_time, start_time)) {
             prev_time = pros::millis();
 
-            LinearVelocity left_velocity = get_group_velocity(left_motors);
-            LinearVelocity right_velocity = get_group_velocity(right_motors);
-            Voltage left_volt = get_voltage(left_motors);
-            Voltage right_volt = get_voltage(right_motors);
+            LinearVelocity left_velocity =
+              get_group_velocity(left_motors, wheel_diameter, final_rpm);
+            LinearVelocity right_velocity =
+              get_group_velocity(right_motors, wheel_diameter, final_rpm);
+            Voltage left_volt = get_group_voltage(left_motors);
+            Voltage right_volt = get_group_voltage(right_motors);
 
             if (record)
                 data.emplace_back(left_velocity,
@@ -438,5 +361,6 @@ calculate_ka_kp_ki_fopdt(SysIdVoltageCommands voltage_command,
     return data;
 }
 
+} // namespace sysid
 } // namespace lyfast
 } // namespace blazing

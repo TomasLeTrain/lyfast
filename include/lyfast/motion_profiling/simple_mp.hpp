@@ -9,6 +9,7 @@
 #include "units/Vector2D.hpp"
 #include "units/units.hpp"
 #include <array>
+#include <cassert>
 #include <cmath>
 #include <memory>
 #include <vector>
@@ -38,90 +39,140 @@ class TrapezoidalProfileTrajectory {
         { 0_sec, 0_m, 0_mps, 0_mps2 }
     };
 
-    // TODO: make into constraints struct
+    // target distance
+    Length target;
+
     LinearVelocity max_vel;
     LinearAcceleration max_accel;
     LinearAcceleration max_decel;
 
-    // target distance
-    Length target;
+    Time accel_time, decel_time, steady_time, total_time;
+    Length accel_distance, decel_distance, steady_distance;
 
-    Time accel_time, decel_time, decel_start_time;
-    Length accel_distance, decel_start_distance;
+    LinearVelocity max_vel_triangular;
+    Length accel_dist_triangular;
+    Length decel_dist_triangular;
 
-    void compute() {
-        // time to get to max vel when accelerating / get to zero when
-        // decelerating
+    // for triangle profile
+    Time accel_time_triangular, decel_time_triangular;
+
+  private:
+    void precompute() {
+        // trapezoidal case
         accel_time = max_vel / max_accel;
         decel_time = max_vel / max_decel;
 
-        // Using the acceleration time, we can find the distance it would take
-        // to reach max velocity
-        accel_distance = 0.5 * max_accel * units::square(accel_time);
-        Length decel_distance = 0.5 * max_decel * units::square(decel_time);
+        accel_distance = 0.5 * max_accel * accel_time * accel_time;
+        decel_distance = 0.5 * max_decel * decel_time * decel_time;
 
-        // no cruise time, we have to determine at which t they meet
-        if (accel_distance + decel_distance > target) {
-            accel_time = units::sqrt(2 * target /
-                                     (max_accel * (1 + max_accel / max_decel)));
+        steady_distance = target - (accel_distance + decel_distance);
 
-            decel_time = accel_time * max_accel / max_decel;
+        steady_time = steady_distance / max_vel;
 
-            accel_distance = 0.5 * max_accel * units::square(accel_time);
-            decel_distance = 0.5 * max_decel * units::square(decel_time);
+        // triangular case
+        decel_time_triangular = units::sqrt(
+          2 * target / (units::pow<2>(max_decel) / max_accel + max_decel));
+        max_vel_triangular = decel_time_triangular * max_decel;
+        accel_time_triangular = max_vel_triangular / max_accel;
 
-            max_vel = max_accel * accel_time;
+        accel_dist_triangular =
+          0.5 * max_accel * accel_time_triangular * accel_time_triangular;
+        decel_dist_triangular =
+          0.5 * max_decel * decel_time_triangular * decel_time_triangular;
+
+        if (steady_distance > 0_in) {
+            total_time = accel_time + steady_time + decel_time;
+        } else {
+            total_time = accel_time_triangular + decel_time_triangular;
         }
-
-        // Then calculate the cruising distance based on the distance left
-        const Length cruise_distance = target - accel_distance - decel_distance;
-        const Time cruise_time =
-          cruise_distance / max_vel; // Divide by the velocity to get time
-
-        // time at which we start to decelerate
-        decel_start_time = accel_time + cruise_time;
-        decel_start_distance = accel_distance + cruise_distance;
     }
 
-    LinearVelocity getVelocity(Time t) {
-        // we are accelerating
+    LinearVelocity triangleProfile(Time t) {
         if (t < accel_time) {
-            return max_accel * t;
-        }
-        // we are crusing
-        else if (t < decel_start_time) {
+            return t * max_accel;
+        } else if (t < accel_time + steady_time) {
             return max_vel;
+        } else {
+            return max_vel - (t - (steady_time + accel_time)) * max_decel;
         }
-        // if none of the above, we must be in deceleration
-        else {
-            return (max_vel - max_decel * (t - decel_start_time));
+    }
+
+    LinearVelocity trapezoidProfile(Time t) {
+        if (t < accel_time_triangular) {
+            return t * max_accel;
+        } else {
+            return max_accel * accel_time_triangular -
+                   max_decel * (t - accel_time_triangular);
+        }
+    }
+
+  public:
+    LinearVelocity getVelocity(Time t) {
+        if (t < 0_sec || t > total_time) return 0_mps;
+
+        if (steady_distance < 0_in) {
+            return triangleProfile(t);
+        } else {
+            return trapezoidProfile(t);
         }
     }
 
     LinearVelocity getVelocity(Length distance) {
-        if (distance < accel_distance) {
-            return units::sqrt(2 * distance * max_accel);
+        if (distance > target || distance < 0_in) {
+            return 0_mps;
         }
-        // we are crusing
-        else if (distance < decel_start_distance) {
-            return max_vel;
-        }
-        // if none of the above, we must be decelerating
-        else {
-            return (
-              max_vel -
-              units::sqrt(2 * (distance - decel_start_distance) * max_decel));
+
+        // trapezoidal case
+        if (steady_distance > 0_in) {
+            if (distance < accel_distance) {
+                return getVelocity(units::sqrt(2 * distance / max_accel));
+            } else if (distance < accel_distance + steady_distance) {
+                distance -= accel_distance;
+
+                return getVelocity(accel_time + (distance / max_vel));
+            } else {
+                // avoid precision error in the result
+                distance -= 1e-5 * m;
+
+                LinearAcceleration a = -0.5 * max_decel;
+                LinearVelocity b = max_vel;
+                Length c = (accel_distance + steady_distance) - distance;
+
+                // smallest solution
+                Time result = (-b + units::sqrt(b * b - 4 * a * c)) / (2 * a);
+
+                return getVelocity(accel_time + steady_time + result);
+            }
+        } else {
+			// triangular case
+            if (distance < accel_dist_triangular) {
+                return getVelocity(units::sqrt(2 * distance / max_accel));
+            } else {
+                // avoid precision error in the result
+                distance -= 1e-5 * m;
+
+                LinearAcceleration a = -0.5 * max_decel;
+                LinearVelocity b = max_vel_triangular;
+                Length c = accel_dist_triangular - distance;
+
+                // smallest solution
+                Time result = (-b + units::sqrt(b * b - 4 * a * c)) / (2 * a);
+
+                return getVelocity(accel_time_triangular + result);
+            }
         }
     }
 
     TrapezoidalProfileTrajectory(LinearVelocity max_vel,
                                  LinearAcceleration max_accel,
+                                 LinearAcceleration max_decel,
                                  Time dt,
                                  Length target)
-        : max_vel(max_vel),
+        : target(target),
+          max_vel(max_vel),
           max_accel(max_accel),
-          target(target) {
-        compute();
+          max_decel(max_decel) {
+        precompute();
     }
 };
 } // namespace simple_mp

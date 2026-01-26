@@ -187,10 +187,31 @@ class VelocityController {
                2.0;
     }
 
+    // allows using as only a linear feedback with only linear component
+    Voltage
+    update(LeftRightSpeeds measurement, LinearVelocity target, Time duration) {
+        auto left_right_voltages =
+          update(measurement, DifferentialSpeeds { target, 0_radps }, duration);
+        return (left_right_voltages.right_voltage +
+                left_right_voltages.left_voltage) /
+               2.0;
+    }
+
     // allows using as only an angular feedforward
     Voltage update(AngularVelocity target, Time duration) {
         auto left_right_voltages =
           update(DifferentialSpeeds { 0_inps, target }, duration);
+
+        return (left_right_voltages.right_voltage -
+                left_right_voltages.left_voltage) /
+               2.0;
+    }
+
+    // allows using as vel feedback with only angular component
+    Voltage
+    update(LeftRightSpeeds measurement, AngularVelocity target, Time duration) {
+        auto left_right_voltages =
+          update(measurement, DifferentialSpeeds { 0_inps, target }, duration);
 
         return (left_right_voltages.right_voltage -
                 left_right_voltages.left_voltage) /
@@ -232,6 +253,61 @@ class VelocityController {
           drivetrain(drivetrain) {}
 };
 
+class LinearAngularVelocityController {
+    VelocityController linear_controller;
+    VelocityController angular_controller;
+
+  public:
+    LeftRightVoltages update(LeftRightSpeeds measurement,
+                             DifferentialSpeeds target,
+                             Time duration) {
+        Voltage linear = linear_controller.update(measurement,
+                                                  target.linear_velocity,
+                                                  duration);
+        Voltage angular = angular_controller.update(measurement,
+                                                    target.angular_velocity,
+                                                    duration);
+
+        return LeftRightVoltages { linear - angular, linear + angular };
+    }
+
+    LeftRightVoltages update(DifferentialSpeeds target, Time duration) {
+        Voltage linear =
+          linear_controller.update(target.linear_velocity, duration);
+        Voltage angular =
+          angular_controller.update(target.angular_velocity, duration);
+
+        return LeftRightVoltages { linear - angular, linear + angular };
+    }
+
+    // allows using as only a linear feedforward
+    Voltage update(LinearVelocity target, Time duration) {
+        return linear_controller.update(target, duration);
+    }
+
+    // allows using as linear feedback with measurement
+    Voltage
+    update(LeftRightSpeeds measurement, LinearVelocity target, Time duration) {
+        return linear_controller.update(measurement, target, duration);
+    }
+
+    // allows using as only an angular feedforward
+    Voltage update(AngularVelocity target, Time duration) {
+        return angular_controller.update(target, duration);
+    }
+
+    // allows using as angular feedback with measurement
+    Voltage
+    update(LeftRightSpeeds measurement, AngularVelocity target, Time duration) {
+        return angular_controller.update(measurement, target, duration);
+    }
+
+    LinearAngularVelocityController(VelocityController linear_controller,
+                                    VelocityController angular_controller)
+        : linear_controller(linear_controller),
+          angular_controller(angular_controller) {}
+};
+
 template<typename Controller>
     requires Feedforward<Controller, DifferentialSpeeds, LeftRightVoltages>
 struct VelocityFeedforward : virtual ControllerBase {
@@ -244,8 +320,8 @@ struct VelocityFeedforward : virtual ControllerBase {
     // creates a copy of the controller with different linear feedback
     // controller
     template<typename Self>
-    Self with_linear_feedforward(this Self&& self,
-                                 Controller new_velocity_feedforward) {
+    Self with_velocity_feedforward(this Self&& self,
+                                   Controller new_velocity_feedforward) {
         Self new_self = self;
         new_self.velocity_feedforward = new_velocity_feedforward;
         return new_self;
@@ -268,8 +344,8 @@ struct VelocityFeedback : virtual ControllerBase {
     // creates a copy of the controller with different linear feedback
     // controller
     template<typename Self>
-    Self with_linear_feedback(this Self&& self,
-                              Controller new_velocity_feedback) {
+    Self with_velocity_feedback(this Self&& self,
+                                Controller new_velocity_feedback) {
         Self new_self = self;
         new_self.velocity_feedback = new_velocity_feedback;
         return new_self;
