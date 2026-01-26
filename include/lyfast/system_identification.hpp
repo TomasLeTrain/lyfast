@@ -41,10 +41,7 @@ struct SysIdVoltageCommands {
 
 std::vector<OLS_data>
 calculate_kv_ks(std::vector<SysIdVoltageCommands> voltage_commands,
-                pros::MotorGroup* left_motors,
-                pros::MotorGroup* right_motors,
-                Length wheel_diameter,
-                AngularVelocity final_rpm);
+                DifferentialDrivetrain& drivetrain);
 
 std::vector<OLS_data>
 calculate_ka(std::vector<SysIdVoltageCommands> voltage_commands,
@@ -68,7 +65,8 @@ void printData(std::vector<OLS_data> data);
 
 std::vector<OLS_data>
 calculate_ka_kp_ki_fopdt(SysIdVoltageCommands voltage_command,
-                         DifferentialDrivetrain& drivetrain);
+                         DifferentialDrivetrain& drivetrain,
+                         double lambda_factor = 0.5);
 
 } // namespace lyfast
 } // namespace blazing

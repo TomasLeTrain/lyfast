@@ -1,5 +1,6 @@
 #pragma once
 
+#include "pros/apix.h"
 #include "pros/motor_group.hpp"
 #include "pros/rtos.hpp"
 #include "units/Angle.hpp"
@@ -97,14 +98,20 @@ std::array<T, size> desaturate(std::array<T, size> saturated, T max) {
     return saturated;
 }
 
-inline LinearVelocity get_group_velocity(pros::MotorGroup* motor_group,
+inline LinearVelocity get_group_velocity(pros::MotorGroup* motors,
                                          Length wheel_diameter,
                                          AngularVelocity final_rpm) {
     AngularVelocity average_rpm = 0_rpm;
 
-    for (std::int8_t motor_i = 0; motor_i < motor_group->size(); motor_i++) {
-        double velocity = motor_group->get_actual_velocity(motor_i);
-        pros::MotorGears encoder_units = motor_group->get_gearing(motor_i);
+    for (std::int8_t motor_i = 0; motor_i < motors->size(); motor_i++) {
+        auto zero_indexed_port = abs(motors->get_port(motor_i)) - 1;
+        bool installed = pros::DeviceType::motor ==
+                         (pros::DeviceType)pros::c::registry_get_plugged_type(
+                           zero_indexed_port);
+        if (!installed) continue;
+
+        double velocity = motors->get_actual_velocity(motor_i);
+        pros::MotorGears encoder_units = motors->get_gearing(motor_i);
         AngularVelocity start_rpm;
 
         switch (encoder_units) {
@@ -119,7 +126,7 @@ inline LinearVelocity get_group_velocity(pros::MotorGroup* motor_group,
         average_rpm += actual_rpm;
     }
 
-    average_rpm /= motor_group->size();
+    average_rpm /= motors->size();
 
     LinearVelocity velocity = average_rpm * (wheel_diameter * M_PI) / rot;
 
@@ -127,8 +134,17 @@ inline LinearVelocity get_group_velocity(pros::MotorGroup* motor_group,
 };
 
 inline Voltage get_group_voltage(pros::MotorGroup* motors) {
+
     Voltage result = 0_volt;
-    for (auto voltage : motors->get_voltage_all()) {
+    for (std::int8_t motor_i = 0; motor_i < motors->size(); motor_i++) {
+        auto zero_indexed_port = abs(motors->get_port(motor_i)) - 1;
+        bool installed = pros::DeviceType::motor ==
+                         (pros::DeviceType)pros::c::registry_get_plugged_type(
+                           zero_indexed_port);
+        if (!installed) continue;
+
+        double voltage = motors->get_voltage(motor_i);
+
         result += from_mvolt(voltage) / 12;
     }
     result /= motors->size();

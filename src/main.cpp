@@ -191,7 +191,7 @@ AsyncExecutor async;
 //   accel  = -0.0107677 volt / radps2
 //   k_s  = -0.0743809 volt
 
-blazing::lyfast::VelocityController velocity_controller(
+blazing::lyfast::VelocityController linear_velocity_controller(
   lyfast::VelocityControllerParams {
 
     // auto tuner constants
@@ -220,17 +220,64 @@ blazing::lyfast::VelocityController velocity_controller(
     // .right_Kp = 0.940127699096 * volt / mps,
     // .right_Ki = 4.65515950473 * volt / m,
 
-    .left_Kv = 0.426161 * volt / mps,
-    .left_Ka = 0.08 * volt / mps2,
-    .left_Ks = 0.0481902 * volt,
-    .left_Kp = 0.934514846239 * volt / mps,
-    .left_Ki = 4.58736473058 * volt / m,
+    // tuned with one left motor unplugged
+    // .left_Kv = 0.678023 * volt / mps,
+    // .left_Ka = 0.220584 * volt / mps2,
+    // .left_Ks = 0.0665045 * volt,
+    // .left_Kp = 1.41625 * volt / mps,
+    // .left_Ki = 4.54646 * volt / m,
+    //
+    // .right_Kv = 0.42346 * volt / mps,
+    // .right_Ka = 0.11003 * volt / mps2,
+    // .right_Ks = 0.0699037 * volt,
+    // .right_Kp = 0.947525 * volt / mps,
+    // .right_Ki = 4.07981 * volt / m,
 
-    .right_Kv = 0.425642 * volt / mps,
-    .right_Ka = 0.081 * volt / mps2,
-    .right_Ks = 0.0499037 * volt,
-    .right_Kp = 0.940127699096 * volt / mps,
-    .right_Ki = 4.65515950473 * volt / m,
+    // custom accel
+    // .left_Kv = 0.426161 * volt / mps,
+    // .left_Ka = 0.08 * volt / mps2,
+    // .left_Ks = 0.0481902 * volt,
+    // .left_Kp = 0.934514846239 * volt / mps,
+    // .left_Ki = 4.58736473058 * volt / m,
+    //
+    // .right_Kv = 0.425642 * volt / mps,
+    // .right_Ka = 0.081 * volt / mps2,
+    // .right_Ks = 0.0499037 * volt,
+    // .right_Kp = 0.940127699096 * volt / mps,
+    // .right_Ki = 4.65515950473 * volt / m,
+
+		// auto tuner acceleration is not really good atm
+		// using desmos constants for now
+    .left_Kv = 0.427641833333 * volt / mps,
+    .left_Ka = 0.0918263592271 * volt / mps2,
+    .left_Ks = 0.0546282666667 * volt,
+		// lambda 0.55
+    .left_Kp = 0.857349891834 * volt / mps,
+    .left_Ki = 4.40262320937 * volt / m,
+
+    .right_Kv = 0.424849333333 * volt / mps,
+    .right_Ka = 0. * volt / mps2,
+    .right_Ks = 0.05694315 * volt,
+    .right_Kp = 0. * volt / mps,
+    .right_Ki = 4 * volt / m,
+  },
+  track_width,
+  drivetrain);
+
+blazing::lyfast::VelocityController angular_velocity_controller(
+  lyfast::VelocityControllerParams {
+    // desmos constants
+    .left_Kv = 0.451918 * volt / mps,
+    .left_Ka = 0.1457828 * volt / mps2,
+    .left_Ks = 0.0922515 * volt,
+    .left_Kp = 0.9984206 * volt / mps,
+    .left_Ki = 3.457622 * volt / m,
+
+    .right_Kv = 0.477938 * volt / mps,
+    .right_Ka = 0.132789 * volt / mps2,
+    .right_Ks = 0.0824404 * volt,
+    .right_Kp = 1.054508 * volt / mps,
+    .right_Ki = 4.24337 * volt / m,
   },
   track_width,
   drivetrain);
@@ -239,7 +286,8 @@ Controllers controllers(
   // pid controllers
   PIDLinearController(linear_pid),
   PIDAngularController(angular_pid),
-  lyfast::VelocityFeedforward<lyfast::VelocityController>(velocity_controller),
+  lyfast::VelocityFeedforward<lyfast::VelocityController>(
+    linear_velocity_controller),
 
   // slew controllers
   LinearSlewController(0.07_volt, 0.06_volt),
@@ -545,7 +593,7 @@ void stanley_test() {
       run;
 }
 
-void get_kv_ks() {
+void get_linear_kv_ks() {
     std::vector<lyfast::SysIdVoltageCommands> voltage_commands = {
         // linear movements
         { -0.1_volt, -0.1_volt, 400_msec  },
@@ -557,11 +605,35 @@ void get_kv_ks() {
         { -0.7_volt, -0.7_volt, 1000_msec },
     };
 
-    auto data = lyfast::calculate_kv_ks(voltage_commands,
-                                        &left_motors,
-                                        &right_motors,
-                                        3.25_in,
-                                        450_rpm);
+    std::cout << "LINEAR DATA" << std::endl;
+    auto data = lyfast::calculate_kv_ks(voltage_commands, drivetrain);
+
+    while (true) {
+        left_motors.move(0);
+        right_motors.move(0);
+
+        if (master.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_X)) {
+            std::cout << "kv/ks data: " << std::endl;
+            lyfast::printData(data);
+        }
+        pros::delay(10);
+    }
+}
+
+void get_angular_kv_ks() {
+    std::vector<lyfast::SysIdVoltageCommands> voltage_commands = {
+        // linear movements
+        { 0.1_volt,  -0.1_volt, 400_msec  },
+        { -0.2_volt, 0.2_volt,  1000_msec },
+        { 0.3_volt,  -0.3_volt, 1000_msec },
+        { -0.4_volt, 0.4_volt,  1000_msec },
+        { 0.5_volt,  -0.5_volt, 1000_msec },
+        { -0.6_volt, 0.6_volt,  1000_msec },
+        { 0.7_volt,  -0.7_volt, 1000_msec },
+    };
+
+    std::cout << "ANGULAR DATA" << std::endl;
+    auto data = lyfast::calculate_kv_ks(voltage_commands, drivetrain);
 
     while (true) {
         left_motors.move(0);
@@ -616,10 +688,10 @@ void linear_squares_accel() {
                            &right_motors,
                            3.25_in,
                            450_rpm,
-                           velocity_controller.getParams().left_Kv,
-                           velocity_controller.getParams().left_Ks,
-                           velocity_controller.getParams().right_Kv,
-                           velocity_controller.getParams().right_Ks);
+                           linear_velocity_controller.getParams().left_Kv,
+                           linear_velocity_controller.getParams().left_Ks,
+                           linear_velocity_controller.getParams().right_Kv,
+                           linear_velocity_controller.getParams().right_Ks);
 
     while (true) {
         left_motors.move(0);
@@ -660,24 +732,49 @@ void create_fopdt_data() {
     }
 }
 
-void ka_kp_ki_sysid() {
+void linear_ka_kp_ki_sysid() {
     Voltage u_step = 0.5_volt;
-    lyfast::calculate_ka_kp_ki_fopdt({ u_step, u_step, 2_sec }, drivetrain);
+    std::cout << "LINEAR DATA" << std::endl;
+
+    double lambda = 0.6;
+    auto data = lyfast::calculate_ka_kp_ki_fopdt({ u_step, u_step, 2_sec },
+                                                 drivetrain,
+                                                 lambda);
+
+    drivetrain.moveVoltages({ 0_volt, 0_volt });
+
+    while (true) {
+        left_motors.move(0);
+        right_motors.move(0);
+
+        if (master.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_X)) {
+            std::cout << "data: " << std::endl;
+            lyfast::printData(data);
+        }
+        pros::delay(10);
+    }
+}
+
+void angular_ka_kp_ki_sysid() {
+    Voltage u_step = 0.5_volt;
+    std::cout << "ANGULAR DATA" << std::endl;
+    lyfast::calculate_ka_kp_ki_fopdt({ u_step, -u_step, 2_sec }, drivetrain);
 
     drivetrain.moveVoltages({ 0_volt, 0_volt });
 }
 
 void opcontrol() {
-    // get_kv_ks();
-    // ka_kp_ki_sysid();
-    // return;
+    pros::delay(2000);
+    // get_linear_kv_ks();
+    linear_ka_kp_ki_sysid();
 
-    std::vector<std::pair<DifferentialSpeeds, LeftRightSpeeds>> data;
+    return;
+
+    std::vector<std::pair<LeftRightSpeeds, LeftRightSpeeds>> data;
     std::vector<LeftRightVoltages> voltages;
 
     Time start_time = from_msec(pros::millis());
 
-	
     LinearAcceleration max_acceleration = 150_inps2;
     LinearVelocity max_velocity = 60_inps;
     Length distance = 48_in;
@@ -780,8 +877,9 @@ void opcontrol() {
 
         drivetrain.moveTank(volts.left_voltage, volts.right_voltage);
 
-        data.emplace_back(desired_target,
-                          LeftRightSpeeds { curr_left_vel, curr_right_vel });
+        data.emplace_back(
+          LeftRightSpeeds { desired_curr_speed, desired_curr_speed },
+          LeftRightSpeeds { curr_left_vel, curr_right_vel });
         voltages.emplace_back(volts);
 
         pros::delay(10);
@@ -796,18 +894,23 @@ void opcontrol() {
         if (master.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_X)) {
             // std::cout << "vel data: " << std::endl;
             // lyfast::printData(data);
-            std::cout << "data: " << std::endl;
+            std::cout << "LEFT MOTORS: " << std::endl;
             std::cout << "\\left[";
             for (auto [target, actual] : data) {
-                std::cout << "\\left(" << target.linear_velocity.internal()
-                          << ","
-                          << (actual.left_vel + actual.right_vel).internal() /
-                               2.0
-                          << "\\right),";
+                std::cout << "\\left(" << target.left_vel.internal() << ","
+                          << actual.left_vel.internal() << "\\right),";
+            }
+            std::cout << "\\right]" << std::endl;
+
+            std::cout << "RIGHT MOTORS: " << std::endl;
+            std::cout << "\\left[";
+            for (auto [target, actual] : data) {
+                std::cout << "\\left(" << target.right_vel.internal() << ","
+                          << actual.right_vel.internal() << "\\right)";
             }
             std::cout << "\\right]," << std::endl;
 
-            std::cout << "voltages:";
+            std::cout << "VOLTAGES:" << std::endl;
             std::cout << "\\left[";
             for (auto curr_voltages : voltages) {
                 std::cout << "\\left(" << curr_voltages.left_voltage.internal()
@@ -815,7 +918,7 @@ void opcontrol() {
                           << "\\right),";
             }
 
-            std::cout << "\\right]," << std::endl;
+            std::cout << "\\right]" << std::endl;
         }
         pros::delay(10);
     }

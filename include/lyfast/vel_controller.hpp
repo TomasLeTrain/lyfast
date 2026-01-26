@@ -74,9 +74,9 @@ class SimpleVelocityController {
 
         integral += error * duration;
 
-        // if (last_error && units::sgn(error) != units::sgn(*last_error)) {
-        //     integral = Length { 0 };
-        // }
+        if (last_error && units::sgn(error) != units::sgn(*last_error)) {
+            integral = Length { 0 };
+        }
 
         Voltage result {
             // kv

@@ -1,5 +1,6 @@
 #include "lyfast/system_identification.hpp"
 #include "Eigen/Dense"
+#include "blazing/drivetrains/differential.hpp"
 #include "pros/abstract_motor.hpp"
 #include "pros/motor_group.hpp"
 #include "units/Angle.hpp"
@@ -9,64 +10,18 @@
 namespace blazing {
 namespace lyfast {
 
-// __attribute__((used))
 std::vector<OLS_data>
 calculate_kv_ks(std::vector<SysIdVoltageCommands> voltage_commands,
-                pros::MotorGroup* left_motors,
-                pros::MotorGroup* right_motors,
-                Length wheel_diameter,
-                AngularVelocity final_rpm) {
+                DifferentialDrivetrain& drivetrain) {
     std::vector<OLS_data> data;
 
     for (auto [left_voltage, right_voltage, target_time, record] :
          voltage_commands) {
-        left_motors->move_voltage(to_mvolt(12 * left_voltage));
-        right_motors->move_voltage(to_mvolt(12 * right_voltage));
+        drivetrain.moveTank(left_voltage, right_voltage);
 
         auto start_time = blazing::now();
         uint32_t prev_time;
         uint32_t delta_time = 10;
-
-        auto get_group_velocity =
-          [&](pros::MotorGroup* motor_group) -> LinearVelocity {
-            AngularVelocity average_rpm = 0_rpm;
-
-            for (std::int8_t motor_i = 0; motor_i < motor_group->size();
-                 motor_i++) {
-                double velocity = motor_group->get_actual_velocity(motor_i);
-                pros::MotorGears encoder_units =
-                  motor_group->get_gearing(motor_i);
-                AngularVelocity start_rpm;
-
-                switch (encoder_units) {
-                    case pros::MotorGears::blue: start_rpm = 600_rpm; break;
-                    case pros::MotorGears::green: start_rpm = 200_rpm; break;
-                    case pros::MotorGears::red: start_rpm = 100_rpm; break;
-                    default: 200_rpm; break;
-                }
-
-                AngularVelocity actual_rpm =
-                  (velocity * rpm) * final_rpm / start_rpm;
-
-                average_rpm += actual_rpm;
-            }
-
-            average_rpm /= motor_group->size();
-
-            LinearVelocity velocity =
-              average_rpm * (wheel_diameter * M_PI) / rot;
-
-            return velocity;
-        };
-
-        auto get_voltage = [](pros::MotorGroup* motors) -> Voltage {
-            Voltage result = 0_volt;
-            for (auto voltage : motors->get_voltage_all()) {
-                result += from_mvolt(voltage) / 12;
-            }
-            result /= motors->size();
-            return result;
-        };
 
         units::V2Velocity averageVelocities;
         units::Vector2D<Voltage> averageVoltages;
@@ -80,11 +35,13 @@ calculate_kv_ks(std::vector<SysIdVoltageCommands> voltage_commands,
                             start_time)) {
                 prev_time = pros::millis();
 
-                averageVelocities.x += get_group_velocity(left_motors);
-                averageVoltages.x += get_voltage(left_motors);
+                averageVelocities.x +=
+                  drivetrain.getDrivetrainVelocities().left_vel;
+                averageVoltages.x += left_voltage;
 
-                averageVelocities.y += get_group_velocity(right_motors);
-                averageVoltages.y += get_voltage(right_motors);
+                averageVelocities.y +=
+                  drivetrain.getDrivetrainVelocities().right_vel;
+                averageVoltages.y += right_voltage;
                 samples++;
             }
 
@@ -98,6 +55,7 @@ calculate_kv_ks(std::vector<SysIdVoltageCommands> voltage_commands,
                           averageVelocities.y,
                           averageVoltages.x,
                           averageVoltages.y);
+        std::cout << "finished command" << std::endl;
     }
 
     // figure out kv and ks from this data
@@ -381,7 +339,8 @@ void printData(std::vector<OLS_data> data) {
 
 std::vector<OLS_data>
 calculate_ka_kp_ki_fopdt(SysIdVoltageCommands voltage_command,
-                         DifferentialDrivetrain& drivetrain) {
+                         DifferentialDrivetrain& drivetrain,
+                         double lambda_factor) {
     std::vector<OLS_data> data;
     uint32_t delta_time = 10;
 
@@ -451,8 +410,8 @@ calculate_ka_kp_ki_fopdt(SysIdVoltageCommands voltage_command,
         Divided<LinearVelocity, Voltage> K = h / g;
 
         KaUnits Ka = 1 / h;
+        Time lambda = lambda_factor * T;
 
-        Time lambda = 0.5 * T;
         Divided<Voltage, LinearVelocity> Kp = T / (K * lambda);
         Divided<Voltage, Length> Ki = Kp / T;
 
