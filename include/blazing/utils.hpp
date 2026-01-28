@@ -98,57 +98,12 @@ std::array<T, size> desaturate(std::array<T, size> saturated, T max) {
     return saturated;
 }
 
-inline LinearVelocity get_group_velocity(pros::MotorGroup* motors,
-                                         Length wheel_diameter,
-                                         AngularVelocity final_rpm) {
-    AngularVelocity average_rpm = 0_rpm;
+// gets the average linear velocity of the motor group
+LinearVelocity get_group_velocity(pros::MotorGroup* motors,
+                                  Length wheel_diameter,
+                                  AngularVelocity final_rpm);
 
-    for (std::int8_t motor_i = 0; motor_i < motors->size(); motor_i++) {
-        auto zero_indexed_port = abs(motors->get_port(motor_i)) - 1;
-        bool installed = pros::DeviceType::motor ==
-                         (pros::DeviceType)pros::c::registry_get_plugged_type(
-                           zero_indexed_port);
-        if (!installed) continue;
-
-        double velocity = motors->get_actual_velocity(motor_i);
-        pros::MotorGears encoder_units = motors->get_gearing(motor_i);
-        AngularVelocity start_rpm;
-
-        switch (encoder_units) {
-            case pros::MotorGears::blue: start_rpm = 600_rpm; break;
-            case pros::MotorGears::green: start_rpm = 200_rpm; break;
-            case pros::MotorGears::red: start_rpm = 100_rpm; break;
-            default: 200_rpm; break;
-        }
-
-        AngularVelocity actual_rpm = (velocity * rpm) * final_rpm / start_rpm;
-
-        average_rpm += actual_rpm;
-    }
-
-    average_rpm /= motors->size();
-
-    LinearVelocity velocity = average_rpm * (wheel_diameter * M_PI) / rot;
-
-    return velocity;
-};
-
-inline Voltage get_group_voltage(pros::MotorGroup* motors) {
-
-    Voltage result = 0_volt;
-    for (std::int8_t motor_i = 0; motor_i < motors->size(); motor_i++) {
-        auto zero_indexed_port = abs(motors->get_port(motor_i)) - 1;
-        bool installed = pros::DeviceType::motor ==
-                         (pros::DeviceType)pros::c::registry_get_plugged_type(
-                           zero_indexed_port);
-        if (!installed) continue;
-
-        double voltage = motors->get_voltage(motor_i);
-
-        result += from_mvolt(voltage) / 12;
-    }
-    result /= motors->size();
-    return result;
-};
+// gets the average voltage of the motor group
+Voltage get_group_voltage(pros::MotorGroup* motors);
 
 } // namespace blazing

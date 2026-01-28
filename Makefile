@@ -24,7 +24,7 @@ MAKEFLAGS=-j
 USE_PACKAGE:=1
 
 # Add libraries you do not wish to include in the cold image here
-EXCLUDE_COLD_LIBRARIES:=$(FWDIR)/float_units.a $(FWDIR)/blazing.a
+EXCLUDE_COLD_LIBRARIES:=$(FWDIR)/float_units.a $(FWDIR)/blazing.a $(FWDIR)/Eigen.a
 
 # Set this to 1 to add additional rules to compile your project as a PROS library template
 IS_LIBRARY:=1

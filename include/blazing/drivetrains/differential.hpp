@@ -17,8 +17,8 @@ class DifferentialDrivetrain : public ChainableDrivetrain {
 
     std::array<Voltage, 2> voltages { 0_volt, 0_volt };
 
-    Length wheel_diameter = 3.25_in;
-    AngularVelocity final_rpm = 450_rpm;
+    Length wheel_diameter;
+    AngularVelocity final_rpm;
 
   public:
     DifferentialDrivetrain(pros::MotorGroup* left_motors,
@@ -41,7 +41,10 @@ class DifferentialDrivetrain : public ChainableDrivetrain {
 
     // move robot based on left and right velocities
     void moveTank(Voltage left_voltage, Voltage right_voltage) {
+        // set voltages vector regardless of hardware action
         voltages = { left_voltage, right_voltage };
+
+        // return if not doing hardware action
         if (!enabled) return;
 
         if (left_motors != nullptr && right_motors != nullptr) {
