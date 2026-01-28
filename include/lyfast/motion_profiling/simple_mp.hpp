@@ -166,7 +166,6 @@ class TrapezoidalProfileTrajectory {
     TrapezoidalProfileTrajectory(LinearVelocity max_vel,
                                  LinearAcceleration max_accel,
                                  LinearAcceleration max_decel,
-                                 Time dt,
                                  Length target)
         : target(target),
           max_vel(max_vel),

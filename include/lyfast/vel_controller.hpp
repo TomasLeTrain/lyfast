@@ -4,7 +4,6 @@
 #include "blazing/controllers/feedforward/feedforward.hpp"
 #include "blazing/drivetrains/differential.hpp"
 #include "blazing/utils.hpp"
-#include "lyfast/system_identification.hpp"
 #include "pros/motors.hpp"
 #include "units/Angle.hpp"
 #include "units/Vector2D.hpp"
@@ -12,6 +11,17 @@
 
 namespace blazing {
 namespace lyfast {
+
+// voltage is assumed to be in the range [0,1]
+
+// u = Ks * sgn(v) + Kv * v + Ka * a;
+using KsUnits = Voltage;
+using KvUnits = Divided<Voltage, LinearVelocity>;
+using KaUnits = Divided<Voltage, LinearAcceleration>;
+
+using FKsUnits = FVoltage;
+using FKvUnits = Divided<FVoltage, FLinearVelocity>;
+using FKaUnits = Divided<FVoltage, FLinearAcceleration>;
 
 template<typename T>
 struct SimpleVelocityControllerParams {

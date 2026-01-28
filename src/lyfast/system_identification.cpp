@@ -7,15 +7,275 @@
 #include "units/Angle.hpp"
 #include "units/Vector2D.hpp"
 #include "units/units.hpp"
+#include "vel_controller.hpp"
+#include <cmath>
+#include <vector>
 
 namespace blazing {
 namespace lyfast {
-namespace sysid {
 
-std::vector<OLS_data>
-calculate_kv_ks(std::vector<SysIdVoltageCommands> voltage_commands,
-                DifferentialDrivetrain& drivetrain) {
-    std::vector<OLS_data> data;
+// gathers velocity data from robot by moving voltage_commands
+std::vector<MotorSysidData> MotorGroupSysid::generateData(
+  std::vector<MotorSysidVoltageCommands> voltage_commands,
+  pros::MotorGroup* motor_group,
+  Length wheel_diameter,
+  AngularVelocity final_rpm,
+  Time delta_time) {
+
+    uint32_t int_delta_time = std::lround(to_msec(delta_time));
+    std::vector<MotorSysidData> data;
+
+    for (auto [voltage, target_time, record] : voltage_commands) {
+        motor_group->move_voltage(12 * to_mvolt(voltage));
+
+        auto start_time = blazing::now();
+        uint32_t prev_time;
+        while (!timeoutDone(target_time, start_time)) {
+            // amount of time to measure the steady state
+            if (record) {
+                auto velocity = blazing::get_group_velocity(motor_group,
+                                                            wheel_diameter,
+                                                            final_rpm);
+
+                data.emplace_back(velocity, voltage);
+            }
+
+            pros::c::task_delay_until(&prev_time, int_delta_time);
+        }
+    }
+    return data;
+}
+
+// uses linear least squares to find kv and ks gains that best fit data
+// for best results only use steady state velocity data
+std::pair<KvUnits, KsUnits>
+MotorGroupSysid::fit_kv_ks_data(std::vector<MotorSysidData> data) {
+    // of form < velocity, sgn(velocity) >
+    Eigen::MatrixXd A = Eigen::MatrixXd::Zero(data.size(), 2);
+    // of form < Voltage >
+    Eigen::VectorXd b = Eigen::VectorXd::Zero(data.size());
+
+    for (size_t i = 0; i < data.size(); i++) {
+        auto& curr = data[i];
+
+        A(i, 0) = curr.velocity.internal();
+        A(i, 1) = units::sgn(curr.velocity);
+
+        b(i) = curr.voltage.internal();
+    }
+
+    Eigen::VectorXd solution =
+      A.bdcSvd<Eigen::ComputeThinU | Eigen::ComputeThinV>().solve(b);
+
+    KvUnits kv { solution(0) };
+    KsUnits ks { solution(1) };
+    return { kv, ks };
+}
+
+// calculates ka/kp/ki from T and K constants and lambda factor
+auto MotorGroupSysid::calculate_ka_kp_ki_from_TK(
+  Time T,
+  Divided<LinearVelocity, Voltage> K,
+  double lambda_factor)
+  -> std::tuple<
+    // Ka
+    KaUnits,
+    // Kp
+    Divided<Voltage, LinearVelocity>,
+    // Ki
+    Divided<Voltage, Length>> {
+
+    KaUnits Ka = T / K;
+
+    Time lambda = lambda_factor * T;
+
+    Divided<Voltage, LinearVelocity> Kp = T / (K * lambda);
+    Divided<Voltage, Length> Ki = Kp / T;
+
+    return { Ka, Kp, Ki };
+}
+
+// fits various values data using model:
+// accel = voltage * h - velocity * g
+auto MotorGroupSysid::fit_ka_kp_ki_data_first_model(
+  std::vector<MotorSysidData> data,
+  Time delta_time,
+  double lambda_factor)
+  -> std::tuple<
+    // T
+    Time,
+    // K
+    Divided<LinearVelocity, Voltage>,
+    // Ka
+    KaUnits,
+    // Kp
+    Divided<Voltage, LinearVelocity>,
+    // Ki
+    Divided<Voltage, Length>> {
+    // of form < voltage, -velocity >
+    Eigen::MatrixXd A = Eigen::MatrixXd::Zero(data.size() - 1, 2);
+    // of form < accel >
+    Eigen::VectorXd b = Eigen::VectorXd::Zero(data.size() - 1);
+
+    for (size_t i = 1; i < data.size(); i++) {
+        auto& last = data[i - 1];
+        auto& curr = data[i];
+
+        auto accel = (curr.velocity - last.velocity) / delta_time;
+
+        A(i - 1, 0) = curr.voltage.internal();
+        A(i - 1, 1) = -curr.velocity.internal();
+
+        b(i - 1) = accel.internal();
+    }
+
+    Eigen::VectorXd solution =
+      A.bdcSvd<Eigen::ComputeThinU | Eigen::ComputeThinV>().solve(b);
+
+    Divided<LinearAcceleration, Voltage> h { solution(0) };
+    Frequency g { solution(1) };
+
+    Time T = 1 / g;
+    Divided<LinearVelocity, Voltage> K = h / g;
+
+    auto [Ka, Kp, Ki] = calculate_ka_kp_ki_from_TK(T, K, lambda_factor);
+
+    return { T, K, Ka, Kp, Ki };
+}
+
+// fits data using different model:
+// velocity_next = a1 * velocity + a2 * voltage
+//
+auto MotorGroupSysid::fit_ka_kp_ki_data_second_model(
+  std::vector<MotorSysidData> data,
+  Time delta_time,
+  double lambda_factor)
+  -> std::tuple<
+    // T
+    Time,
+    // K
+    Divided<LinearVelocity, Voltage>,
+    // Ka
+    KaUnits,
+    // Kp
+    Divided<Voltage, LinearVelocity>,
+    // Ki
+    Divided<Voltage, Length>> {
+    // of form < velocity, voltage >
+    Eigen::MatrixXd A = Eigen::MatrixXd::Zero(data.size() - 1, 2);
+    // of form < next velocity >
+    Eigen::VectorXd b = Eigen::VectorXd::Zero(data.size() - 1);
+
+    for (size_t i = 1; i < data.size(); i++) {
+        auto& prev = data[i - 1];
+        auto& next = data[i];
+
+        A(i - 1, 0) = prev.velocity.internal();
+        A(i - 1, 1) = prev.voltage.internal();
+
+        b(i - 1) = next.velocity.internal();
+    }
+
+    Eigen::VectorXd solution =
+      A.bdcSvd<Eigen::ComputeThinU | Eigen::ComputeThinV>().solve(b);
+
+    Number a1 { solution(0) };
+    Divided<LinearVelocity, Voltage> a2 { solution(1) };
+
+    Time T = -delta_time / std::log(a1);
+    Divided<LinearVelocity, Voltage> K = -a2 / (a1 - 1);
+
+    auto [Ka, Kp, Ki] = calculate_ka_kp_ki_from_TK(T, K, lambda_factor);
+
+    return { T, K, Ka, Kp, Ki };
+}
+
+// averages results from both models. This seems to produce really good
+// results as both deviate in opposite directions
+auto MotorGroupSysid::fit_ka_kp_ki_data_both_models(
+  std::vector<MotorSysidData> data,
+  Time delta_time,
+  double lambda_factor)
+  -> std::tuple<
+    // T
+    Time,
+    // K
+    Divided<LinearVelocity, Voltage>,
+    // Ka
+    KaUnits,
+    // Kp
+    Divided<Voltage, LinearVelocity>,
+    // Ki
+    Divided<Voltage, Length>> {
+    auto [first_T, first_K, first_Ka, first_Kp, first_Ki] =
+      fit_ka_kp_ki_data_first_model(data, delta_time, lambda_factor);
+    auto [second_T, second_K, second_Ka, second_Kp, second_Ki] =
+      fit_ka_kp_ki_data_first_model(data, delta_time, lambda_factor);
+
+    Time avg_T = (first_T + second_T) / 2.0;
+    Divided<LinearVelocity, Voltage> avg_K = (first_K + second_K) / 2.0;
+
+    auto [avg_Ka, avg_Kp, avg_Ki] =
+      calculate_ka_kp_ki_from_TK(avg_T, avg_K, lambda_factor);
+
+    return { avg_T, avg_K, avg_Ka, avg_Kp, avg_Ki };
+}
+
+// fits data specifically only for ka with model:
+// accel * ka = voltage - velocity * kv - sgn(velocity) * ks
+KaUnits MotorGroupSysid::fit_ka_data(std::vector<MotorSysidData> data,
+                                     Time delta_time,
+                                     KvUnits kv,
+                                     KsUnits ks) {
+    // of form < accel >
+    Eigen::MatrixXd A = Eigen::MatrixXd::Zero(data.size() - 1, 1);
+    // of form < voltage - velocity * kv - sgn(velocity) * ks >
+    Eigen::VectorXd b = Eigen::VectorXd::Zero(data.size() - 1);
+
+    for (size_t i = 1; i < data.size(); i++) {
+        auto& curr = data[i];
+        auto& last = data[i - 1];
+
+        auto accel = (curr.velocity - last.velocity) / delta_time;
+
+        A(i - 1, 0) = accel.internal();
+
+        b(i - 1) =
+          (curr.voltage - curr.velocity * kv - units::sgn(curr.velocity) * ks)
+            .internal();
+    }
+
+    Eigen::VectorXd solution =
+      A.bdcSvd<Eigen::ComputeThinU | Eigen::ComputeThinV>().solve(b);
+
+    KaUnits ka { solution(0) };
+    return { ka };
+}
+
+// print data in desmos-friendly format
+auto MotorGroupSysid::print_data_as_latex(std::vector<MotorSysidData>& data) {
+    std::cout << "\\left[" << std::endl;
+    for (int i = 0; i < data.size(); i++) {
+        std::cout << "\\left(" << data[i].voltage.internal() << ","
+                  << data[i].velocity.convert(mps) << "\\right)";
+        // doesn't print comma for last point
+        if (i < data.size() - 1) std::cout << ",";
+    }
+    std::cout << "\\right]" << std::endl;
+}
+
+// differential sysid methods
+
+// gathers velocity data from robot by moving voltage_commands
+// does not collect actual voltage data, but rather commanded voltage
+DifferentialSysidData DifferentialSysid::createData(
+  std::vector<DifferentialSysIdVoltageCommands> voltage_commands,
+  DifferentialDrivetrain& drivetrain,
+  Time delta_time) {
+
+    DifferentialSysidData data;
+
+    uint32_t int_delta_time = std::lround(to_msec(delta_time));
 
     for (auto [left_voltage, right_voltage, target_time, record] :
          voltage_commands) {
@@ -23,171 +283,139 @@ calculate_kv_ks(std::vector<SysIdVoltageCommands> voltage_commands,
 
         auto start_time = blazing::now();
         uint32_t prev_time;
-        uint32_t delta_time = 10;
+        while (!timeoutDone(target_time, start_time)) {
+            // amount of time to measure the steady state
+            if (record) {
+                auto left_velocity =
+                  drivetrain.getDrivetrainVelocities().left_vel;
 
-        units::V2Velocity averageVelocities;
-        units::Vector2D<Voltage> averageVoltages;
+                auto right_velocity =
+                  drivetrain.getDrivetrainVelocities().right_vel;
+
+                data.left.emplace_back(left_velocity, left_voltage);
+                data.right.emplace_back(right_velocity, right_voltage);
+            }
+
+            pros::c::task_delay_until(&prev_time, int_delta_time);
+        }
+    }
+    return data;
+}
+
+DifferentialSysidData DifferentialSysid::gather_kv_ks_data(
+  std::vector<DifferentialSysIdVoltageCommands> voltage_commands,
+  DifferentialDrivetrain& drivetrain,
+  Time delta_time,
+  Time steady_state_time) {
+    DifferentialSysidData data;
+
+    uint32_t prev_time;
+    uint32_t int_delta_time = std::lround(to_msec(delta_time));
+
+    for (auto [left_voltage, right_voltage, target_time, record] :
+         voltage_commands) {
+        drivetrain.moveTank(left_voltage, right_voltage);
+
+        auto start_time = blazing::now();
+
+        LinearVelocity left_averageVelocities { 0 };
+        LinearVelocity right_averageVelocities { 0 };
+        Voltage left_averageVoltages { 0 };
+        Voltage right_averageVoltages { 0 };
         int samples = 0;
 
         while (!timeoutDone(target_time, start_time)) {
-            // amount of time to measure the steady state
-            Time steady_state_time = 200_msec;
+            // time at which we start to record data
+            Time threshold_time =
+              units::max(0_Fsec, target_time - steady_state_time);
 
-            if (timeoutDone(units::max(0_sec, target_time - steady_state_time),
-                            start_time)) {
+            if (timeoutDone(threshold_time, start_time)) {
                 prev_time = pros::millis();
 
-                averageVelocities.x +=
+                left_averageVelocities +=
                   drivetrain.getDrivetrainVelocities().left_vel;
-                averageVoltages.x += left_voltage;
+                left_averageVoltages += left_voltage;
 
-                averageVelocities.y +=
+                right_averageVelocities +=
                   drivetrain.getDrivetrainVelocities().right_vel;
-                averageVoltages.y += right_voltage;
+                right_averageVoltages += right_voltage;
+
                 samples++;
             }
 
-            pros::c::task_delay_until(&prev_time, delta_time);
+            pros::c::task_delay_until(&prev_time, int_delta_time);
         }
-        averageVelocities /= samples;
-        averageVoltages /= samples;
+        left_averageVelocities /= samples;
+        left_averageVoltages /= samples;
 
-        // x for left, y for right
-        data.emplace_back(averageVelocities.x,
-                          averageVelocities.y,
-                          averageVoltages.x,
-                          averageVoltages.y);
-        std::cout << "finished command" << std::endl;
+        right_averageVelocities /= samples;
+        right_averageVoltages /= samples;
+
+        if (record) {
+            data.left.emplace_back(left_averageVelocities,
+                                   left_averageVoltages);
+            data.right.emplace_back(right_averageVelocities,
+                                    right_averageVoltages);
+        }
     }
-
-    // figure out kv and ks from this data
-
-    auto fitData = [&](bool left) -> std::pair<KvUnits, KsUnits> {
-        Eigen::MatrixXd A = Eigen::MatrixXd::Zero(data.size(), 2);
-        Eigen::VectorXd b = Eigen::VectorXd::Zero(data.size());
-
-        for (size_t i = 0; i < data.size(); i++) {
-            if (left) {
-                A(i, 0) = data[i].left_velocity.internal();
-                A(i, 1) = units::sgn(data[i].left_velocity);
-                b(i) = data[i].left_voltage.internal();
-            } else {
-                A(i, 0) = data[i].right_velocity.internal();
-                A(i, 1) = units::sgn(data[i].right_velocity);
-                b(i) = data[i].right_voltage.internal();
-            }
-        }
-
-        Eigen::VectorXd solution =
-          A.bdcSvd<Eigen::ComputeThinU | Eigen::ComputeThinV>().solve(b);
-
-        KvUnits kv { solution(0) };
-        KsUnits ks { solution(1) };
-        return { kv, ks };
-    };
-
-    auto left_kv_ks = fitData(true);
-    auto right_kv_ks = fitData(false);
-
-    std::cout << "left: " << std::endl;
-    std::cout << "kv: " << left_kv_ks.first << ", ks: " << left_kv_ks.second
-              << std::endl;
-
-    std::cout << "right: " << std::endl;
-    std::cout << "kv: " << right_kv_ks.first << ", ks: " << right_kv_ks.second
-              << std::endl;
 
     return data;
 }
 
-std::vector<OLS_data>
-calculate_ka(std::vector<SysIdVoltageCommands> voltage_commands,
-             pros::MotorGroup* left_motors,
-             pros::MotorGroup* right_motors,
-             Length wheel_diameter,
-             AngularVelocity final_rpm,
-             KvUnits left_kv,
-             KsUnits left_ks,
-             KvUnits right_kv,
-             KsUnits right_ks) {
-    std::vector<OLS_data> data;
-    uint32_t delta_time = 10;
+DifferentialSysidData DifferentialSysid::calculate_kv_ks(
+  std::vector<DifferentialSysIdVoltageCommands> voltage_commands,
+  DifferentialDrivetrain& drivetrain,
+  Time delta_time,
+  Time steady_state_time) {
+    // figure out kv and ks from this data
 
-    for (auto [left_voltage, right_voltage, target_time, record] :
-         voltage_commands) {
-        left_motors->move_voltage(to_mvolt(12 * left_voltage));
-        right_motors->move_voltage(to_mvolt(12 * right_voltage));
+    DifferentialSysidData data = gather_kv_ks_data(voltage_commands,
+                                                   drivetrain,
+                                                   delta_time,
+                                                   steady_state_time);
 
-        auto start_time = blazing::now();
-        uint32_t prev_time;
+    auto [left_kv, left_ks] = MotorGroupSysid::fit_kv_ks_data(data.left);
+    auto [right_kv, right_ks] = MotorGroupSysid::fit_kv_ks_data(data.right);
 
-        while (!timeoutDone(target_time, start_time)) {
-            // amount of time to measure the steady state
-            auto left_velocity =
-              get_group_velocity(left_motors, wheel_diameter, final_rpm);
-            auto left_voltage = get_group_voltage(left_motors);
+    std::cout << "left: " << std::endl;
+    std::cout << "kv: " << left_kv << ", ks: " << left_ks << std::endl;
 
-            auto right_velocity =
-              get_group_velocity(right_motors, wheel_diameter, final_rpm);
-            auto right_voltage = get_group_voltage(right_motors);
+    std::cout << "right: " << std::endl;
+    std::cout << "kv: " << right_kv << ", ks: " << right_ks << std::endl;
 
-            data.emplace_back(left_velocity,
-                              right_velocity,
-                              left_voltage,
-                              right_voltage);
+    std::cout << std::endl;
+    std::cout << "copiable data:\n\n";
 
-            pros::c::task_delay_until(&prev_time, delta_time);
-        }
-        std::cout << "finished command" << std::endl;
-    }
+    // clang-format off
+    std::cout << ".left_Kv = " << left_kv.internal() << " * volt / mps,\n"
+              << ".left_Ks = " << left_ks.internal() << " * volt,\n"
+              << "\n"
+              << ".right_Kv = " << right_kv.internal() << " * volt / mps,\n"
+              << ".right_Ks = " << right_ks.internal() << " * volt,\n"
+              << std::endl;
+    // clang-format on
+
+    return data;
+}
+
+DifferentialSysidData DifferentialSysid::calculate_ka(
+  std::vector<DifferentialSysIdVoltageCommands> voltage_commands,
+  DifferentialDrivetrain& drivetrain,
+  KvUnits left_kv,
+  KsUnits left_ks,
+  KvUnits right_kv,
+  KsUnits right_ks,
+  Time delta_time) {
+
+    DifferentialSysidData data =
+      createData(voltage_commands, drivetrain, delta_time);
 
     // figure out kv and ks from this data
 
-    auto fitData = [&](bool left) -> KaUnits {
-        std::cout << "data size: " << data.size() << std::endl;
-
-        Eigen::MatrixXd A = Eigen::MatrixXd::Zero(data.size() - 1, 1);
-        std::cout << "defining b" << std::endl;
-        Eigen::VectorXd b = Eigen::VectorXd::Zero(data.size() - 1);
-
-        std::cout << "filling matrices solution" << std::endl;
-
-        for (size_t i = 1; i < data.size(); i++) {
-            if (left) {
-                auto left_accel =
-                  (data[i].left_velocity - data[i - 1].left_velocity) /
-                  from_msec(delta_time);
-
-                A(i - 1, 0) = left_accel.internal();
-                b(i - 1) =
-                  (data[i].left_voltage - data[i].left_velocity * left_kv +
-                   units::sgn(data[i].left_velocity) * left_ks)
-                    .internal();
-            } else {
-                auto right_accel =
-                  (data[i].right_velocity - data[i - 1].right_velocity) /
-                  from_msec(delta_time);
-
-                A(i - 1, 0) = right_accel.internal();
-                b(i - 1) =
-                  (data[i].right_voltage - data[i].right_velocity * right_kv +
-                   units::sgn(data[i].right_velocity) * right_ks)
-                    .internal();
-            }
-        }
-        std::cout << "finding solution" << std::endl;
-
-        Eigen::VectorXd solution =
-          A.bdcSvd<Eigen::ComputeThinU | Eigen::ComputeThinV>().solve(b);
-
-        std::cout << "solution found" << std::endl;
-
-        KaUnits ka { solution(0) };
-        return { ka };
-    };
-
-    auto left_ka = fitData(true);
-    auto right_ka = fitData(false);
+    auto left_ka =
+      MotorGroupSysid::fit_ka_data(data.left, delta_time, left_kv, left_ks);
+    auto right_ka =
+      MotorGroupSysid::fit_ka_data(data.right, delta_time, right_kv, right_ks);
 
     std::cout << "left: " << std::endl;
     std::cout << "ka: " << left_ka << std::endl;
@@ -198,169 +426,65 @@ calculate_ka(std::vector<SysIdVoltageCommands> voltage_commands,
     return data;
 }
 
-std::vector<OLS_data>
-createData(std::vector<SysIdVoltageCommands> voltage_commands,
-           pros::MotorGroup* left_motors,
-           pros::MotorGroup* right_motors,
-           Length wheel_diameter,
-           AngularVelocity final_rpm) {
-    std::vector<OLS_data> data;
+void DifferentialSysid::printData(DifferentialSysidData data, Time delta_time) {
+    std::cout << "delta time of " << to_msec(delta_time) << " msec\n";
 
-    uint32_t delta_time = 10;
+    std::cout << "left motor data (voltage, velocity):\n";
+    MotorGroupSysid::print_data_as_latex(data.left);
 
-    for (auto [left_voltage, right_voltage, target_time, record] :
-         voltage_commands) {
-        left_motors->move_voltage(to_mvolt(12 * left_voltage));
-        right_motors->move_voltage(to_mvolt(12 * right_voltage));
-
-        auto start_time = blazing::now();
-        uint32_t prev_time;
-        while (!timeoutDone(target_time, start_time)) {
-            prev_time = pros::millis();
-
-            LinearVelocity left_velocity =
-              get_group_velocity(left_motors, wheel_diameter, final_rpm);
-            LinearVelocity right_velocity =
-              get_group_velocity(right_motors, wheel_diameter, final_rpm);
-            Voltage left_volt = get_group_voltage(left_motors);
-            Voltage right_volt = get_group_voltage(right_motors);
-
-            if (record)
-                data.emplace_back(left_velocity,
-                                  right_velocity,
-                                  left_volt,
-                                  right_volt);
-
-            pros::c::task_delay_until(&prev_time, delta_time);
-        }
-    }
-    return data;
+    std::cout << "right motor data(voltage, velocity):\n ";
+    MotorGroupSysid::print_data_as_latex(data.right);
 }
 
-void printData(std::vector<OLS_data> data) {
-    int delta_time = 10;
-    std::println("delta time of {}\n", delta_time);
+DifferentialSysidData DifferentialSysid::calculate_ka_kp_ki_fopdt(
+  DifferentialSysIdVoltageCommands voltage_command,
+  DifferentialDrivetrain& drivetrain,
+  Time delta_time,
+  double lambda_factor) {
 
-    std::println("left motor data (voltage, velocity):");
-    std::print("\\left[");
-    for (auto datapoint : data) {
-        std::print("\\left({},{}\\right),",
-                   datapoint.left_voltage.internal(),
-                   datapoint.left_velocity.convert(mps));
-    }
-    std::println("\\right]");
+    DifferentialSysidData data = createData(
+      std::vector<DifferentialSysIdVoltageCommands> { voltage_command },
+      drivetrain,
+      delta_time);
 
-    std::println("right motor data (voltage, velocity):");
-    std::print("\\left[");
-    for (auto datapoint : data) {
-        std::print("\\left({},{}\\right),",
-                   datapoint.right_voltage.internal(),
-                   datapoint.right_velocity.convert(mps));
-    }
-    std::println("\\right]");
-}
-
-std::vector<OLS_data>
-calculate_ka_kp_ki_fopdt(SysIdVoltageCommands voltage_command,
-                         DifferentialDrivetrain& drivetrain,
-                         double lambda_factor) {
-    std::vector<OLS_data> data;
-    uint32_t delta_time = 10;
-
-    {
-        auto [left_voltage, right_voltage, target_time, record] =
-          voltage_command;
-
-        drivetrain.moveVoltages({ left_voltage, right_voltage });
-
-        auto start_time = blazing::now();
-        uint32_t prev_time;
-
-        while (!timeoutDone(target_time, start_time)) {
-            prev_time = pros::millis();
-
-            auto [left_velocity, right_velocity] =
-              drivetrain.getDrivetrainVelocities();
-            auto [left_voltage, right_voltage] =
-              drivetrain.getDrivetrainVoltages();
-
-            data.emplace_back(left_velocity,
-                              right_velocity,
-                              left_voltage,
-                              right_voltage);
-
-            pros::c::task_delay_until(&prev_time, delta_time);
-        }
-    }
-
-    auto fitData =
-      [&](bool left) -> std::tuple<Divided<LinearAcceleration, Voltage>,
-                                   Frequency,
-                                   Time,
-                                   KaUnits,
-                                   Divided<Voltage, LinearVelocity>,
-                                   Divided<Voltage, Length>> {
-        Eigen::MatrixXd A = Eigen::MatrixXd::Zero(data.size() - 1, 2);
-        Eigen::VectorXd b = Eigen::VectorXd::Zero(data.size() - 1);
-
-        for (size_t i = 1; i < data.size(); i++) {
-            if (left) {
-                auto left_accel =
-                  (data[i].left_velocity - data[i - 1].left_velocity) /
-                  from_msec(delta_time);
-
-                A(i - 1, 0) = voltage_command.left_voltage.internal();
-                A(i - 1, 1) = -data[i].left_velocity.internal();
-                b(i - 1) = left_accel.internal();
-            } else {
-                auto right_accel =
-                  (data[i].right_velocity - data[i - 1].right_velocity) /
-                  from_msec(delta_time);
-
-                A(i - 1, 0) = voltage_command.right_voltage.internal();
-                A(i - 1, 1) = -data[i].right_velocity.internal();
-                b(i - 1) = right_accel.internal();
-            }
-        }
-
-        Eigen::VectorXd solution =
-          A.bdcSvd<Eigen::ComputeThinU | Eigen::ComputeThinV>().solve(b);
-
-        Divided<LinearAcceleration, Voltage> h { solution(0) };
-        Frequency g { solution(1) };
-
-        Time T = 1 / g;
-        Divided<LinearVelocity, Voltage> K = h / g;
-
-        KaUnits Ka = 1 / h;
-        Time lambda = lambda_factor * T;
-
-        Divided<Voltage, LinearVelocity> Kp = T / (K * lambda);
-        Divided<Voltage, Length> Ki = Kp / T;
-
-        return { h, g, lambda, Ka, Kp, Ki };
-    };
-
-    auto [left_h, left_g, left_lambda, left_ka, left_kp, left_ki] =
-      fitData(true);
-    auto [right_h, right_g, right_lambda, right_ka, right_kp, right_ki] =
-      fitData(false);
+    auto [left_T, left_K, left_ka, left_kp, left_ki] =
+      MotorGroupSysid::fit_ka_kp_ki_data_first_model(data.left,
+                                                     delta_time,
+                                                     lambda_factor);
+    auto [right_T, right_K, right_ka, right_kp, right_ki] =
+      MotorGroupSysid::fit_ka_kp_ki_data_first_model(data.right,
+                                                     delta_time,
+                                                     lambda_factor);
 
     std::cout << "left: " << std::endl;
-    std::cout << "h: " << left_h << ", g: " << left_g
-              << ", lambda: " << left_lambda << std::endl;
+    std::cout << "T: " << left_T << ", K: " << left_K
+              << ", lambda factor: " << lambda_factor << std::endl;
     std::cout << "ka: " << left_ka << ", kp: " << left_kp << ", ki: " << left_ki
               << std::endl;
 
     std::cout << "right: " << std::endl;
-    std::cout << "h: " << right_h << ", g: " << right_g
-              << ", lambda: " << right_lambda << std::endl;
+    std::cout << "T: " << right_T << ", K: " << right_K
+              << ", lambda factor: " << lambda_factor << std::endl;
     std::cout << "ka: " << right_ka << ", kp: " << right_kp
               << ", ki: " << right_ki << std::endl;
+
+    std::cout << std::endl;
+    std::cout << "copiable data:\n\n";
+
+    // clang-format off
+    std::cout << ".left_Ka = " << left_ka.internal() << " * volt / mps2,\n"
+              << "// lambda factor: " << lambda_factor <<  "\n"
+              << ".left_Kp = " << left_kp.internal() << " * volt / mps,\n"
+              << ".left_Ki = " << left_ki.internal() << " * volt / m,\n"
+              << "\n"
+              << ".right_Ka = " << right_ka.internal() << " * volt / mps2,\n"
+              << "// lambda factor: " << lambda_factor <<  "\n"
+              << ".right_Kp = " << right_kp.internal() << " * volt / mps,\n"
+              << ".right_Ki = " << right_ki.internal() << " * volt / m," << std::endl;
+    // clang-format on
 
     return data;
 }
 
-} // namespace sysid
 } // namespace lyfast
 } // namespace blazing
