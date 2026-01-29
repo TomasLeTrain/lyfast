@@ -1,7 +1,7 @@
 #pragma once
 
+#include "blazing/controllers/clamp.hpp"
 #include "blazing/controllers/slew.hpp"
-#include "blazing/controllers/voltage_clamp.hpp"
 #include "blazing/drivetrains/drivetrain.hpp"
 #include "blazing/motions/motion.hpp"
 #include "blazing/tolerances.hpp"
@@ -33,16 +33,16 @@ template<typename ControllersType,
          typename TrackerType,
          typename TolerancesType>
     requires velocityTracker<TrackerType> &&
-             forwardTravelTracker<TrackerType> &&
-             ArcadeDrivetrain<DrivetrainType> &&
-             hasAngularFeedback<ControllersType> &&
-             hasLinearFeedback<ControllersType>
+               forwardTravelTracker<TrackerType> &&
+               ArcadeDrivetrain<DrivetrainType> &&
+               hasAngularFeedback<ControllersType> &&
+               hasLinearFeedback<ControllersType>
 class distanceAtHeading : public Motion<ControllersType,
                                         DrivetrainType,
                                         TrackerType,
                                         TolerancesType>,
-                  public LinearMotion,
-                  public AngularMotion {
+                          public LinearMotion,
+                          public AngularMotion {
   private:
     Length target_distance;
     std::optional<Angle> given_target_heading = std::nullopt;
@@ -51,6 +51,8 @@ class distanceAtHeading : public Motion<ControllersType,
     bool reversed = false;
     std::optional<Time> m_timeout = std::nullopt;
     std::optional<AngularDirection> m_direction = std::nullopt;
+
+    bool m_velocity_based = false;
 
     std::optional<DistanceAtHeadingState> m_state;
 
@@ -186,6 +188,68 @@ class distanceAtHeading : public Motion<ControllersType,
             return result;
         }
 
+        // only evaluate velocity based if we have all the requirements
+        if constexpr (hasLinearVelocityFeedback<ControllersType> &&
+                      hasAngularVelocityFeedback<ControllersType> &&
+                      TankDrivetrain<DrivetrainType> &&
+                      // has velocity feedforward
+                      requires(ControllersType controller) {
+                          controller.velocity_feedforward;
+                      }) {
+            if (m_velocity_based) {
+                LinearVelocity linear_vel =
+                  this->controllers.linear_velocity_feedback.update(
+                    -linear_error,
+                    0_stRad,
+                    delta_time);
+
+                AngularVelocity angular_vel =
+                  this->controllers.angular_velocity_feedback.update(
+                    -angular_error,
+                    0_stRad,
+                    delta_time);
+
+                if constexpr (hasLinearVelocityClamp<ControllersType>) {
+                    linear_vel =
+                      this->controllers.linear_velocity_clamp.apply(linear_vel);
+                }
+                if constexpr (hasAngularVoltageClamp<ControllersType>) {
+                    angular_vel =
+                      this->controllers.angular_velocity_clamp.apply(
+                        angular_vel);
+                }
+
+                // apply slew
+                if constexpr (hasLinearVelocitySlew<ControllersType>) {
+                    linear_vel =
+                      this->controllers.linear_velocity_slew.apply(linear_vel,
+                                                                   delta_time);
+                }
+                if constexpr (hasAngularVelocitySlew<ControllersType>) {
+                    angular_vel =
+                      this->controllers.angular_velocity_slew.apply(angular_vel,
+                                                                    delta_time);
+                }
+
+                DifferentialSpeeds target { linear_vel, angular_vel };
+
+                // pass velocities into feedforward
+                auto [left_voltage, right_voltage] =
+                  this->controllers.velocity_feedforward.update(target,
+                                                                delta_time);
+
+                // TODO: apply voltage clamp/slew? probably not
+
+                this->drivetrain.moveTank(left_voltage, right_voltage);
+
+                // we return here, so none of the below code executes
+                return result;
+            } else {
+                // assert to warn user?
+                // assert("want to use velocity but don't have requirements!");
+            }
+        }
+
         Voltage angular_output =
           this->controllers.angular_feedback.update(-angular_error,
                                                     0_stRad,
@@ -283,6 +347,13 @@ class distanceAtHeading : public Motion<ControllersType,
     [[nodiscard("motion won't be executed unless an executor is used!")]]
     auto direction(std::optional<AngularDirection> direction) {
         this->m_direction = direction;
+
+        return this->getReference();
+    }
+
+    [[nodiscard("motion won't be executed unless an executor is used!")]]
+    auto velocity_based(bool velocity_based) {
+        this->m_velocity_based = velocity_based;
 
         return this->getReference();
     }

@@ -1,8 +1,8 @@
 #pragma once
 
+#include "blazing/controllers/clamp.hpp"
 #include "blazing/controllers/controllers.hpp"
 #include "blazing/controllers/slew.hpp"
-#include "blazing/controllers/voltage_clamp.hpp"
 #include "blazing/drivetrains/drivetrain.hpp"
 #include "blazing/motions/motion.hpp"
 #include "blazing/tolerances.hpp"
@@ -50,8 +50,9 @@ class turnTo : public Motion<ControllersType,
 
     std::optional<TurnToState> m_state;
 
-    // radius / track_width
-    Number ratio = 0.0;
+    Length m_radius = 0.0_in;
+
+    bool m_velocity_based = false;
 
   public:
     int getLoopDelayTime() override {
@@ -167,6 +168,65 @@ class turnTo : public Motion<ControllersType,
             return result;
         }
 
+        // only evaluate velocity based if we have all the requirements
+        if constexpr (hasLinearVelocityFeedback<ControllersType> &&
+                      hasAngularVelocityFeedback<ControllersType> &&
+                      TankDrivetrain<DrivetrainType> &&
+                      // has velocity feedforward
+                      requires(ControllersType controller) {
+                          controller.velocity_feedforward;
+                      }) {
+            if (m_velocity_based) {
+                AngularVelocity angular_vel =
+                  this->controllers.angular_velocity_feedback.update(
+                    -angular_error,
+                    0_stRad,
+                    delta_time);
+
+                LinearVelocity linear_vel =
+                  units::abs(angular_vel) * m_radius / rad;
+
+                if constexpr (hasLinearVelocityClamp<ControllersType>) {
+                    linear_vel =
+                      this->controllers.linear_velocity_clamp.apply(linear_vel);
+                }
+                if constexpr (hasAngularVoltageClamp<ControllersType>) {
+                    angular_vel =
+                      this->controllers.angular_velocity_clamp.apply(
+                        angular_vel);
+                }
+
+                // apply slew
+                if constexpr (hasLinearVelocitySlew<ControllersType>) {
+                    linear_vel =
+                      this->controllers.linear_velocity_slew.apply(linear_vel,
+                                                                   delta_time);
+                }
+                if constexpr (hasAngularVelocitySlew<ControllersType>) {
+                    angular_vel =
+                      this->controllers.angular_velocity_slew.apply(angular_vel,
+                                                                    delta_time);
+                }
+
+                DifferentialSpeeds target { linear_vel, angular_vel };
+
+                // pass velocities into feedforward
+                auto [left_voltage, right_voltage] =
+                  this->controllers.velocity_feedforward.update(target,
+                                                                delta_time);
+
+                // TODO: apply voltage clamp/slew? probably not
+
+                this->drivetrain.moveTank(left_voltage, right_voltage);
+
+                // we return here, so none of the below code executes
+                return result;
+            } else {
+                // assert to warn user?
+                // assert("want to use velocity but don't have requirements!");
+            }
+        }
+
         Voltage angular_output =
           this->controllers.angular_feedback.update(-angular_error,
                                                     0_stRad,
@@ -185,19 +245,11 @@ class turnTo : public Motion<ControllersType,
         }
 
         // done after voltage constraints / slew
-        Voltage linear_output = units::abs(angular_output) * ratio;
+        Voltage linear_output =
+          units::abs(angular_output) * m_radius.convert(in);
 
-        // apply linear constraints and slew
-        if constexpr (hasLinearVoltageClamp<ControllersType>) {
-            linear_output =
-              this->controllers.linear_voltage_clamp.apply(linear_output);
-        }
-
-        // apply slew
-        if constexpr (hasLinearSlew<ControllersType>) {
-            linear_output =
-              this->controllers.linear_slew.apply(linear_output, delta_time);
-        }
+        // don't apply linear slew or clamp to keep ratio
+        // slew and clamp on the angle should be used instead
 
         this->drivetrain.moveArcade(linear_output, angular_output);
 
@@ -254,8 +306,14 @@ class turnTo : public Motion<ControllersType,
         return self.getReference();
     }
 
-    motionChanger radius(this Self&& self, Number ratio = 1.0) {
-        self.ratio = ratio;
+    motionChanger radius(this Self&& self, Length radius) {
+        self.m_radius = radius;
+        return self.getReference();
+    }
+
+    // allow setting in ratio mode
+    motionChanger radius(this Self&& self, Number radius) {
+        self.m_radius = radius * in;
         return self.getReference();
     }
 
@@ -268,6 +326,13 @@ class turnTo : public Motion<ControllersType,
                             std::optional<AngularDirection> direction) {
         self.m_direction = direction;
         return self.getReference();
+    }
+
+    [[nodiscard("motion won't be executed unless an executor is used!")]]
+    auto velocity_based(bool velocity_based) {
+        this->m_velocity_based = velocity_based;
+
+        return this->getReference();
     }
 };
 
@@ -300,7 +365,7 @@ class Arc : public turnTo<ControllersType,
         Chassis<DrivetrainType, TrackerType, TolerancesType> chassis,
         Length x,
         Length y,
-        double radius = 1.0)
+        auto radius)
         : turnTo<ControllersType, DrivetrainType, TrackerType, TolerancesType>(
             controllers,
             chassis,
@@ -314,7 +379,7 @@ class Arc : public turnTo<ControllersType,
     Arc(ControllersType controllers,
         Chassis<DrivetrainType, TrackerType, TolerancesType> chassis,
         units::V2Position target_point,
-        double radius = 1.0)
+        auto radius)
         : turnTo<ControllersType, DrivetrainType, TrackerType, TolerancesType>(
             controllers,
             chassis,

@@ -254,7 +254,7 @@ KaUnits MotorGroupSysid::fit_ka_data(std::vector<MotorSysidData> data,
 
 // print data in desmos-friendly format
 auto MotorGroupSysid::print_data_as_latex(std::vector<MotorSysidData>& data) {
-    std::cout << "\\left[" << std::endl;
+    std::cout << "\\left[";
     for (int i = 0; i < data.size(); i++) {
         std::cout << "\\left(" << data[i].voltage.internal() << ","
                   << data[i].velocity.convert(mps) << "\\right)";
@@ -448,11 +448,11 @@ DifferentialSysidData DifferentialSysid::calculate_ka_kp_ki_fopdt(
       delta_time);
 
     auto [left_T, left_K, left_ka, left_kp, left_ki] =
-      MotorGroupSysid::fit_ka_kp_ki_data_first_model(data.left,
+      MotorGroupSysid::fit_ka_kp_ki_data_both_models(data.left,
                                                      delta_time,
                                                      lambda_factor);
     auto [right_T, right_K, right_ka, right_kp, right_ki] =
-      MotorGroupSysid::fit_ka_kp_ki_data_first_model(data.right,
+      MotorGroupSysid::fit_ka_kp_ki_data_both_models(data.right,
                                                      delta_time,
                                                      lambda_factor);
 

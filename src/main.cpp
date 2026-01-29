@@ -180,80 +180,25 @@ Chassis chassis(drivetrain, arc_pose_tracker, tolerances);
 RunExecutor run;
 AsyncExecutor async;
 
-blazing::lyfast::VelocityController linear_velocity_controller(
+blazing::lyfast::DifferentialVelocityController linear_velocity_controller(
   lyfast::VelocityControllerParams {
-
-    // auto tuner constants
-    // .left_Kv = 0.424124 * volt / mps,
-    // .left_Ka = 0.102243 * volt / mps2,
-    // .left_Ks = 0.0598427 * volt,
-    // .left_Kp = 0.946491 * volt / mps,
-    // .left_Ki = 4.38097 * volt / m,
-    //
-    // .right_Kv = 0.418423 * volt / mps,
-    // .right_Ka = 0.110488 * volt / mps2,
-    // .right_Ks = 0.0638434 * volt,
-    // .right_Kp = 0.943091 * volt / mps,
-    // .right_Ki = 4.02498 * volt / m,
-
-    // desmos constants
-    // .left_Kv = 0.426161 * volt / mps,
-    // .left_Ka = 0.0890043738963 * volt / mps2,
-    // .left_Ks = 0.0481902 * volt,
-    // .left_Kp = 0.934514846239 * volt / mps,
-    // .left_Ki = 4.58736473058 * volt / m,
-    //
-    // .right_Kv = 0.425642 * volt / mps,
-    // .right_Ka = 0.0915356456147 * volt / mps2,
-    // .right_Ks = 0.0499037 * volt,
-    // .right_Kp = 0.940127699096 * volt / mps,
-    // .right_Ki = 4.65515950473 * volt / m,
-
-    // tuned with one left motor unplugged
-    // .left_Kv = 0.678023 * volt / mps,
-    // .left_Ka = 0.220584 * volt / mps2,
-    // .left_Ks = 0.0665045 * volt,
-    // .left_Kp = 1.41625 * volt / mps,
-    // .left_Ki = 4.54646 * volt / m,
-    //
-    // .right_Kv = 0.42346 * volt / mps,
-    // .right_Ka = 0.11003 * volt / mps2,
-    // .right_Ks = 0.0699037 * volt,
-    // .right_Kp = 0.947525 * volt / mps,
-    // .right_Ki = 4.07981 * volt / m,
-
     // custom accel
-    // .left_Kv = 0.426161 * volt / mps,
-    // .left_Ka = 0.08 * volt / mps2,
-    // .left_Ks = 0.0481902 * volt,
-    // .left_Kp = 0.934514846239 * volt / mps,
-    // .left_Ki = 4.58736473058 * volt / m,
-    //
-    // .right_Kv = 0.425642 * volt / mps,
-    // .right_Ka = 0.081 * volt / mps2,
-    // .right_Ks = 0.0499037 * volt,
-    // .right_Kp = 0.940127699096 * volt / mps,
-    // .right_Ki = 4.65515950473 * volt / m,
+    .left_Kv = 0.426161 * volt / mps,
+    .left_Ka = 0.08 * volt / mps2,
+    .left_Ks = 0.0481902 * volt,
+    .left_Kp = 0.934514846239 * volt / mps,
+    .left_Ki = 4.58736473058 * volt / m,
 
-    // auto tuner acceleration is not really good atm
-    // using desmos constants for now
-    .left_Kv = 0.427641833333 * volt / mps,
-    .left_Ka = 0.0918263592271 * volt / mps2,
-    .left_Ks = 0.0546282666667 * volt,
-    // lambda 0.55
-    .left_Kp = 0.857349891834 * volt / mps,
-    .left_Ki = 4.40262320937 * volt / m,
-
-    .right_Kv = 0.424849333333 * volt / mps,
-    .right_Ka = 0. * volt / mps2,
-    .right_Ks = 0.05694315 * volt,
-    .right_Kp = 0. * volt / mps,
-    .right_Ki = 4 * volt / m,
+    .right_Kv = 0.425642 * volt / mps,
+    .right_Ka = 0.081 * volt / mps2,
+    .right_Ks = 0.0499037 * volt,
+    .right_Kp = 0.940127699096 * volt / mps,
+    .right_Ki = 4.65515950473 * volt / m,
   },
   track_width,
   drivetrain);
 
-blazing::lyfast::VelocityController angular_velocity_controller(
+blazing::lyfast::DifferentialVelocityController angular_velocity_controller(
   lyfast::VelocityControllerParams {
     // desmos constants
     .left_Kv = 0.451918 * volt / mps,
@@ -271,10 +216,10 @@ blazing::lyfast::VelocityController angular_velocity_controller(
   track_width,
   drivetrain);
 
-lyfast::LinearAngularVelocityController vel_controller {
-    linear_velocity_controller,
-    angular_velocity_controller
-};
+lyfast::ArcadeVelocityController vel_controller { linear_velocity_controller,
+                                                  angular_velocity_controller,
+                                                  track_width,
+                                                  drivetrain };
 
 PID<Length, LinearVelocity> linear_vel_pid(0.5,
                                            0.0,
@@ -318,8 +263,7 @@ Controllers controllers(
   LinearFeedbackController<decltype(linear_control)>(linear_control),
   AngularFeedbackController<decltype(angular_control)>(angular_control),
 
-  lyfast::VelocityFeedforward<lyfast::LinearAngularVelocityController>(
-    vel_controller),
+  lyfast::VelocityFeedforward<lyfast::ArcadeVelocityController>(vel_controller),
 
   // slew controllers
   // LinearSlewController(0.07_volt, 0.06_volt),
@@ -334,6 +278,7 @@ Controllers controllers(
   AngularVoltageClampController());
 
 MotionBuilder mb(chassis, controllers);
+MotionBuilder vel_mb(chassis, controllers);
 
 ChainedExecutor chain(100_msec);
 
@@ -346,6 +291,34 @@ void initialize() {
             arc_pose_tracker.update();
             pros::delay(10);
         }
+    });
+
+    // default a timeout
+    vel_mb.setTurnToModifier([](auto turnTo) {
+        return turnTo
+          .velocity_based(true)
+          // specifically uses turn heading pid instead of drive pid
+          .timeout(5_sec);
+    });
+
+    vel_mb.setDistanceAtHeadingModifier([](auto distanceAtHeading) {
+        return distanceAtHeading.velocity_based(true).timeout(5_sec);
+    });
+
+    vel_mb.setMoveToModifier([](auto moveTo) {
+        // return moveTo.customAngularLinearFunc(angular_linear_func);
+        return moveTo.velocity_based(true).k_lat(0.15 * rad / m).timeout(3_sec);
+        // return moveTo.timeout(3_sec);
+        // .customAngularLinearFunc(angular_linear_func);
+    });
+
+    vel_mb.setBoomerangModifier([](auto boomerang) {
+        // return boomerang.customAngularLinearFunc(angular_linear_func);
+        // return boomerang.k_lat();
+        return boomerang.velocity_based(true)
+          .k_lat(0.15 * rad / m, true)
+          .timeout(5_sec);
+        // .customAngularLinearFunc(angular_linear_func);
     });
 }
 
@@ -825,9 +798,9 @@ void manual_mp_test() {
             std::cout << "\\left[";
             for (auto [target, actual] : data) {
                 std::cout << "\\left(" << target.right_vel.internal() << ","
-                          << actual.right_vel.internal() << "\\right)";
+                          << actual.right_vel.internal() << "\\right),";
             }
-            std::cout << "\\right]," << std::endl;
+            std::cout << "\\right]" << std::endl;
 
             std::cout << "VOLTAGES:" << std::endl;
             std::cout << "\\left[";
@@ -924,9 +897,9 @@ void simple_mp_test() {
             std::cout << "\\left[";
             for (auto [target, actual] : data) {
                 std::cout << "\\left(" << target.right_vel.internal() << ","
-                          << actual.right_vel.internal() << "\\right)";
+                          << actual.right_vel.internal() << "\\right),";
             }
-            std::cout << "\\right]," << std::endl;
+            std::cout << "\\right]" << std::endl;
 
             std::cout << "VOLTAGES:" << std::endl;
             std::cout << "\\left[";
@@ -944,12 +917,17 @@ void simple_mp_test() {
 
 void opcontrol() {
     // pros::delay(2000);
-    linear_ka_kp_ki_tuner();
-    create_accel_data({ 0.5_volt, 0.5_volt, 2_sec }, "Linear");
-    //
-    return;
+    // linear_ka_kp_ki_tuner();
+    // create_accel_data({ 0.5_volt, 0.5_volt, 2_sec }, "Linear");
+    // //
+    // return;
 
-    manual_mp_test();
+    // manual_mp_test();
+
+    mb.moveTo(20, 20).velocity_based(true) | run;
+    mb.turnTo(20, 20).velocity_based(true) | run;
+    mb.boomerang(20, 20, 0).velocity_based(true) | run;
+    mb.arc(20, 20, 1_in).velocity_based(true) | run;
 
     // arc_pose_tracker.setPose({ -23.6_in, -23.6_in, 270_stDeg });
     // std::cout << "what!" << std::endl;

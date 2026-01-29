@@ -7,13 +7,14 @@
 
 namespace blazing {
 
+template<typename T = Voltage>
 class SlewController {
   public:
-    using slew_t = Divided<Voltage, Time>;
-    using slew_variant_t = std::optional<std::variant<slew_t, Voltage>>;
+    using slew_t = Divided<T, Time>;
+    using slew_variant_t = std::optional<std::variant<slew_t, T>>;
 
   private:
-    std::optional<Voltage> last_output = std::nullopt;
+    std::optional<T> last_output = std::nullopt;
 
     Time targeted_delta_time = 10_msec;
 
@@ -29,8 +30,8 @@ class SlewController {
             return std::nullopt;
         else {
             const auto& variant = optional_variant.value();
-            if (std::holds_alternative<Voltage>(variant)) {
-                return std::get<Voltage>(variant) / delta_time;
+            if (std::holds_alternative<T>(variant)) {
+                return std::get<T>(variant) / delta_time;
             } else {
                 return std::get<slew_t>(variant);
             }
@@ -70,7 +71,7 @@ class SlewController {
     }
 
     // output should be signed, indicating its direction of travel
-    Voltage apply(Voltage output, Time delta_time) {
+    T apply(Voltage output, Time delta_time) {
         if (!last_output) {
             last_output = 0_volt;
         }
@@ -106,7 +107,7 @@ class SlewController {
             }
         }
 
-        Voltage adjusted_output = *last_output + output_vel * delta_time;
+        T adjusted_output = *last_output + output_vel * delta_time;
 
         last_output = adjusted_output;
         return adjusted_output;
@@ -115,16 +116,18 @@ class SlewController {
 
 class LinearSlewController : virtual ControllerBase {
   public:
-    SlewController linear_slew;
+    SlewController<Voltage> linear_slew;
 
-    LinearSlewController(SlewController linear_slew)
+    LinearSlewController(SlewController<Voltage> linear_slew)
         : linear_slew(linear_slew) {}
 
     LinearSlewController(
-      SlewController::slew_variant_t accel_slew = std::nullopt,
-      SlewController::slew_variant_t backwards_accel_slew = std::nullopt,
-      SlewController::slew_variant_t decel_slew = std::nullopt,
-      SlewController::slew_variant_t backwards_decel_slew = std::nullopt,
+      SlewController<Voltage>::slew_variant_t accel_slew = std::nullopt,
+      SlewController<Voltage>::slew_variant_t backwards_accel_slew =
+        std::nullopt,
+      SlewController<Voltage>::slew_variant_t decel_slew = std::nullopt,
+      SlewController<Voltage>::slew_variant_t backwards_decel_slew =
+        std::nullopt,
       Time delta_time = 10_msec)
         : linear_slew(accel_slew,
                       backwards_accel_slew,
@@ -135,16 +138,18 @@ class LinearSlewController : virtual ControllerBase {
 
 class AngularSlewController : virtual ControllerBase {
   public:
-    SlewController angular_slew;
+    SlewController<Voltage> angular_slew;
 
-    AngularSlewController(SlewController angular_slew)
+    AngularSlewController(SlewController<Voltage> angular_slew)
         : angular_slew(angular_slew) {}
 
     AngularSlewController(
-      SlewController::slew_variant_t accel_slew = std::nullopt,
-      SlewController::slew_variant_t backwards_accel_slew = std::nullopt,
-      SlewController::slew_variant_t decel_slew = std::nullopt,
-      SlewController::slew_variant_t backwards_decel_slew = std::nullopt,
+      SlewController<Voltage>::slew_variant_t accel_slew = std::nullopt,
+      SlewController<Voltage>::slew_variant_t backwards_accel_slew =
+        std::nullopt,
+      SlewController<Voltage>::slew_variant_t decel_slew = std::nullopt,
+      SlewController<Voltage>::slew_variant_t backwards_decel_slew =
+        std::nullopt,
       Time delta_time = 10_msec)
         : angular_slew(accel_slew,
                        backwards_accel_slew,
@@ -153,11 +158,64 @@ class AngularSlewController : virtual ControllerBase {
                        delta_time) {}
 };
 
+class LinearVelocitySlewController : virtual ControllerBase {
+  public:
+    SlewController<LinearVelocity> linear_velocity_slew;
+
+    LinearVelocitySlewController(
+      SlewController<LinearVelocity> linear_velocity_slew)
+        : linear_velocity_slew(linear_velocity_slew) {}
+
+    LinearVelocitySlewController(
+      SlewController<LinearVelocity>::slew_variant_t accel_slew = std::nullopt,
+      SlewController<LinearVelocity>::slew_variant_t backwards_accel_slew =
+        std::nullopt,
+      SlewController<LinearVelocity>::slew_variant_t decel_slew = std::nullopt,
+      SlewController<LinearVelocity>::slew_variant_t backwards_decel_slew =
+        std::nullopt,
+      Time delta_time = 10_msec)
+        : linear_velocity_slew(accel_slew,
+                               backwards_accel_slew,
+                               decel_slew,
+                               backwards_decel_slew,
+                               delta_time) {}
+};
+
+class AngularVelocitySlewController : virtual ControllerBase {
+  public:
+    SlewController<AngularVelocity> angular_velocity_slew;
+
+    AngularVelocitySlewController(
+      SlewController<AngularVelocity> angular_velocity_slew)
+        : angular_velocity_slew(angular_velocity_slew) {}
+
+    AngularVelocitySlewController(
+      SlewController<AngularVelocity>::slew_variant_t accel_slew = std::nullopt,
+      SlewController<AngularVelocity>::slew_variant_t backwards_accel_slew =
+        std::nullopt,
+      SlewController<AngularVelocity>::slew_variant_t decel_slew = std::nullopt,
+      SlewController<AngularVelocity>::slew_variant_t backwards_decel_slew =
+        std::nullopt,
+      Time delta_time = 10_msec)
+        : angular_velocity_slew(accel_slew,
+                                backwards_accel_slew,
+                                decel_slew,
+                                backwards_decel_slew,
+                                delta_time) {}
+};
+
 template<typename Controller>
 concept hasLinearSlew =
   requires(Controller controller) { controller.linear_slew; };
 template<typename Controller>
 concept hasAngularSlew =
   requires(Controller controller) { controller.angular_slew; };
+
+template<typename Controller>
+concept hasLinearVelocitySlew =
+  requires(Controller controller) { controller.linear_velocity_slew; };
+template<typename Controller>
+concept hasAngularVelocitySlew =
+  requires(Controller controller) { controller.angular_velocity_slew; };
 
 } // namespace blazing

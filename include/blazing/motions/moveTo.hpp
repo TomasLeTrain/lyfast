@@ -1,9 +1,10 @@
 #pragma once
 
 #include "blazing/chassis.hpp"
+#include "blazing/controllers/clamp.hpp"
+#include "blazing/controllers/controllers.hpp"
 #include "blazing/controllers/feedback/feedback.hpp"
 #include "blazing/controllers/slew.hpp"
-#include "blazing/controllers/voltage_clamp.hpp"
 #include "blazing/drivetrains/drivetrain.hpp"
 #include "blazing/motions/motion.hpp"
 #include "blazing/tolerances.hpp"
@@ -53,6 +54,8 @@ class moveTo : public Motion<ControllersType,
 
     bool m_only_x = false;
     bool m_only_y = false;
+
+    bool m_velocity_based = false;
 
     // defaults to cosine of angle
     std::function<double(Angle)> angular_linear_func =
@@ -170,6 +173,89 @@ class moveTo : public Motion<ControllersType,
             this->drivetrain.moveArcade(0_volt, 0_volt);
             // returns immediately to avoid more movement
             return result;
+        }
+
+        // only evaluate velocity based if we have all the requirements
+        if constexpr (hasLinearVelocityFeedback<ControllersType> &&
+                      hasAngularVelocityFeedback<ControllersType> &&
+                      TankDrivetrain<DrivetrainType> &&
+                      // has velocity feedforward
+                      requires(ControllersType controller) {
+                          controller.velocity_feedforward;
+                      }) {
+            if (m_velocity_based) {
+                LinearVelocity linear_vel =
+                  this->controllers.linear_velocity_feedback.update(
+                    -linear_error,
+                    0_stRad,
+                    delta_time);
+
+                AngularVelocity angular_vel =
+                  this->controllers.angular_velocity_feedback.update(
+                    -angular_error,
+                    0_stRad,
+                    delta_time);
+
+                if (m_k_lat) {
+                    angular_vel =
+                      angular_vel +
+                      *m_k_lat * (rad / m) * linear_vel *
+                        (target_point - position).rotatedBy(-heading).y *
+                        sinc(angular_error);
+                }
+
+                // sign was already applied to error, only applies cosine
+                // scaling component
+                linear_vel *= units::abs(lin_multiplier);
+
+                // here the robot would attempt to move backwards, when instead
+                // the robot should turn around until it should start moving
+                // towards the target the reason that this is done to
+                // linear_output and not linear_error is because otherwise
+                // linear_error would be zero and tolerances would trigger
+                if (!state.close && lin_multiplier < 0) {
+                    linear_vel = 0_mps;
+                }
+
+                if constexpr (hasLinearVelocityClamp<ControllersType>) {
+                    linear_vel =
+                      this->controllers.linear_velocity_clamp.apply(linear_vel);
+                }
+                if constexpr (hasAngularVoltageClamp<ControllersType>) {
+                    angular_vel =
+                      this->controllers.angular_velocity_clamp.apply(
+                        angular_vel);
+                }
+
+                // apply slew
+                if constexpr (hasLinearVelocitySlew<ControllersType>) {
+                    linear_vel =
+                      this->controllers.linear_velocity_slew.apply(linear_vel,
+                                                                   delta_time);
+                }
+                if constexpr (hasAngularVelocitySlew<ControllersType>) {
+                    angular_vel =
+                      this->controllers.angular_velocity_slew.apply(angular_vel,
+                                                                    delta_time);
+                }
+
+                DifferentialSpeeds target { linear_vel, angular_vel };
+
+                // pass velocities into feedforward
+                auto [left_voltage, right_voltage] =
+                  this->controllers.velocity_feedforward.update(target,
+                                                                delta_time);
+
+                // TODO: apply voltage clamp/slew? probably not
+
+                this->drivetrain.moveTank(left_voltage, right_voltage);
+
+                // we return here, so none of the below code executes
+                return result;
+            } else {
+                // assert to warn user?
+                // assert("want to use velocity but don't have requirements!");
+            }
         }
 
         // calculate outputs
@@ -348,6 +434,13 @@ class moveTo : public Motion<ControllersType,
     [[nodiscard("motion won't be executed unless an executor is used!")]]
     auto only_y(bool only_y) {
         this->m_only_y = only_y;
+
+        return this->getReference();
+    }
+
+    [[nodiscard("motion won't be executed unless an executor is used!")]]
+    auto velocity_based(bool velocity_based) {
+        this->m_velocity_based = velocity_based;
 
         return this->getReference();
     }

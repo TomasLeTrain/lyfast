@@ -84,5 +84,10 @@ class DifferentialDrivetrain : public ChainableDrivetrain {
         return LeftRightVoltages { get_group_voltage(left_motors),
                                    get_group_voltage(right_motors) };
     }
+
+    LinearVelocity getMaxVelocity() {
+        // v = r * omega
+        return (wheel_diameter / 2) * final_rpm / rad;
+    }
 };
 } // namespace blazing

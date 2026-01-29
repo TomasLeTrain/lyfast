@@ -165,7 +165,7 @@ class MotionBuilder {
     }
 
     [[nodiscard("motion won't be executed unless an executor is used!")]]
-    arcType arc(std::variant<Angle, double, int> heading, double radius = 1.0) {
+    arcType arc(std::variant<Angle, double, int> heading, auto radius) {
         Angle new_heading = castToUnit(heading, deg);
         return arcModifier(
           blazing::Arc(controllers, chassis, new_heading, radius));
@@ -174,7 +174,7 @@ class MotionBuilder {
     [[nodiscard("motion won't be executed unless an executor is used!")]]
     arcType arc(std::variant<Length, double, int> x,
                 std::variant<Length, double, int> y,
-                double radius = 1.0) {
+                auto radius) {
         Length new_x = castToUnit(x, in);
         Length new_y = castToUnit(y, in);
         return arcModifier(
@@ -182,7 +182,7 @@ class MotionBuilder {
     }
 
     [[nodiscard("motion won't be executed unless an executor is used!")]]
-    arcType arc(units::V2Position target_point, double radius = 1.0) {
+    arcType arc(units::V2Position target_point, auto radius) {
         return arcModifier(
           blazing::Arc(controllers, chassis, target_point, radius));
     }

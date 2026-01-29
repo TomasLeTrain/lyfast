@@ -8,6 +8,8 @@
 #include "units/Angle.hpp"
 #include "units/Vector2D.hpp"
 #include "units/units.hpp"
+#include <cmath>
+#include <ios>
 
 namespace blazing {
 namespace lyfast {
@@ -22,6 +24,30 @@ using KaUnits = Divided<Voltage, LinearAcceleration>;
 using FKsUnits = FVoltage;
 using FKvUnits = Divided<FVoltage, FLinearVelocity>;
 using FKaUnits = Divided<FVoltage, FLinearAcceleration>;
+
+inline DifferentialSpeeds
+desaturateDifferentialSpeeds(DifferentialSpeeds target,
+                             Length track_width,
+                             LinearVelocity max_velocity) {
+    Length track_radius = track_width / 2.0;
+
+    LinearVelocity target_left_vel =
+      target.linear_velocity - (target.angular_velocity / rad) * track_radius;
+    LinearVelocity target_right_vel =
+      target.linear_velocity + (target.angular_velocity / rad) * track_radius;
+
+    std::array<LinearVelocity, 2> saturated = { target_left_vel,
+                                                target_right_vel };
+
+    auto [new_left_vel, new_right_vel] =
+      blazing::desaturate(saturated, max_velocity);
+
+    LinearVelocity new_lin_vel = (new_left_vel + new_right_vel) / 2.0;
+    AngularVelocity new_ang_vel =
+      rad * (new_right_vel - new_left_vel) / track_width;
+
+    return { new_lin_vel, new_ang_vel };
+}
 
 template<typename T>
 struct SimpleVelocityControllerParams {
@@ -82,7 +108,12 @@ class SimpleVelocityController {
 
         LinearVelocity error = target - measurement;
 
-        integral += error * duration;
+        if (last_error)
+            // use trapezoidal approximation
+            integral += (error + *last_error) * duration / 2.0;
+        else
+            // use Riemann sum approximation
+            integral += error * duration;
 
         if (last_error && units::sgn(error) != units::sgn(*last_error)) {
             integral = Length { 0 };
@@ -135,26 +166,32 @@ class SimpleVelocityController {
         : m_params(params) {}
 };
 
-class VelocityController {
+class DifferentialVelocityController {
     VelocityControllerParams m_params;
 
     SimpleVelocityController<LinearVelocity> left_controller;
     SimpleVelocityController<LinearVelocity> right_controller;
 
     Length m_track_width;
-
     DifferentialDrivetrain& drivetrain;
 
   public:
     LeftRightVoltages update(LeftRightSpeeds measurement,
                              DifferentialSpeeds target,
                              Time duration) {
+        Length track_radius = m_track_width / 2.0;
+
+        // desaturate target first
+        target = desaturateDifferentialSpeeds(target,
+                                              m_track_width,
+                                              drivetrain.getMaxVelocity());
+
         LinearVelocity target_left_vel =
           target.linear_velocity -
-          (target.angular_velocity / rad) * (m_track_width / 2);
+          (target.angular_velocity / rad) * track_radius;
         LinearVelocity target_right_vel =
           target.linear_velocity +
-          (target.angular_velocity / rad) * (m_track_width / 2);
+          (target.angular_velocity / rad) * track_radius;
 
         auto left_voltage = left_controller.update(measurement.left_vel,
                                                    target_left_vel,
@@ -171,24 +208,11 @@ class VelocityController {
     LeftRightVoltages update(DifferentialSpeeds target, Time duration) {
         // fall back to using specified drivetrain
         return update(drivetrain.getDrivetrainVelocities(), target, duration);
-
-        // LinearVelocity target_left_vel =
-        //   target.linear_velocity -
-        //   (target.angular_velocity / rad) * (m_track_width / 2);
-        // LinearVelocity target_right_vel =
-        //   target.linear_velocity +
-        //   (target.angular_velocity / rad) * (m_track_width / 2);
-        //
-        // auto left_voltage = left_controller.update(target_left_vel,
-        // duration); auto right_voltage =
-        //   right_controller.update(target_right_vel, duration);
-        //
-        // LeftRightVoltages result = { left_voltage, right_voltage };
-        //
-        // return result;
     }
 
     // allows using as only a linear feedforward
+    // NOTE: this cannot be used in combination with another controller as this
+    // controller uses feedback
     Voltage update(LinearVelocity target, Time duration) {
         auto left_right_voltages =
           update(DifferentialSpeeds { target, 0_radps }, duration);
@@ -198,6 +222,8 @@ class VelocityController {
     }
 
     // allows using as only a linear feedback with only linear component
+    // NOTE: this cannot be used in combination with another controller as this
+    // controller uses feedback
     Voltage
     update(LeftRightSpeeds measurement, LinearVelocity target, Time duration) {
         auto left_right_voltages =
@@ -208,6 +234,8 @@ class VelocityController {
     }
 
     // allows using as only an angular feedforward
+    // NOTE: this cannot be used in combination with another controller as this
+    // controller uses feedback
     Voltage update(AngularVelocity target, Time duration) {
         auto left_right_voltages =
           update(DifferentialSpeeds { 0_inps, target }, duration);
@@ -218,6 +246,8 @@ class VelocityController {
     }
 
     // allows using as vel feedback with only angular component
+    // NOTE: this cannot be used in combination with another controller as this
+    // controller uses feedback
     Voltage
     update(LeftRightSpeeds measurement, AngularVelocity target, Time duration) {
         auto left_right_voltages =
@@ -232,9 +262,9 @@ class VelocityController {
         return m_params;
     }
 
-    VelocityController(VelocityControllerParams params,
-                       Length track_width,
-                       DifferentialDrivetrain& drivetrain)
+    DifferentialVelocityController(VelocityControllerParams params,
+                                   Length track_width,
+                                   DifferentialDrivetrain& drivetrain)
         : m_params(params),
           left_controller({
             .Kv = this->m_params.left_Kv,
@@ -253,9 +283,10 @@ class VelocityController {
           m_track_width(track_width),
           drivetrain(drivetrain) {}
 
-    VelocityController(SimpleVelocityControllerParams<LinearVelocity> params,
-                       Length track_width,
-                       DifferentialDrivetrain& drivetrain)
+    DifferentialVelocityController(
+      SimpleVelocityControllerParams<LinearVelocity> params,
+      Length track_width,
+      DifferentialDrivetrain& drivetrain)
         : m_params(VelocityControllerParams::fromSimple(params)),
           left_controller(params),
           right_controller(params),
@@ -263,9 +294,12 @@ class VelocityController {
           drivetrain(drivetrain) {}
 };
 
-class LinearAngularVelocityController {
-    VelocityController linear_controller;
-    VelocityController angular_controller;
+class ArcadeVelocityController {
+    DifferentialVelocityController linear_controller;
+    DifferentialVelocityController angular_controller;
+
+    Length m_track_width;
+    DifferentialDrivetrain& drivetrain;
 
   public:
     LeftRightVoltages update(LeftRightSpeeds measurement,
@@ -282,12 +316,33 @@ class LinearAngularVelocityController {
     }
 
     LeftRightVoltages update(DifferentialSpeeds target, Time duration) {
-        Voltage linear =
-          linear_controller.update(target.linear_velocity, duration);
-        Voltage angular =
-          angular_controller.update(target.angular_velocity, duration);
+        Length track_radius = m_track_width / 2.0;
 
-        return LeftRightVoltages { linear - angular, linear + angular };
+        target = desaturateDifferentialSpeeds(target,
+                                              m_track_width,
+                                              drivetrain.getMaxVelocity());
+
+        LeftRightVoltages linear = linear_controller.update(target, duration);
+        LeftRightVoltages angular = angular_controller.update(target, duration);
+
+        // factor = v / (v + w * r)
+        // 1 when all linear, 0 when all angular
+        float lin_factor = target.linear_velocity /
+                           (target.linear_velocity +
+                            target.angular_velocity * track_radius / rad);
+
+        // interpolate between controllers
+        Voltage left_voltage = std::lerp(angular.left_voltage.internal(),
+                                         linear.left_voltage.internal(),
+                                         lin_factor) *
+                               volt;
+
+        Voltage right_voltage = std::lerp(angular.right_voltage.internal(),
+                                          linear.right_voltage.internal(),
+                                          lin_factor) *
+                                volt;
+
+        return LeftRightVoltages { left_voltage, right_voltage };
     }
 
     // allows using as only a linear feedforward
@@ -312,10 +367,14 @@ class LinearAngularVelocityController {
         return angular_controller.update(measurement, target, duration);
     }
 
-    LinearAngularVelocityController(VelocityController linear_controller,
-                                    VelocityController angular_controller)
+    ArcadeVelocityController(DifferentialVelocityController linear_controller,
+                             DifferentialVelocityController angular_controller,
+                             Length track_width,
+                             DifferentialDrivetrain& drivetrain)
         : linear_controller(linear_controller),
-          angular_controller(angular_controller) {}
+          angular_controller(angular_controller),
+          m_track_width(track_width),
+          drivetrain(drivetrain) {}
 };
 
 template<typename Controller>

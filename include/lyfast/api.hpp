@@ -12,3 +12,4 @@
 #include "lyfast/ramsete.hpp"
 #include "lyfast/stanley.hpp"
 #include "lyfast/vel_controller.hpp"
+#include "lyfast/system_identification.hpp"

@@ -3,7 +3,7 @@
 #include "blazing/chassis.hpp"
 #include "blazing/controllers/controllers.hpp"
 #include "blazing/controllers/slew.hpp"
-#include "blazing/controllers/voltage_clamp.hpp"
+#include "blazing/controllers/clamp.hpp"
 #include "blazing/drivetrains/drivetrain.hpp"
 #include "blazing/tolerances.hpp"
 #include "pros/rtos.h"

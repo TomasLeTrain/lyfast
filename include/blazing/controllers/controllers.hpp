@@ -96,8 +96,54 @@ struct AngularFeedbackController : virtual ControllerBase {
     }
 };
 
+template<typename Controller>
+    requires Feedback<Controller, Length, LinearVelocity>
+struct LinearVelocityFeedbackController : virtual ControllerBase {
+  public:
+    Controller linear_velocity_feedback;
+
+    LinearVelocityFeedbackController(
+      Controller linear_velocity_feedback_controller)
+        : linear_velocity_feedback(linear_velocity_feedback_controller) {}
+
+    // creates a copy of the controller with different linear feedback
+    // controller
+    template<typename Self>
+    Self with_linear_feedback(this Self&& self,
+                              Controller new_linear_velocity_feedback) {
+        Self new_self = self;
+        new_self.linear_velocity_feedback = new_linear_velocity_feedback;
+        return new_self;
+    }
+};
+
+template<typename Controller>
+    requires Feedback<Controller, Angle, AngularVelocity>
+struct AngularVelocityFeedbackController : virtual ControllerBase {
+  public:
+    Controller angular_velocity_feedback;
+
+    AngularVelocityFeedbackController(Controller angular_velocity_feedback)
+        : angular_velocity_feedback(angular_velocity_feedback) {}
+
+    // creates a copy of the controller with different angular feedback
+    // controller
+    template<typename Self>
+    Self with_angular_feedback(this Self&& self,
+                               Controller new_angular_velocity_feedback) {
+        Self new_self = self;
+        new_self.angular_velocity_feedback = new_angular_velocity_feedback;
+        return new_self;
+    }
+};
+
 using PIDLinearController = LinearFeedbackController<PID<Length, Voltage>>;
 using PIDAngularController = AngularFeedbackController<PID<Angle, Voltage>>;
+
+using PIDLinearVelocityController =
+  LinearVelocityFeedbackController<PID<Length, LinearVelocity>>;
+using PIDAngularVelocityController =
+  AngularVelocityFeedbackController<PID<Angle, AngularVelocity>>;
 
 // inherits all the properties from the controllers being used
 template<typename... ControllerTypes>
@@ -125,5 +171,14 @@ concept hasLinearFeedback =
 template<typename Controller>
 concept hasAngularFeedback =
   Feedback<decltype(Controller::angular_feedback), Angle, Voltage>;
+
+// Linear/Angular Velocity Feedback Concepts
+template<typename Controller>
+concept hasLinearVelocityFeedback =
+  Feedback<decltype(Controller::linear_feedback), Length, LinearVelocity>;
+
+template<typename Controller>
+concept hasAngularVelocityFeedback =
+  Feedback<decltype(Controller::angular_feedback), Angle, AngularVelocity>;
 
 } // namespace blazing

@@ -5,7 +5,7 @@
 #include "blazing/controllers/feedback/pid.hpp"
 #include "blazing/controllers/feedforward/feedforward.hpp"
 #include "blazing/controllers/slew.hpp"
-#include "blazing/controllers/voltage_clamp.hpp"
+#include "blazing/controllers/clamp.hpp"
 #include "blazing/drivetrains/differential.hpp"
 #include "blazing/drivetrains/drivetrain.hpp"
 #include "blazing/executor.hpp"

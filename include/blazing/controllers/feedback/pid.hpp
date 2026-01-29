@@ -93,10 +93,16 @@ class PID {
         const Divided<Input, Time> derivative =
           (dt != 0_sec) ? (error - *previousError) / dt :
                           Divided<Input, Time>(0);
+
+        if (previousError)
+            // use trapezoidal approximation if previous is available
+            integral += (error + *previousError) * dt * 0.5;
+        else
+            // use Riemann sum approximation
+            integral += error * dt;
+
         previousError = error;
 
-        // calculate the integral (change in error * time passed)
-        integral += error * dt;
         // sign flip reset. If the sign of error changes, set the integral to 0
         if (units::sgn(error) != units::sgn(*previousError))
             integral = Multiplied<Input, Time>(0);
