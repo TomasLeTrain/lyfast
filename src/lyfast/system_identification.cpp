@@ -29,7 +29,8 @@ std::vector<MotorSysidData> MotorGroupSysid::generateData(
         motor_group->move_voltage(12 * to_mvolt(voltage));
 
         auto start_time = blazing::now();
-        uint32_t prev_time;
+        uint32_t prev_time = pros::millis();
+
         while (!timeoutDone(target_time, start_time)) {
             // amount of time to measure the steady state
             if (record) {
@@ -282,15 +283,13 @@ DifferentialSysidData DifferentialSysid::createData(
         drivetrain.moveTank(left_voltage, right_voltage);
 
         auto start_time = blazing::now();
-        uint32_t prev_time;
+        uint32_t prev_time = pros::millis();
+
         while (!timeoutDone(target_time, start_time)) {
             // amount of time to measure the steady state
             if (record) {
-                auto left_velocity =
-                  drivetrain.getDrivetrainVelocities().left_vel;
-
-                auto right_velocity =
-                  drivetrain.getDrivetrainVelocities().right_vel;
+                auto [left_velocity, right_velocity] =
+                  drivetrain.getDrivetrainVelocities();
 
                 data.left.emplace_back(left_velocity, left_voltage);
                 data.right.emplace_back(right_velocity, right_voltage);
@@ -309,7 +308,6 @@ DifferentialSysidData DifferentialSysid::gather_kv_ks_data(
   Time steady_state_time) {
     DifferentialSysidData data;
 
-    uint32_t prev_time;
     uint32_t int_delta_time = std::lround(to_msec(delta_time));
 
     for (auto [left_voltage, right_voltage, target_time, record] :
@@ -317,6 +315,7 @@ DifferentialSysidData DifferentialSysid::gather_kv_ks_data(
         drivetrain.moveTank(left_voltage, right_voltage);
 
         auto start_time = blazing::now();
+        uint32_t prev_time = pros::millis();
 
         LinearVelocity left_averageVelocities { 0 };
         LinearVelocity right_averageVelocities { 0 };
@@ -330,14 +329,14 @@ DifferentialSysidData DifferentialSysid::gather_kv_ks_data(
               units::max(0_Fsec, target_time - steady_state_time);
 
             if (timeoutDone(threshold_time, start_time)) {
-                prev_time = pros::millis();
 
-                left_averageVelocities +=
-                  drivetrain.getDrivetrainVelocities().left_vel;
+                auto [curr_left_vel, curr_right_vel] =
+                  drivetrain.getDrivetrainVelocities();
+
+                left_averageVelocities += curr_left_vel;
                 left_averageVoltages += left_voltage;
 
-                right_averageVelocities +=
-                  drivetrain.getDrivetrainVelocities().right_vel;
+                right_averageVelocities += curr_right_vel;
                 right_averageVoltages += right_voltage;
 
                 samples++;
@@ -345,6 +344,7 @@ DifferentialSysidData DifferentialSysid::gather_kv_ks_data(
 
             pros::c::task_delay_until(&prev_time, int_delta_time);
         }
+
         left_averageVelocities /= samples;
         left_averageVoltages /= samples;
 

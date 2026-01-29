@@ -394,7 +394,7 @@
                 "version": "3.4.90"
             },
             "blazing": {
-                "location": "/home/tomas/.config/pros/templates/blazing@0.0.16",
+                "location": "/home/tomas/.config/pros/templates/blazing@0.0.17",
                 "metadata": {
                     "origin": "local"
                 },
@@ -409,13 +409,13 @@
                     "include/blazing/motions/turnTo.hpp",
                     "include/blazing/trackers/arc_odom.hpp",
                     "include/blazing/controllers/feedforward/feedforward.hpp",
+                    "include/blazing/controllers/clamp.hpp",
                     "include/blazing/controllers/feedback/feedback.hpp",
                     "include/blazing/drivetrains/drivetrain.hpp",
                     "include/blazing/controllers/slew.hpp",
                     "firmware/blazing.a",
                     "include/blazing/drivetrains/differential.hpp",
                     "include/blazing/api.hpp",
-                    "include/blazing/controllers/voltage_clamp.hpp",
                     "include/blazing/utils.hpp",
                     "include/blazing/controllers/controllers.hpp",
                     "include/blazing/motion_builder.hpp",
@@ -428,7 +428,7 @@
                 ],
                 "target": "v5",
                 "user_files": [],
-                "version": "0.0.16"
+                "version": "0.0.17"
             },
             "float_units": {
                 "location": "/home/tomas/.config/pros/templates/float_units@0.7.4",
