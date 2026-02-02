@@ -19,11 +19,12 @@ namespace lyfast {
 namespace mp {
 
 struct PointConstraint {
+    // spline time or length based
     std::variant<float, FLength> timeframe;
 
-    FLinearVelocity vel = LinearVelocity(infinity());
-    FLinearAcceleration accel = LinearAcceleration(infinity());
-    FLinearAcceleration decel = LinearAcceleration(infinity());
+    std::optional<FLinearVelocity> vel = std::nullopt;
+    std::optional<FLinearAcceleration> accel = std::nullopt;
+    std::optional<FLinearAcceleration> decel = std::nullopt;
 };
 
 struct MotionPoint {

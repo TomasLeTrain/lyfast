@@ -211,7 +211,7 @@ auto MotorGroupSysid::fit_ka_kp_ki_data_both_models(
     auto [first_T, first_K, first_Ka, first_Kp, first_Ki] =
       fit_ka_kp_ki_data_first_model(data, delta_time, lambda_factor);
     auto [second_T, second_K, second_Ka, second_Kp, second_Ki] =
-      fit_ka_kp_ki_data_first_model(data, delta_time, lambda_factor);
+      fit_ka_kp_ki_data_second_model(data, delta_time, lambda_factor);
 
     Time avg_T = (first_T + second_T) / 2.0;
     Divided<LinearVelocity, Voltage> avg_K = (first_K + second_K) / 2.0;

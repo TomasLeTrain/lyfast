@@ -33,12 +33,17 @@ template<typename ControllersType,
                hasAngularFeedback<ControllersType> &&
                hasLinearFeedback<ControllersType> &&
                hasVelocityFeedforward<ControllersType>
-class Stanley : public Motion<ControllersType,
-                              DrivetrainType,
-                              TrackerType,
-                              TolerancesType>,
-                public LinearMotion,
-                public AngularMotion {
+class Stanley
+    : public Motion<
+        ControllersType,
+        DrivetrainType,
+        TrackerType,
+        TolerancesType,
+        Stanley<ControllersType, DrivetrainType, TrackerType, TolerancesType>>,
+      public LinearMotion<
+        Stanley<ControllersType, DrivetrainType, TrackerType, TolerancesType>>,
+      public AngularMotion<
+        Stanley<ControllersType, DrivetrainType, TrackerType, TolerancesType>> {
 
   private:
     std::optional<StanleyState> m_state;
@@ -191,42 +196,39 @@ class Stanley : public Motion<ControllersType,
     Stanley(ControllersType controllers,
             Chassis<DrivetrainType, TrackerType, TolerancesType> chassis,
             mp::Trajectory* target_trajectory)
-        : Motion<ControllersType, DrivetrainType, TrackerType, TolerancesType>(
-            controllers,
-            chassis),
+        : Motion<ControllersType,
+                 DrivetrainType,
+                 TrackerType,
+                 TolerancesType,
+                 Stanley<ControllersType,
+                         DrivetrainType,
+                         TrackerType,
+                         TolerancesType>>(controllers, chassis),
           target_trajectory(target_trajectory) {}
-
-    Stanley& getReference() {
-        return *this;
-    }
 
     // changer methods
 
-    [[nodiscard("motion won't be executed unless an executor is used!")]]
-    auto reverse() {
+    motionChangerMsg Stanley& reverse() {
         this->reversed = true;
 
-        return this->getReference();
+        return *this;
     }
 
-    [[nodiscard("motion won't be executed unless an executor is used!")]]
-    auto k(Divided<Number, Time> k) {
+    motionChangerMsg Stanley& k(Divided<Number, Time> k) {
         m_k = k;
 
-        return this->getReference();
+        return *this;
     }
 
-    [[nodiscard("motion won't be executed unless an executor is used!")]]
-    auto closeThreshold(Length threshold) {
+    motionChangerMsg Stanley& closeThreshold(Length threshold) {
         this->close_threshold = threshold;
-        return this->getReference();
+        return *this;
     }
 
-    [[nodiscard("motion won't be executed unless an executor is used!")]]
-    auto timeout(Time timeout) {
+    motionChangerMsg Stanley& timeout(Time timeout) {
         this->m_timeout = timeout;
 
-        return this->getReference();
+        return *this;
     }
 };
 

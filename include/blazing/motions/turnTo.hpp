@@ -29,15 +29,17 @@ struct TurnToState {
 template<typename ControllersType,
          typename DrivetrainType,
          typename TrackerType,
-         typename TolerancesType>
+         typename TolerancesType,
+         typename Derived>
     requires angleTracker<TrackerType> && angularVelocityTracker<TrackerType> &&
                ArcadeDrivetrain<DrivetrainType> &&
                hasAngularFeedback<ControllersType>
-class turnTo : public Motion<ControllersType,
-                             DrivetrainType,
-                             TrackerType,
-                             TolerancesType>,
-               public AngularMotion {
+class turnToBase : public Motion<ControllersType,
+                                 DrivetrainType,
+                                 TrackerType,
+                                 TolerancesType,
+                                 Derived>,
+                   public AngularMotion<Derived> {
   private:
     // std::optional<units::V2Position> target_point = std::nullopt;
     // std::optional<Angle> given_target_heading = std::nullopt;
@@ -190,7 +192,7 @@ class turnTo : public Motion<ControllersType,
                     linear_vel =
                       this->controllers.linear_velocity_clamp.apply(linear_vel);
                 }
-                if constexpr (hasAngularVoltageClamp<ControllersType>) {
+                if constexpr (hasAngularVelocityClamp<ControllersType>) {
                     angular_vel =
                       this->controllers.angular_velocity_clamp.apply(
                         angular_vel);
@@ -256,38 +258,44 @@ class turnTo : public Motion<ControllersType,
         return result;
     }
 
-    [[nodiscard("motion won't be executed unless an executor is used!")]]
-    turnTo(ControllersType controllers,
-           Chassis<DrivetrainType, TrackerType, TolerancesType> chassis,
-           Length x,
-           Length y)
+    motionChangerMsg
+    turnToBase(ControllersType controllers,
+               Chassis<DrivetrainType, TrackerType, TolerancesType> chassis,
+               Length x,
+               Length y)
       // requires tracker to be able to track position without making it a
       // requirement for target heading
         requires positionTracker<TrackerType>
-        : Motion<ControllersType, DrivetrainType, TrackerType, TolerancesType>(
-            controllers,
-            chassis),
+        : Motion<ControllersType,
+                 DrivetrainType,
+                 TrackerType,
+                 TolerancesType,
+                 Derived>(controllers, chassis),
           target(units::V2Position(x, y)) {}
 
-    [[nodiscard("motion won't be executed unless an executor is used!")]]
-    turnTo(ControllersType controllers,
-           Chassis<DrivetrainType, TrackerType, TolerancesType> chassis,
-           units::V2Position point)
+    motionChangerMsg
+    turnToBase(ControllersType controllers,
+               Chassis<DrivetrainType, TrackerType, TolerancesType> chassis,
+               units::V2Position point)
       // requires tracker to be able to track position without making it a
       // requirement for target heading
         requires positionTracker<TrackerType>
-        : Motion<ControllersType, DrivetrainType, TrackerType, TolerancesType>(
-            controllers,
-            chassis),
+        : Motion<ControllersType,
+                 DrivetrainType,
+                 TrackerType,
+                 TolerancesType,
+                 Derived>(controllers, chassis),
           target(point) {}
 
-    [[nodiscard("motion won't be executed unless an executor is used!")]]
-    turnTo(ControllersType controllers,
-           Chassis<DrivetrainType, TrackerType, TolerancesType> chassis,
-           Angle target_heading)
-        : Motion<ControllersType, DrivetrainType, TrackerType, TolerancesType>(
-            controllers,
-            chassis),
+    motionChangerMsg
+    turnToBase(ControllersType controllers,
+               Chassis<DrivetrainType, TrackerType, TolerancesType> chassis,
+               Angle target_heading)
+        : Motion<ControllersType,
+                 DrivetrainType,
+                 TrackerType,
+                 TolerancesType,
+                 Derived>(controllers, chassis),
           target(target_heading) {}
 
     //
@@ -296,43 +304,37 @@ class turnTo : public Motion<ControllersType,
     //        double target_heading)
     //     : turnTo(controllers, chassis, from_stDeg(target_heading)) {}
 
-    virtual turnTo& getReference() {
-        return *this;
-    }
-
     // changer methods - due to arc inhertance they have to be defined this way
-    motionChanger reverse(this Self&& self) {
-        self.reversed = true;
-        return self.getReference();
+    motionChanger reverse() {
+        this->reversed = true;
+        return DerivedReturnType;
     }
 
-    motionChanger radius(this Self&& self, Length radius) {
-        self.m_radius = radius;
-        return self.getReference();
+    motionChanger radius(Length radius) {
+        this->m_radius = radius;
+        return DerivedReturnType;
     }
 
     // allow setting in ratio mode
-    motionChanger radius(this Self&& self, Number radius) {
-        self.m_radius = radius * in;
-        return self.getReference();
+    motionChanger radius(Number radius) {
+        this->m_radius = radius * in;
+        return DerivedReturnType;
     }
 
-    motionChanger timeout(this Self&& self, Time timeout) {
-        self.m_timeout = timeout;
-        return self.getReference();
+    motionChanger timeout(Time timeout) {
+        this->m_timeout = timeout;
+        return DerivedReturnType;
     }
 
-    motionChanger direction(this Self&& self,
-                            std::optional<AngularDirection> direction) {
-        self.m_direction = direction;
-        return self.getReference();
+    motionChanger direction(std::optional<AngularDirection> direction) {
+        this->m_direction = direction;
+        return DerivedReturnType;
     }
 
-    [[nodiscard("motion won't be executed unless an executor is used!")]]
-    auto velocity_based(bool velocity_based) {
+    motionChanger velocity_based(bool velocity_based) {
         this->m_velocity_based = velocity_based;
 
-        return this->getReference();
+        return DerivedReturnType;
     }
 };
 
@@ -341,18 +343,27 @@ template<typename ControllersType,
          typename DrivetrainType,
          typename TrackerType,
          typename TolerancesType>
-class Arc : public turnTo<ControllersType,
-                          DrivetrainType,
-                          TrackerType,
-                          TolerancesType>,
-            public LinearMotion {
+class Arc
+    : public turnToBase<
+        ControllersType,
+        DrivetrainType,
+        TrackerType,
+        TolerancesType,
+        Arc<ControllersType, DrivetrainType, TrackerType, TolerancesType>>,
+      public LinearMotion<
+        Arc<ControllersType, DrivetrainType, TrackerType, TolerancesType>> {
   public:
     [[nodiscard("motion won't be executed unless run or async are used!")]]
     Arc(ControllersType controllers,
         Chassis<DrivetrainType, TrackerType, TolerancesType> chassis,
         Angle target_heading,
         double radius = 1.0)
-        : turnTo<ControllersType, DrivetrainType, TrackerType, TolerancesType>(
+        : turnToBase<
+            ControllersType,
+            DrivetrainType,
+            TrackerType,
+            TolerancesType,
+            Arc<ControllersType, DrivetrainType, TrackerType, TolerancesType>>(
             controllers,
             chassis,
             target_heading) {
@@ -366,7 +377,12 @@ class Arc : public turnTo<ControllersType,
         Length x,
         Length y,
         auto radius)
-        : turnTo<ControllersType, DrivetrainType, TrackerType, TolerancesType>(
+        : turnToBase<
+            ControllersType,
+            DrivetrainType,
+            TrackerType,
+            TolerancesType,
+            Arc<ControllersType, DrivetrainType, TrackerType, TolerancesType>>(
             controllers,
             chassis,
             x,
@@ -380,16 +396,75 @@ class Arc : public turnTo<ControllersType,
         Chassis<DrivetrainType, TrackerType, TolerancesType> chassis,
         units::V2Position target_point,
         auto radius)
-        : turnTo<ControllersType, DrivetrainType, TrackerType, TolerancesType>(
+        : turnToBase<
+            ControllersType,
+            DrivetrainType,
+            TrackerType,
+            TolerancesType,
+            Arc<ControllersType, DrivetrainType, TrackerType, TolerancesType>>(
             controllers,
             chassis,
             target_point) {
         // set radius (avoids nodiscard warning)
         std::ignore = this->radius(radius);
     }
+};
 
-    Arc& getReference() override {
-        return *this;
-    }
+// simple wrapper for turnTo without the derived type
+template<typename ControllersType,
+         typename DrivetrainType,
+         typename TrackerType,
+         typename TolerancesType>
+class turnTo
+    : public turnToBase<
+        ControllersType,
+        DrivetrainType,
+        TrackerType,
+        TolerancesType,
+        turnTo<ControllersType, DrivetrainType, TrackerType, TolerancesType>> {
+  public:
+    motionChangerMsg
+    turnTo(ControllersType controllers,
+           Chassis<DrivetrainType, TrackerType, TolerancesType> chassis,
+           Length x,
+           Length y)
+        : turnToBase<ControllersType,
+                     DrivetrainType,
+                     TrackerType,
+                     TolerancesType,
+                     turnTo<ControllersType,
+                            DrivetrainType,
+                            TrackerType,
+                            TolerancesType>>(controllers,
+                                             chassis,
+                                             units::V2Position(x, y)) {}
+
+    motionChangerMsg
+    turnTo(ControllersType controllers,
+           Chassis<DrivetrainType, TrackerType, TolerancesType> chassis,
+           units::V2Position point)
+        : turnToBase<ControllersType,
+                     DrivetrainType,
+                     TrackerType,
+                     TolerancesType,
+                     turnTo<ControllersType,
+                            DrivetrainType,
+                            TrackerType,
+                            TolerancesType>>(controllers, chassis, point) {}
+
+    motionChangerMsg
+    turnTo(ControllersType controllers,
+           Chassis<DrivetrainType, TrackerType, TolerancesType> chassis,
+           Angle target_heading)
+        : turnToBase<ControllersType,
+                     DrivetrainType,
+                     TrackerType,
+                     TolerancesType,
+                     turnTo<ControllersType,
+                            DrivetrainType,
+                            TrackerType,
+                            TolerancesType>>(controllers,
+                                             chassis,
+                                             target_heading) {}
 };
 } // namespace blazing

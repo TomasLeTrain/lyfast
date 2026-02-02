@@ -33,7 +33,7 @@ class PID {
 
     std::optional<Input> m_windupRange;
 
-    std::optional<Output> m_maxVoltage;
+    std::optional<Output> m_maxOutput;
 
     std::optional<Input> previousError;
     Multiplied<Input, Time> integral = Multiplied<Input, Time>(0);
@@ -50,7 +50,7 @@ class PID {
           m_ki(ki),
           m_kd(kd),
           m_windupRange(windupRange),
-          m_maxVoltage(maxVoltage) {}
+          m_maxOutput(maxVoltage) {}
 
     PID(double kp,
         double ki,
@@ -73,7 +73,7 @@ class PID {
             windupRange.transform([inputUnits](double windupRange) -> Input {
                 return windupRange * inputUnits;
             })),
-          m_maxVoltage(
+          m_maxOutput(
             maxVoltage.transform([outputUnits](double maxVoltage) -> Output {
                 return maxVoltage * outputUnits;
             })) {}
@@ -118,8 +118,8 @@ class PID {
 
         Output result = error * m_kp + integral * m_ki + derivative * m_kd;
 
-        if (m_maxVoltage) {
-            result = units::clamp(result, -(*m_maxVoltage), *m_maxVoltage);
+        if (m_maxOutput) {
+            result = units::clamp(result, -(*m_maxOutput), *m_maxOutput);
         }
 
         return result;
@@ -141,8 +141,8 @@ class PID {
         return m_windupRange;
     }
 
-    std::optional<Output> get_maxVoltage() {
-        return m_maxVoltage;
+    std::optional<Output> get_maxOutput() {
+        return m_maxOutput;
     }
 
     void set_kp(KP_t<Input, Output> kp) {
@@ -161,35 +161,35 @@ class PID {
         m_windupRange = windupRange;
     }
 
-    void set_positiveSlew(std::optional<Output> positiveSlew) {
-        m_maxVoltage = positiveSlew;
+    void set_maxOutput(std::optional<Output> maxOutput) {
+        m_maxOutput = maxOutput;
     }
 
     // double versions
     void set_kp(double kp) {
-        set_kp(kp * UKP);
+        m_kp = kp * UKP;
     }
 
     void set_ki(double ki) {
-        set_ki(ki * UKI);
+        m_ki = ki * UKI;
     }
 
     void set_kd(double kd) {
-        set_kd(kd * UKD);
+        m_kd = kd * UKD;
     }
 
     void set_windupRange(std::optional<double> windupRange) {
-        set_windupRange(windupRange.transform(
+        m_windupRange = windupRange.transform(
           [inputUnits = this->m_inputUnits](auto windupRange) -> Input {
               return windupRange * inputUnits;
-          }));
+          });
     }
 
-    void set_maxVoltage(std::optional<double> maxVoltage) {
-        set_maxVoltage(maxVoltage.transform(
-          [outputUnits = this->m_outputUnits](auto maxVoltage) -> Output {
-              return maxVoltage * outputUnits;
-          }));
+    void set_maxOutput(std::optional<double> maxOutput) {
+        m_maxOutput = maxOutput.transform(
+          [outputUnits = this->m_outputUnits](auto maxOutput) -> Output {
+              return maxOutput * outputUnits;
+          });
     }
 };
 } // namespace blazing

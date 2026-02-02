@@ -119,11 +119,12 @@ void Trajectory::isolatedConstraints() {
     }
 
     // TODO: add possibility of different constraints:
-    // (max/min vel/ang_vel/decel/accel at any range/point)
+    // (max/min vel/ang_vel/decel/accel for some range range)
 
     for (PointConstraint& constraint : point_constraints) {
         // finds closest point to constraint and sets those values
         float spline_time = 0;
+
         if (std::holds_alternative<float>(constraint.timeframe)) {
             // indexed by spline time
             spline_time = units::clamp(get<float>(constraint.timeframe), 0, 1);
@@ -136,6 +137,7 @@ void Trajectory::isolatedConstraints() {
                                           get<FLength>(constraint.timeframe));
             spline_time = curve->t_by_s(distance);
         }
+
         FLength dist = curve->s(spline_time);
         int index =
           int(float(dist / curve->total_distance) * (points.size() - 1));
@@ -148,9 +150,16 @@ void Trajectory::isolatedConstraints() {
                   << points[index].decel.convert(inps2) << std::endl;
 
         // apply constraints
-        points[index].vel = units::min(points[index].vel, constraint.vel);
-        points[index].accel = units::min(points[index].accel, constraint.accel);
-        points[index].decel = units::min(points[index].decel, constraint.decel);
+        if (constraint.vel)
+            points[index].vel = units::min(points[index].vel, *constraint.vel);
+
+        if (constraint.accel)
+            points[index].accel =
+              units::min(points[index].accel, *constraint.accel);
+
+        if (constraint.decel)
+            points[index].decel =
+              units::min(points[index].decel, *constraint.decel);
 
         std::cout << "after vel/accel/decel: "
                   << points[index].vel.convert(inps) << " "
@@ -184,7 +193,7 @@ FLinearAcceleration Trajectory::get_accel(FLinearVelocity last_vel) {
 // performs a forward pass to keep max acceleration constraints
 void Trajectory::forwardsPass() {
     // constant for all points
-    const Length distance_delta_mult = 2 * delta_distance;
+    const FLength distance_delta_mult = 2 * delta_distance;
 
     // excludes starting point
     for (size_t i = 1; i < points.size(); i++) {
@@ -200,16 +209,7 @@ void Trajectory::forwardsPass() {
           units::square(last_point.vel) + accel * distance_delta_mult);
 
         // keep minimum of current max vel and previous max vel
-        if (i == 390) {
-            std::cout << "curr/new vel: " << point.vel.convert(inps) << " "
-                      << max_vel.convert(inps) << std::endl;
-        }
-
         point.vel = units::min(point.vel, max_vel);
-
-        if (i == 390) {
-            std::cout << "now vel: " << point.vel.convert(inps) << std::endl;
-        }
 
         forwards_pass_debug.emplace_back(point.vel);
     }
@@ -218,7 +218,7 @@ void Trajectory::forwardsPass() {
 // performs a forward pass to keep max deceleration constraints
 void Trajectory::backwardsPass() {
     // constant for all points
-    const Length distance_delta_mult = 2 * delta_distance;
+    const FLength distance_delta_mult = 2 * delta_distance;
     // excludes end point
     for (int i = this->points.size() - 2; i >= 0; i--) {
         // (Sprunk 25)

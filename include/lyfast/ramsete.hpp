@@ -28,12 +28,17 @@ template<typename ControllersType,
     requires poseTracker<TrackerType> && forwardTravelTracker<TrackerType> &&
                TankDrivetrain<DrivetrainType> &&
                hasVelocityFeedforward<ControllersType>
-class Ramsete : public Motion<ControllersType,
-                              DrivetrainType,
-                              TrackerType,
-                              TolerancesType>,
-                public LinearMotion,
-                public AngularMotion {
+class Ramsete
+    : public Motion<
+        ControllersType,
+        DrivetrainType,
+        TrackerType,
+        TolerancesType,
+        Ramsete<ControllersType, DrivetrainType, TrackerType, TolerancesType>>,
+      public LinearMotion<
+        Ramsete<ControllersType, DrivetrainType, TrackerType, TolerancesType>>,
+      public AngularMotion<
+        Ramsete<ControllersType, DrivetrainType, TrackerType, TolerancesType>> {
   private:
     using zeta_units = Divided<Number, Angle>;
     using beta_units = Exponentiated<Divided<Angle, Length>, std::ratio<2>>;
@@ -205,9 +210,14 @@ class Ramsete : public Motion<ControllersType,
             mp::Trajectory* target_trajectory,
             zeta_units zeta,
             beta_units beta)
-        : Motion<ControllersType, DrivetrainType, TrackerType, TolerancesType>(
-            controllers,
-            chassis),
+        : Motion<ControllersType,
+                 DrivetrainType,
+                 TrackerType,
+                 TolerancesType,
+                 Ramsete<ControllersType,
+                         DrivetrainType,
+                         TrackerType,
+                         TolerancesType>>(controllers, chassis),
           target_trajectory(target_trajectory),
           zeta(zeta),
           beta(beta) {}
@@ -218,37 +228,35 @@ class Ramsete : public Motion<ControllersType,
             mp::Trajectory* target_trajectory,
             double zeta,
             double beta)
-        : Motion<ControllersType, DrivetrainType, TrackerType, TolerancesType>(
-            controllers,
-            chassis),
+        : Motion<ControllersType,
+                 DrivetrainType,
+                 TrackerType,
+                 TolerancesType,
+                 Ramsete<ControllersType,
+                         DrivetrainType,
+                         TrackerType,
+                         TolerancesType>>(controllers, chassis),
           target_trajectory(target_trajectory),
           zeta(zeta),
           beta(beta) {}
 
-    Ramsete& getReference() {
+    // changer methods
+
+    motionChangerMsg Ramsete& reverse() {
+        this->reversed = true;
+
         return *this;
     }
 
-    // changer methods
-
-    [[nodiscard("motion won't be executed unless an executor is used!")]]
-    auto reverse() {
-        this->reversed = true;
-
-        return this->getReference();
-    }
-
-    [[nodiscard("motion won't be executed unless an executor is used!")]]
-    auto closeThreshold(Length threshold) {
+    motionChangerMsg Ramsete& closeThreshold(Length threshold) {
         this->close_threshold = threshold;
-        return this->getReference();
+        return *this;
     }
 
-    [[nodiscard("motion won't be executed unless an executor is used!")]]
-    auto timeout(Time timeout) {
+    motionChangerMsg Ramsete& timeout(Time timeout) {
         this->m_timeout = timeout;
 
-        return this->getReference();
+        return *this;
     }
 
 }; // namespace lyfast

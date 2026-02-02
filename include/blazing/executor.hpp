@@ -26,11 +26,12 @@ class Executor {
 // passing a motion mutex)
 
 template<typename M>
+    requires std::derived_from<std::decay_t<M>, MotionBase>
 constexpr void operator|(M&& motion, Executor& executor) {
     // creates a copy of the temporary motion object and creates one owned by
     // the executor
-    executor.addMotion(
-      std::move(std::make_unique<std::decay_t<M>>(std::forward<M>(motion))));
+
+    executor.addMotion(std::make_unique<std::decay_t<M>>(std::move(motion)));
 }
 
 class RunExecutor : public Executor {
@@ -90,7 +91,7 @@ class AsyncExecutorBase : public Executor {
     // waits until the finished index matches the given index
     virtual void waitUntilIndex(size_t index);
 
-	virtual void checkCompStatus();
+    virtual void checkCompStatus();
 };
 
 class AsyncExecutor : public AsyncExecutorBase {

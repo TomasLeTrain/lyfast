@@ -34,12 +34,17 @@ template<typename ControllersType,
                ArcadeDrivetrain<DrivetrainType> &&
                hasAngularFeedback<ControllersType> &&
                hasLinearFeedback<ControllersType>
-class moveTo : public Motion<ControllersType,
-                             DrivetrainType,
-                             TrackerType,
-                             TolerancesType>,
-               public LinearMotion,
-               public AngularMotion {
+class moveTo
+    : public Motion<
+        ControllersType,
+        DrivetrainType,
+        TrackerType,
+        TolerancesType,
+        moveTo<ControllersType, DrivetrainType, TrackerType, TolerancesType>>,
+      public LinearMotion<
+        moveTo<ControllersType, DrivetrainType, TrackerType, TolerancesType>>,
+      public AngularMotion<
+        moveTo<ControllersType, DrivetrainType, TrackerType, TolerancesType>> {
   private:
     using point_func_t = std::function<units::V2Position()>;
     std::variant<units::V2Position, point_func_t> target;
@@ -187,7 +192,7 @@ class moveTo : public Motion<ControllersType,
                 LinearVelocity linear_vel =
                   this->controllers.linear_velocity_feedback.update(
                     -linear_error,
-                    0_stRad,
+                    0_in,
                     delta_time);
 
                 AngularVelocity angular_vel =
@@ -221,7 +226,7 @@ class moveTo : public Motion<ControllersType,
                     linear_vel =
                       this->controllers.linear_velocity_clamp.apply(linear_vel);
                 }
-                if constexpr (hasAngularVoltageClamp<ControllersType>) {
+                if constexpr (hasAngularVelocityClamp<ControllersType>) {
                     angular_vel =
                       this->controllers.angular_velocity_clamp.apply(
                         angular_vel);
@@ -341,9 +346,14 @@ class moveTo : public Motion<ControllersType,
     moveTo(ControllersType controllers,
            Chassis<DrivetrainType, TrackerType, TolerancesType> chassis,
            units::V2Position point)
-        : Motion<ControllersType, DrivetrainType, TrackerType, TolerancesType>(
-            controllers,
-            chassis),
+        : Motion<ControllersType,
+                 DrivetrainType,
+                 TrackerType,
+                 TolerancesType,
+                 moveTo<ControllersType,
+                        DrivetrainType,
+                        TrackerType,
+                        TolerancesType>>(controllers, chassis),
           target(point) {}
 
     [[nodiscard("motion won't be executed unless run or async are used!")]]
@@ -351,43 +361,47 @@ class moveTo : public Motion<ControllersType,
            Chassis<DrivetrainType, TrackerType, TolerancesType> chassis,
            Length x,
            Length y)
-        : Motion<ControllersType, DrivetrainType, TrackerType, TolerancesType>(
-            controllers,
-            chassis),
+        : Motion<ControllersType,
+                 DrivetrainType,
+                 TrackerType,
+                 TolerancesType,
+                 moveTo<ControllersType,
+                        DrivetrainType,
+                        TrackerType,
+                        TolerancesType>>(controllers, chassis),
           target(units::V2Position(x, y)) {}
 
     [[nodiscard("motion won't be executed unless run or async are used!")]]
     moveTo(ControllersType controllers,
            Chassis<DrivetrainType, TrackerType, TolerancesType> chassis,
            point_func_t point_func)
-        : Motion<ControllersType, DrivetrainType, TrackerType, TolerancesType>(
-            controllers,
-            chassis),
+        : Motion<ControllersType,
+                 DrivetrainType,
+                 TrackerType,
+                 TolerancesType,
+                 moveTo<ControllersType,
+                        DrivetrainType,
+                        TrackerType,
+                        TolerancesType>>(controllers, chassis),
           target(point_func) {}
-
-    moveTo& getReference() {
-        return *this;
-    }
 
     // changer methods
 
-    [[nodiscard("motion won't be executed unless an executor is used!")]]
-    auto reverse() {
+    motionChangerMsg moveTo& reverse() {
         this->reversed = true;
 
-        return this->getReference();
+        return *this;
     }
 
-    [[nodiscard("motion won't be executed unless an executor is used!")]]
-    auto overturn(Voltage max_overturn_output = 1_volt) {
+    motionChangerMsg moveTo& overturn(Voltage max_overturn_output = 1_volt) {
         this->max_overturn_output = max_overturn_output;
 
-        return this->getReference();
+        return *this;
     }
 
-    [[nodiscard("motion won't be executed unless an executor is used!")]]
-    auto k_lat(std::optional<std::variant<Divided<Angle, Length>, double, int>>
-                 k_lat = std::nullopt) {
+    motionChangerMsg moveTo& k_lat(
+      std::optional<std::variant<Divided<Angle, Length>, double, int>> k_lat =
+        std::nullopt) {
         if (!k_lat)
             this->m_k_lat = std::nullopt;
         else {
@@ -401,48 +415,42 @@ class moveTo : public Motion<ControllersType,
             }
         }
 
-        return this->getReference();
+        return *this;
     }
 
-    [[nodiscard("motion won't be executed unless an executor is used!")]]
-    auto closeThreshold(Length threshold) {
+    motionChangerMsg moveTo& closeThreshold(Length threshold) {
         this->close_threshold = threshold;
-        return this->getReference();
+        return *this;
     }
 
-    [[nodiscard("motion won't be executed unless an executor is used!")]]
-    auto customAngularLinearFunc(
+    motionChangerMsg moveTo& customAngularLinearFunc(
       std::function<double(Angle)> custom_angular_linear_func) {
         angular_linear_func = custom_angular_linear_func;
-        return this->getReference();
+        return *this;
     }
 
-    [[nodiscard("motion won't be executed unless an executor is used!")]]
-    auto timeout(Time timeout) {
+    motionChangerMsg moveTo& timeout(Time timeout) {
         this->m_timeout = timeout;
 
-        return this->getReference();
+        return *this;
     }
 
-    [[nodiscard("motion won't be executed unless an executor is used!")]]
-    auto only_x(bool only_x) {
+    motionChangerMsg moveTo& only_x(bool only_x) {
         this->m_only_x = only_x;
 
-        return this->getReference();
+        return *this;
     }
 
-    [[nodiscard("motion won't be executed unless an executor is used!")]]
-    auto only_y(bool only_y) {
+    motionChangerMsg moveTo& only_y(bool only_y) {
         this->m_only_y = only_y;
 
-        return this->getReference();
+        return *this;
     }
 
-    [[nodiscard("motion won't be executed unless an executor is used!")]]
-    auto velocity_based(bool velocity_based) {
+    motionChangerMsg moveTo& velocity_based(bool velocity_based) {
         this->m_velocity_based = velocity_based;
 
-        return this->getReference();
+        return *this;
     }
 };
 } // namespace blazing

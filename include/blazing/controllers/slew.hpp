@@ -71,13 +71,13 @@ class SlewController {
     }
 
     // output should be signed, indicating its direction of travel
-    T apply(Voltage output, Time delta_time) {
+    T apply(T output, Time delta_time) {
         if (!last_output) {
-            last_output = 0_volt;
+            last_output = T(0.0);
         }
 
         auto output_vel = delta_time == 0_sec ?
-                            0.0_volt / sec :
+                            T(0.0) / sec :
                             (output - *last_output) / delta_time;
 
         bool accelerating = units::sgn(output) == units::sgn(output_vel);

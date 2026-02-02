@@ -94,7 +94,6 @@ class SimpleVelocityController {
     std::optional<T> last_speed = std::nullopt;
 
     Multiplied<T, Time> integral = 0_in;
-    Multiplied<T, Time> right_integral = 0_in;
 
     std::optional<T> last_error = std::nullopt;
 
@@ -116,7 +115,8 @@ class SimpleVelocityController {
             integral += error * duration;
 
         if (last_error && units::sgn(error) != units::sgn(*last_error)) {
-            integral = Length { 0 };
+            double tbh_factor = 0.8;
+            integral *= tbh_factor;
         }
 
         Voltage result {
@@ -327,9 +327,16 @@ class ArcadeVelocityController {
 
         // factor = v / (v + w * r)
         // 1 when all linear, 0 when all angular
-        float lin_factor = target.linear_velocity /
-                           (target.linear_velocity +
-                            target.angular_velocity * track_radius / rad);
+        // defaults to linear if both linear and angular are near 0
+        float lin_factor = 1.0;
+
+        auto den = (units::abs(target.linear_velocity) +
+                    units::abs(target.angular_velocity) * track_radius / rad);
+
+        // only calculate lin_factor if den is not 0
+        if (units::abs(den).internal() > 1e-5) {
+            lin_factor = units::abs(target.linear_velocity) / den;
+        }
 
         // interpolate between controllers
         Voltage left_voltage = std::lerp(angular.left_voltage.internal(),

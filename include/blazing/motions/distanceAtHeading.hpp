@@ -37,12 +37,23 @@ template<typename ControllersType,
                ArcadeDrivetrain<DrivetrainType> &&
                hasAngularFeedback<ControllersType> &&
                hasLinearFeedback<ControllersType>
-class distanceAtHeading : public Motion<ControllersType,
-                                        DrivetrainType,
-                                        TrackerType,
-                                        TolerancesType>,
-                          public LinearMotion,
-                          public AngularMotion {
+class distanceAtHeading
+    : public Motion<ControllersType,
+                    DrivetrainType,
+                    TrackerType,
+                    TolerancesType,
+                    distanceAtHeading<ControllersType,
+                                      DrivetrainType,
+                                      TrackerType,
+                                      TolerancesType>>,
+      public LinearMotion<distanceAtHeading<ControllersType,
+                                            DrivetrainType,
+                                            TrackerType,
+                                            TolerancesType>>,
+      public AngularMotion<distanceAtHeading<ControllersType,
+                                             DrivetrainType,
+                                             TrackerType,
+                                             TolerancesType>> {
   private:
     Length target_distance;
     std::optional<Angle> given_target_heading = std::nullopt;
@@ -200,7 +211,7 @@ class distanceAtHeading : public Motion<ControllersType,
                 LinearVelocity linear_vel =
                   this->controllers.linear_velocity_feedback.update(
                     -linear_error,
-                    0_stRad,
+                    0_in,
                     delta_time);
 
                 AngularVelocity angular_vel =
@@ -213,7 +224,7 @@ class distanceAtHeading : public Motion<ControllersType,
                     linear_vel =
                       this->controllers.linear_velocity_clamp.apply(linear_vel);
                 }
-                if constexpr (hasAngularVoltageClamp<ControllersType>) {
+                if constexpr (hasAngularVelocityClamp<ControllersType>) {
                     angular_vel =
                       this->controllers.angular_velocity_clamp.apply(
                         angular_vel);
@@ -290,9 +301,14 @@ class distanceAtHeading : public Motion<ControllersType,
       ControllersType controllers,
       Chassis<DrivetrainType, TrackerType, TolerancesType> chassis,
       Length target_distance)
-        : Motion<ControllersType, DrivetrainType, TrackerType, TolerancesType>(
-            controllers,
-            chassis),
+        : Motion<ControllersType,
+                 DrivetrainType,
+                 TrackerType,
+                 TolerancesType,
+                 distanceAtHeading<ControllersType,
+                                   DrivetrainType,
+                                   TrackerType,
+                                   TolerancesType>>(controllers, chassis),
           target_distance(target_distance) {}
 
     [[nodiscard("motion won't be executed unless run or async are used!")]]
@@ -308,9 +324,14 @@ class distanceAtHeading : public Motion<ControllersType,
       Chassis<DrivetrainType, TrackerType, TolerancesType> chassis,
       Length target_distance,
       Angle target_heading)
-        : Motion<ControllersType, DrivetrainType, TrackerType, TolerancesType>(
-            controllers,
-            chassis),
+        : Motion<ControllersType,
+                 DrivetrainType,
+                 TrackerType,
+                 TolerancesType,
+                 distanceAtHeading<ControllersType,
+                                   DrivetrainType,
+                                   TrackerType,
+                                   TolerancesType>>(controllers, chassis),
           target_distance(target_distance),
           given_target_heading(target_heading) {}
 
@@ -325,37 +346,30 @@ class distanceAtHeading : public Motion<ControllersType,
                             from_in(target_distance),
                             from_stDeg(target_heading)) {}
 
-    distanceAtHeading& getReference() {
+    // changer methods
+    motionChangerMsg distanceAtHeading& reverse() {
+        this->reversed = true;
+
         return *this;
     }
 
-    // changer methods
-    [[nodiscard("motion won't be executed unless an executor is used!")]]
-    auto reverse() {
-        this->reversed = true;
-
-        return this->getReference();
-    }
-
-    [[nodiscard("motion won't be executed unless an executor is used!")]]
-    auto timeout(Time timeout) {
+    motionChangerMsg distanceAtHeading& timeout(Time timeout) {
         this->m_timeout = timeout;
 
-        return this->getReference();
+        return *this;
     }
 
-    [[nodiscard("motion won't be executed unless an executor is used!")]]
-    auto direction(std::optional<AngularDirection> direction) {
+    motionChangerMsg distanceAtHeading&
+    direction(std::optional<AngularDirection> direction) {
         this->m_direction = direction;
 
-        return this->getReference();
+        return *this;
     }
 
-    [[nodiscard("motion won't be executed unless an executor is used!")]]
-    auto velocity_based(bool velocity_based) {
+    motionChangerMsg distanceAtHeading& velocity_based(bool velocity_based) {
         this->m_velocity_based = velocity_based;
 
-        return this->getReference();
+        return *this;
     }
 };
 } // namespace blazing

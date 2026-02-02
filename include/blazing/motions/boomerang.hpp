@@ -41,9 +41,19 @@ template<typename ControllersType,
 class boomerang : public Motion<ControllersType,
                                 DrivetrainType,
                                 TrackerType,
-                                TolerancesType>,
-                  public LinearMotion,
-                  public AngularMotion {
+                                TolerancesType,
+                                boomerang<ControllersType,
+                                          DrivetrainType,
+                                          TrackerType,
+                                          TolerancesType>>,
+                  public LinearMotion<boomerang<ControllersType,
+                                                DrivetrainType,
+                                                TrackerType,
+                                                TolerancesType>>,
+                  public AngularMotion<boomerang<ControllersType,
+                                                 DrivetrainType,
+                                                 TrackerType,
+                                                 TolerancesType>> {
   private:
     using pose_func_t = std::function<units::Pose()>;
     std::variant<units::Pose, pose_func_t> target;
@@ -255,7 +265,7 @@ class boomerang : public Motion<ControllersType,
                 LinearVelocity linear_vel =
                   this->controllers.linear_velocity_feedback.update(
                     -linear_error,
-                    0_stRad,
+                    0_in,
                     delta_time);
 
                 AngularVelocity angular_vel =
@@ -291,7 +301,7 @@ class boomerang : public Motion<ControllersType,
                     linear_vel =
                       this->controllers.linear_velocity_clamp.apply(linear_vel);
                 }
-                if constexpr (hasAngularVoltageClamp<ControllersType>) {
+                if constexpr (hasAngularVelocityClamp<ControllersType>) {
                     angular_vel =
                       this->controllers.angular_velocity_clamp.apply(
                         angular_vel);
@@ -409,18 +419,28 @@ class boomerang : public Motion<ControllersType,
     boomerang(ControllersType controllers,
               Chassis<DrivetrainType, TrackerType, TolerancesType> chassis,
               units::Pose pose)
-        : Motion<ControllersType, DrivetrainType, TrackerType, TolerancesType>(
-            controllers,
-            chassis),
+        : Motion<ControllersType,
+                 DrivetrainType,
+                 TrackerType,
+                 TolerancesType,
+                 boomerang<ControllersType,
+                           DrivetrainType,
+                           TrackerType,
+                           TolerancesType>>(controllers, chassis),
           target(pose) {}
 
     [[nodiscard("motion won't be executed unless run or async are used!")]]
     boomerang(ControllersType controllers,
               Chassis<DrivetrainType, TrackerType, TolerancesType> chassis,
               pose_func_t pose_func)
-        : Motion<ControllersType, DrivetrainType, TrackerType, TolerancesType>(
-            controllers,
-            chassis),
+        : Motion<ControllersType,
+                 DrivetrainType,
+                 TrackerType,
+                 TolerancesType,
+                 boomerang<ControllersType,
+                           DrivetrainType,
+                           TrackerType,
+                           TolerancesType>>(controllers, chassis),
           target(pose_func) {}
 
     [[nodiscard("motion won't be executed unless run or async are used!")]]
@@ -443,49 +463,40 @@ class boomerang : public Motion<ControllersType,
                     from_in(y),
                     from_stDeg(heading)) {}
 
-    boomerang& getReference() {
+    // changer methods
+    motionChangerMsg boomerang& reverse() {
+        this->reversed = true;
+
         return *this;
     }
 
-    // changer methods
-
-    [[nodiscard("motion won't be executed unless an executor is used!")]]
-    auto reverse() {
-        this->reversed = true;
-
-        return this->getReference();
-    }
-
-    [[nodiscard("motion won't be executed unless an executor is used!")]]
-    auto withOverturn(Voltage max_overturn_output = 1_volt) {
+    motionChangerMsg boomerang&
+    withOverturn(Voltage max_overturn_output = 1_volt) {
         this->max_overturn_output = max_overturn_output;
 
-        return this->getReference();
+        return *this;
     }
 
-    [[nodiscard("motion won't be executed unless an executor is used!")]]
-    auto closeThreshold(Length threshold) {
+    motionChangerMsg boomerang& closeThreshold(Length threshold) {
         this->close_threshold = threshold;
-        return this->getReference();
+        return *this;
     }
 
-    [[nodiscard("motion won't be executed unless an executor is used!")]]
-    auto lead2DistThreshold(Length threshold) {
+    motionChangerMsg boomerang& lead2DistThreshold(Length threshold) {
         this->lead2_dist_threshold = threshold;
-        return this->getReference();
+        return *this;
     }
 
-    [[nodiscard("motion won't be executed unless an executor is used!")]]
-    auto lead(double lead, double lead2 = 0.0) {
+    motionChangerMsg boomerang& lead(double lead, double lead2 = 0.0) {
         this->m_lead = lead;
         this->m_lead2 = lead2;
-        return this->getReference();
+        return *this;
     }
 
-    [[nodiscard("motion won't be executed unless an executor is used!")]]
-    auto k_lat(std::optional<std::variant<Divided<Angle, Length>, double, int>>
-                 k_lat = std::nullopt,
-               bool only_when_settling = true) {
+    motionChangerMsg boomerang& k_lat(
+      std::optional<std::variant<Divided<Angle, Length>, double, int>> k_lat =
+        std::nullopt,
+      bool only_when_settling = true) {
         this->k_lat_only_settling = only_when_settling;
 
         if (!k_lat)
@@ -501,28 +512,25 @@ class boomerang : public Motion<ControllersType,
             }
         }
 
-        return this->getReference();
+        return *this;
     }
 
-    [[nodiscard("motion won't be executed unless an executor is used!")]]
-    auto customAngularLinearFunc(
+    motionChangerMsg boomerang& customAngularLinearFunc(
       std::function<double(Angle)> custom_angular_linear_func) {
         angular_linear_func = custom_angular_linear_func;
-        return this->getReference();
+        return *this;
     }
 
-    [[nodiscard("motion won't be executed unless an executor is used!")]]
-    auto timeout(Time timeout) {
+    motionChangerMsg boomerang& timeout(Time timeout) {
         this->m_timeout = timeout;
 
-        return this->getReference();
+        return *this;
     }
 
-    [[nodiscard("motion won't be executed unless an executor is used!")]]
-    auto velocity_based(bool velocity_based) {
+    motionChangerMsg boomerang& velocity_based(bool velocity_based) {
         this->m_velocity_based = velocity_based;
 
-        return this->getReference();
+        return *this;
     }
 };
 } // namespace blazing

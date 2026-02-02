@@ -4,6 +4,8 @@
 #include "blazing/controllers/slew.hpp"
 #include "blazing/utils.hpp"
 #include "lyfast/api.hpp"
+#include "lyfast/geometry/line.hpp"
+#include "lyfast/motion_profiling/mp.hpp"
 #include "lyfast/motion_profiling/simple_mp.hpp"
 #include "lyfast/system_identification.hpp"
 #include "lyfast/vel_controller.hpp"
@@ -924,10 +926,20 @@ void opcontrol() {
 
     // manual_mp_test();
 
-    mb.moveTo(20, 20).velocity_based(true) | run;
-    mb.turnTo(20, 20).velocity_based(true) | run;
-    mb.boomerang(20, 20, 0).velocity_based(true) | run;
-    mb.arc(20, 20, 1_in).velocity_based(true) | run;
+    Length distance = 10_in;
+
+    lyfast::geometry::Line line(start, end);
+
+    lyfast::mp::Trajectory trajectory(curve,
+                                      constraints,
+                                      point_constraints,
+                                      start_vel_end_vel,
+                                      0.1_in);
+
+    // mb.moveTo(20, 20).velocity_based(true) | run;
+    // mb.turnTo(20, 20).velocity_based(true) | run;
+    // mb.boomerang(20, 20, 0).velocity_based(true) | run;
+    // mb.arc(20, 20, 1_in).velocity_based(true) | run;
 
     // arc_pose_tracker.setPose({ -23.6_in, -23.6_in, 270_stDeg });
     // std::cout << "what!" << std::endl;
