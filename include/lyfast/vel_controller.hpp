@@ -56,6 +56,8 @@ struct SimpleVelocityControllerParams {
     Voltage Ks;
     Divided<Voltage, T> Kp { 0 };
     Divided<Voltage, Multiplied<T, Time>> Ki { 0 };
+
+    Voltage max_output { 1_volt };
 };
 
 struct VelocityControllerParams {
@@ -64,26 +66,33 @@ struct VelocityControllerParams {
     KsUnits left_Ks;
     Divided<Voltage, LinearVelocity> left_Kp { 0 };
     Divided<Voltage, Length> left_Ki { 0 };
+    Voltage left_max_output { 1_volt };
 
     KvUnits right_Kv;
     KaUnits right_Ka;
     KsUnits right_Ks;
     Divided<Voltage, LinearVelocity> right_Kp { 0 };
     Divided<Voltage, Length> right_Ki { 0 };
+    Voltage right_max_output { 1_volt };
 
     // construct both sides with equal gains
     static VelocityControllerParams
     fromSimple(SimpleVelocityControllerParams<LinearVelocity> params) {
-        return { .left_Kv = params.Kv,
-                 .left_Ka = params.Ka,
-                 .left_Ks = params.Ks,
-                 .left_Kp = params.Kp,
-                 .left_Ki = params.Ki,
-                 .right_Kv = params.Kv,
-                 .right_Ka = params.Ka,
-                 .right_Ks = params.Ks,
-                 .right_Kp = params.Kp,
-                 .right_Ki = params.Ki };
+        return {
+            .left_Kv = params.Kv,
+            .left_Ka = params.Ka,
+            .left_Ks = params.Ks,
+            .left_Kp = params.Kp,
+            .left_Ki = params.Ki,
+            .left_max_output = params.max_output,
+
+            .right_Kv = params.Kv,
+            .right_Ka = params.Ka,
+            .right_Ks = params.Ks,
+            .right_Kp = params.Kp,
+            .right_Ki = params.Ki,
+            .right_max_output = params.max_output,
+        };
     }
 };
 
@@ -107,16 +116,20 @@ class SimpleVelocityController {
 
         LinearVelocity error = target - measurement;
 
+        Multiplied<T, Time> current_integral = integral;
+
         if (last_error)
             // use trapezoidal approximation
-            integral += (error + *last_error) * duration / 2.0;
+            current_integral += (error + *last_error) * duration / 2.0;
         else
             // use Riemann sum approximation
-            integral += error * duration;
+            current_integral += error * duration;
 
+        // decrease integral by some amount when crossing error to minimize
+        // overshooot due to the integral
         if (last_error && units::sgn(error) != units::sgn(*last_error)) {
             double tbh_factor = 0.8;
-            integral *= tbh_factor;
+            current_integral *= tbh_factor;
         }
 
         Voltage result {
@@ -129,8 +142,22 @@ class SimpleVelocityController {
               // kp
               m_params.Kp * error +
               // ki
-              m_params.Ki * integral,
+              m_params.Ki * current_integral,
         };
+
+        if (
+          // currently saturating
+          units::abs(result) >= m_params.max_output &&
+          // output going in direct of error
+          units::sgn(error) == units::sgn(result)) {
+            // clamp output and stop integral windup
+            result =
+              units::clamp(result, -m_params.max_output, m_params.max_output);
+            // no need to update integral to current integral
+        } else {
+            // not saturating, update integral
+            integral = current_integral;
+        }
 
         last_speed = { target };
         last_error = error;
@@ -266,19 +293,19 @@ class DifferentialVelocityController {
                                    Length track_width,
                                    DifferentialDrivetrain& drivetrain)
         : m_params(params),
-          left_controller({
-            .Kv = this->m_params.left_Kv,
-            .Ka = this->m_params.left_Ka,
-            .Ks = this->m_params.left_Ks,
-            .Kp = this->m_params.left_Kp,
-            .Ki = this->m_params.left_Ki,
-          }),
+          left_controller({ .Kv = this->m_params.left_Kv,
+                            .Ka = this->m_params.left_Ka,
+                            .Ks = this->m_params.left_Ks,
+                            .Kp = this->m_params.left_Kp,
+                            .Ki = this->m_params.left_Ki,
+                            .max_output = this->m_params.left_max_output }),
           right_controller({
             .Kv = this->m_params.right_Kv,
             .Ka = this->m_params.right_Ka,
             .Ks = this->m_params.right_Ks,
             .Kp = this->m_params.right_Kp,
             .Ki = this->m_params.right_Ki,
+            .max_output = this->m_params.right_max_output,
           }),
           m_track_width(track_width),
           drivetrain(drivetrain) {}

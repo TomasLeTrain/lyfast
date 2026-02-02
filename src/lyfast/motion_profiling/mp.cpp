@@ -1,5 +1,6 @@
 #include "lyfast/motion_profiling/mp.hpp"
 #include "units/Angle.hpp"
+#include "units/units.hpp"
 #include <iterator>
 #include <variant>
 
@@ -24,9 +25,12 @@ void Trajectory::compute() {
                             curr_dist,
                             t);
 
-        // t = t + dt
+        // dt * v = d
+        // dt = d / v
+        // t += dt
         float delta_t = delta_distance / df.magnitude();
-        t = units::min(t + delta_t, 1.0);
+        // use std::min since units min casts to Number (doubles)
+        t = std::min(t + delta_t, 1.0f);
     }
     // add last point
     points.emplace_back(curve->f(1),
@@ -194,6 +198,7 @@ FLinearAcceleration Trajectory::get_accel(FLinearVelocity last_vel) {
 void Trajectory::forwardsPass() {
     // constant for all points
     const FLength distance_delta_mult = 2 * delta_distance;
+    forwards_pass_debug.emplace_back(points.front().vel);
 
     // excludes starting point
     for (size_t i = 1; i < points.size(); i++) {
@@ -201,8 +206,12 @@ void Trajectory::forwardsPass() {
         MotionPoint& point = points[i];
         // (Sprunk 25)
 
+        // predicted max accel from motors
+        const FLinearAcceleration motor_accel =
+          get_accel(units::abs(last_point.vel));
+
         const FLinearAcceleration accel =
-          units::min(get_accel(last_point.vel), last_point.accel);
+          units::min(motor_accel, last_point.accel);
 
         // max velocity squared
         const FLinearVelocity max_vel = units::sqrt(
@@ -219,16 +228,22 @@ void Trajectory::forwardsPass() {
 void Trajectory::backwardsPass() {
     // constant for all points
     const FLength distance_delta_mult = 2 * delta_distance;
+    backwards_pass_debug.insert(backwards_pass_debug.begin(),
+                                points.back().vel);
+
     // excludes end point
     for (int i = this->points.size() - 2; i >= 0; i--) {
         // (Sprunk 25)
         MotionPoint& point = points[i];
         const MotionPoint& next_point = points[i + 1];
 
+        // predicted max decel from motors
+        const FLinearAcceleration motor_accel =
+          get_accel(units::abs(next_point.vel));
+
         // decel from current point used since the motion still goes
         // forwards (the decel starts from the current point)
-        const FLinearAcceleration decel =
-          units::min(get_accel(next_point.vel), point.decel);
+        const FLinearAcceleration decel = units::min(motor_accel, point.decel);
 
         const FLinearVelocity max_vel = units::sqrt(
           units::square(next_point.vel) + decel * distance_delta_mult);
@@ -249,8 +264,11 @@ void Trajectory::setTravelTimes() {
         MotionPoint& point = points[i];
         const MotionPoint& last_point = points[i - 1];
         // (Sprunk 23)
+
+        // in case vel is negative the delta distance would also be positive, so
+        // this term should always be positive
         const Time delta_travel_time =
-          (delta_distance2) / (point.vel + last_point.vel);
+          units::abs((delta_distance2) / (point.vel + last_point.vel));
 
         point.travel_time = last_point.travel_time + delta_travel_time;
     }
@@ -259,6 +277,8 @@ void Trajectory::setTravelTimes() {
 }
 
 int Trajectory::get_index_by_distance(Length distance) {
+    // TODO: could implement O(1) search since delta distance is constant
+
     // actual values of the point don't really matter
     // (except for arc_length)
     MotionPoint query_point = points[0];
