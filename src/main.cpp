@@ -923,7 +923,7 @@ void simple_mp_test() {
 
 void opcontrol() {
     // pros::delay(2000);
-    // linear_ka_kp_ki_tuner();
+    linear_ka_kp_ki_tuner();
     // create_accel_data({ 0.5_volt, 0.5_volt, 2_sec }, "Linear");
     // //
     // return;

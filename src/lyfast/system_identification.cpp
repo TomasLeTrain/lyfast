@@ -1,5 +1,4 @@
 #include "lyfast/system_identification.hpp"
-#include "Eigen/Dense"
 #include "blazing/drivetrains/differential.hpp"
 #include "blazing/utils.hpp"
 #include "pros/abstract_motor.hpp"
@@ -10,6 +9,7 @@
 #include "vel_controller.hpp"
 #include <cmath>
 #include <vector>
+#include "Eigen/Dense"
 
 namespace blazing {
 namespace lyfast {
@@ -254,7 +254,7 @@ KaUnits MotorGroupSysid::fit_ka_data(std::vector<MotorSysidData> data,
 }
 
 // print data in desmos-friendly format
-auto MotorGroupSysid::print_data_as_latex(std::vector<MotorSysidData>& data) {
+void MotorGroupSysid::print_data_as_latex(std::vector<MotorSysidData>& data) {
     std::cout << "\\left[";
     for (int i = 0; i < data.size(); i++) {
         std::cout << "\\left(" << data[i].voltage.internal() << ","

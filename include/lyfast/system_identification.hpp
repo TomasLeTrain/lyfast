@@ -130,7 +130,7 @@ class MotorGroupSysid {
                                KvUnits kv,
                                KsUnits ks);
     // print data in desmos-friendly format
-    static auto print_data_as_latex(std::vector<MotorSysidData>& data);
+    static void print_data_as_latex(std::vector<MotorSysidData>& data);
 };
 
 class DifferentialSysid {
