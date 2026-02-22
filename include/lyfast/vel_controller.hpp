@@ -9,6 +9,7 @@
 #include "units/Vector2D.hpp"
 #include "units/units.hpp"
 #include <cmath>
+#include <functional>
 #include <ios>
 
 namespace blazing {
@@ -24,6 +25,26 @@ using KaUnits = Divided<Voltage, LinearAcceleration>;
 using FKsUnits = FVoltage;
 using FKvUnits = Divided<FVoltage, FLinearVelocity>;
 using FKaUnits = Divided<FVoltage, FLinearAcceleration>;
+
+inline DifferentialSpeeds
+desaturatePrioritizeAngularDiffSpeeds(DifferentialSpeeds target,
+                                      Length track_width,
+                                      LinearVelocity max_velocity) {
+    Length track_radius = track_width / 2.0;
+
+    // first determine how fast we want to go angular wise
+    LinearVelocity lin_alg_target =
+      (target.angular_velocity / rad) * track_radius;
+
+    // clamp linear speed based on angular speed
+    LinearVelocity max_lin_speed =
+      units::abs(max_velocity) - units::abs(lin_alg_target);
+
+    LinearVelocity new_lin_speed =
+      units::clamp(target.linear_velocity, -max_lin_speed, max_lin_speed);
+
+    return { new_lin_speed, target.angular_velocity };
+}
 
 inline DifferentialSpeeds
 desaturateDifferentialSpeeds(DifferentialSpeeds target,
@@ -58,6 +79,8 @@ struct SimpleVelocityControllerParams {
     Divided<Voltage, Multiplied<T, Time>> Ki { 0 };
 
     Voltage max_output { 1_volt };
+
+    double tbh_factor { 0.0 };
 };
 
 struct VelocityControllerParams {
@@ -67,6 +90,7 @@ struct VelocityControllerParams {
     Divided<Voltage, LinearVelocity> left_Kp { 0 };
     Divided<Voltage, Length> left_Ki { 0 };
     Voltage left_max_output { 1_volt };
+    double left_tbh_factor { 0.0 };
 
     KvUnits right_Kv;
     KaUnits right_Ka;
@@ -74,6 +98,7 @@ struct VelocityControllerParams {
     Divided<Voltage, LinearVelocity> right_Kp { 0 };
     Divided<Voltage, Length> right_Ki { 0 };
     Voltage right_max_output { 1_volt };
+    double right_tbh_factor { 0.0 };
 
     // construct both sides with equal gains
     static VelocityControllerParams
@@ -85,6 +110,7 @@ struct VelocityControllerParams {
             .left_Kp = params.Kp,
             .left_Ki = params.Ki,
             .left_max_output = params.max_output,
+            .left_tbh_factor = params.tbh_factor,
 
             .right_Kv = params.Kv,
             .right_Ka = params.Ka,
@@ -92,6 +118,7 @@ struct VelocityControllerParams {
             .right_Kp = params.Kp,
             .right_Ki = params.Ki,
             .right_max_output = params.max_output,
+            .right_tbh_factor = params.tbh_factor,
         };
     }
 };
@@ -128,8 +155,7 @@ class SimpleVelocityController {
         // decrease integral by some amount when crossing error to minimize
         // overshooot due to the integral
         if (last_error && units::sgn(error) != units::sgn(*last_error)) {
-            double tbh_factor = 0.8;
-            current_integral *= tbh_factor;
+            current_integral *= m_params.tbh_factor;
         }
 
         Voltage result {
@@ -150,14 +176,15 @@ class SimpleVelocityController {
           units::abs(result) >= m_params.max_output &&
           // output going in direct of error
           units::sgn(error) == units::sgn(result)) {
-            // clamp output and stop integral windup
-            result =
-              units::clamp(result, -m_params.max_output, m_params.max_output);
+            // clamping, stop integral windup
             // no need to update integral to current integral
         } else {
             // not saturating, update integral
             integral = current_integral;
         }
+
+        result =
+          units::clamp(result, -m_params.max_output, m_params.max_output);
 
         last_speed = { target };
         last_error = error;
@@ -199,8 +226,13 @@ class DifferentialVelocityController {
     SimpleVelocityController<LinearVelocity> left_controller;
     SimpleVelocityController<LinearVelocity> right_controller;
 
+    LinearVelocity m_max_velocity;
     Length m_track_width;
-    DifferentialDrivetrain& drivetrain;
+    std::reference_wrapper<DifferentialDrivetrain> drivetrain;
+
+    std::optional<LeftRightSpeeds> last_velocities = std::nullopt;
+    double m_vel_alpha = 1.0;
+    bool m_prioritize_angular = false;
 
   public:
     LeftRightVoltages update(LeftRightSpeeds measurement,
@@ -209,9 +241,14 @@ class DifferentialVelocityController {
         Length track_radius = m_track_width / 2.0;
 
         // desaturate target first
-        target = desaturateDifferentialSpeeds(target,
-                                              m_track_width,
-                                              drivetrain.getMaxVelocity());
+        if (m_prioritize_angular)
+            target = desaturatePrioritizeAngularDiffSpeeds(target,
+                                                           m_track_width,
+                                                           m_max_velocity);
+        else
+            target = desaturateDifferentialSpeeds(target,
+                                                  m_track_width,
+                                                  m_max_velocity);
 
         LinearVelocity target_left_vel =
           target.linear_velocity -
@@ -234,7 +271,22 @@ class DifferentialVelocityController {
 
     LeftRightVoltages update(DifferentialSpeeds target, Time duration) {
         // fall back to using specified drivetrain
-        return update(drivetrain.getDrivetrainVelocities(), target, duration);
+        LeftRightSpeeds velocities = drivetrain.get().getDrivetrainVelocities();
+
+        // use low pass filter on the velocities
+        if (last_velocities) {
+            velocities.left_vel =
+              m_vel_alpha * velocities.left_vel +
+              (1 - m_vel_alpha) * last_velocities.value().left_vel;
+
+            velocities.right_vel =
+              m_vel_alpha * velocities.right_vel +
+              (1 - m_vel_alpha) * last_velocities.value().right_vel;
+        }
+
+        last_velocities = velocities;
+
+        return update(velocities, target, duration);
     }
 
     // allows using as only a linear feedforward
@@ -289,16 +341,23 @@ class DifferentialVelocityController {
         return m_params;
     }
 
-    DifferentialVelocityController(VelocityControllerParams params,
-                                   Length track_width,
-                                   DifferentialDrivetrain& drivetrain)
+    DifferentialVelocityController(
+      VelocityControllerParams params,
+      LinearVelocity max_velocity,
+      Length track_width,
+      double vel_alpha,
+      bool prioritize_angular,
+      std::reference_wrapper<DifferentialDrivetrain> drivetrain)
         : m_params(params),
-          left_controller({ .Kv = this->m_params.left_Kv,
-                            .Ka = this->m_params.left_Ka,
-                            .Ks = this->m_params.left_Ks,
-                            .Kp = this->m_params.left_Kp,
-                            .Ki = this->m_params.left_Ki,
-                            .max_output = this->m_params.left_max_output }),
+          left_controller({
+            .Kv = this->m_params.left_Kv,
+            .Ka = this->m_params.left_Ka,
+            .Ks = this->m_params.left_Ks,
+            .Kp = this->m_params.left_Kp,
+            .Ki = this->m_params.left_Ki,
+            .max_output = this->m_params.left_max_output,
+            .tbh_factor = this->m_params.left_tbh_factor,
+          }),
           right_controller({
             .Kv = this->m_params.right_Kv,
             .Ka = this->m_params.right_Ka,
@@ -306,18 +365,29 @@ class DifferentialVelocityController {
             .Kp = this->m_params.right_Kp,
             .Ki = this->m_params.right_Ki,
             .max_output = this->m_params.right_max_output,
+            .tbh_factor = this->m_params.right_tbh_factor,
           }),
+          m_max_velocity(max_velocity),
           m_track_width(track_width),
+          m_vel_alpha(vel_alpha),
+          m_prioritize_angular(prioritize_angular),
           drivetrain(drivetrain) {}
 
     DifferentialVelocityController(
       SimpleVelocityControllerParams<LinearVelocity> params,
+      LinearVelocity max_velocity,
       Length track_width,
-      DifferentialDrivetrain& drivetrain)
+      double vel_alpha,
+      bool prioritize_angular,
+      std::reference_wrapper<DifferentialDrivetrain> drivetrain)
         : m_params(VelocityControllerParams::fromSimple(params)),
           left_controller(params),
           right_controller(params),
+
+          m_max_velocity(max_velocity),
           m_track_width(track_width),
+          m_vel_alpha(vel_alpha),
+          m_prioritize_angular(prioritize_angular),
           drivetrain(drivetrain) {}
 };
 
@@ -325,29 +395,39 @@ class ArcadeVelocityController {
     DifferentialVelocityController linear_controller;
     DifferentialVelocityController angular_controller;
 
+    LinearVelocity m_max_velocity;
+    bool m_prioritize_angular = false;
+
     Length m_track_width;
-    DifferentialDrivetrain& drivetrain;
 
   public:
-    LeftRightVoltages update(LeftRightSpeeds measurement,
-                             DifferentialSpeeds target,
-                             Time duration) {
-        Voltage linear = linear_controller.update(measurement,
-                                                  target.linear_velocity,
-                                                  duration);
-        Voltage angular = angular_controller.update(measurement,
-                                                    target.angular_velocity,
-                                                    duration);
-
-        return LeftRightVoltages { linear - angular, linear + angular };
-    }
+    // TODO: rewrite to actually be good
+    // LeftRightVoltages update(LeftRightSpeeds measurement,
+    //                          DifferentialSpeeds target,
+    //                          Time duration) {
+    //     Voltage linear = linear_controller.update(measurement,
+    //                                               target.linear_velocity,
+    //                                               duration);
+    //     Voltage angular = angular_controller.update(measurement,
+    //                                                 target.angular_velocity,
+    //                                                 duration);
+    //
+    //     return LeftRightVoltages { linear - angular, linear + angular };
+    // }
 
     LeftRightVoltages update(DifferentialSpeeds target, Time duration) {
         Length track_radius = m_track_width / 2.0;
 
-        target = desaturateDifferentialSpeeds(target,
-                                              m_track_width,
-                                              drivetrain.getMaxVelocity());
+        // desaturate target first
+        if (m_prioritize_angular) {
+            target = desaturatePrioritizeAngularDiffSpeeds(target,
+                                                           m_track_width,
+                                                           m_max_velocity);
+        } else {
+            target = desaturateDifferentialSpeeds(target,
+                                                  m_track_width,
+                                                  m_max_velocity);
+        }
 
         LeftRightVoltages linear = linear_controller.update(target, duration);
         LeftRightVoltages angular = angular_controller.update(target, duration);
@@ -403,12 +483,14 @@ class ArcadeVelocityController {
 
     ArcadeVelocityController(DifferentialVelocityController linear_controller,
                              DifferentialVelocityController angular_controller,
-                             Length track_width,
-                             DifferentialDrivetrain& drivetrain)
+                             LinearVelocity max_velocity,
+                             bool prioritize_angular,
+                             Length track_width)
         : linear_controller(linear_controller),
           angular_controller(angular_controller),
-          m_track_width(track_width),
-          drivetrain(drivetrain) {}
+          m_max_velocity(max_velocity),
+          m_prioritize_angular(prioritize_angular),
+          m_track_width(track_width) {}
 };
 
 template<typename Controller>
@@ -422,12 +504,8 @@ struct VelocityFeedforward : virtual ControllerBase {
 
     // creates a copy of the controller with different linear feedback
     // controller
-    template<typename Self>
-    Self with_velocity_feedforward(this Self&& self,
-                                   Controller new_velocity_feedforward) {
-        Self new_self = self;
-        new_self.velocity_feedforward = new_velocity_feedforward;
-        return new_self;
+    void set_velocity_feedforward(Controller new_velocity_feedforward) {
+        this->velocity_feedforward = new_velocity_feedforward;
     }
 };
 
@@ -446,12 +524,8 @@ struct VelocityFeedback : virtual ControllerBase {
 
     // creates a copy of the controller with different linear feedback
     // controller
-    template<typename Self>
-    Self with_velocity_feedback(this Self&& self,
-                                Controller new_velocity_feedback) {
-        Self new_self = self;
-        new_self.velocity_feedback = new_velocity_feedback;
-        return new_self;
+    void set_velocity_feedback(Controller new_velocity_feedback) {
+        this->velocity_feedback = new_velocity_feedback;
     }
 };
 

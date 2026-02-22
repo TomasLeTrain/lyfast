@@ -61,6 +61,7 @@ class MotorGroupSysid {
     // for best results only use steady state velocity data
     static std::pair<KvUnits, KsUnits>
     fit_kv_ks_data(std::vector<MotorSysidData> data);
+
     // calculates ka/kp/ki from T and K constants and lambda factor
     static auto calculate_ka_kp_ki_from_TK(Time T,
                                            Divided<LinearVelocity, Voltage> K,
