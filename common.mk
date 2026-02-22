@@ -3,7 +3,8 @@ DEVICE=VEX EDR V5
 
 MFLAGS=-mcpu=cortex-a9 -mfpu=neon-fp16 -mfloat-abi=hard -O3 -ftree-vectorize -mfp16-format=ieee -g -mthumb
 CPPFLAGS=-D_POSIX_THREADS -D_UNIX98_THREAD_MUTEX_ATTRIBUTES -D_POSIX_TIMERS -D_POSIX_MONOTONIC_CLOCK
-GCCFLAGS=-ffunction-sections -fdata-sections -fdiagnostics-color -funwind-tables -fno-strict-aliasing -flto=auto
+GCCFLAGS=-ffunction-sections -fdata-sections -fdiagnostics-color -funwind-tables -fno-strict-aliasing
+# GCCFLAGS=-ffunction-sections -fdata-sections -fdiagnostics-color -funwind-tables -fno-strict-aliasing
 
 HEADEREXTS:=h hpp
 
@@ -156,7 +157,7 @@ ASMOBJ=$(addprefix $(BINDIR)/,$(patsubst $(SRCDIR)/%,%.o,$(call ASMSRC,$1)))
 CSRC=$(foreach cext,$(CEXTS),$(call rwildcard, $(SRCDIR),*.$(cext), $1))
 COBJ=$(addprefix $(BINDIR)/,$(patsubst $(SRCDIR)/%,%.o,$(call CSRC, $1)))
 
-CXXSRC=$(foreach cxxext,$(CXXEXTS),$(call rwildcard, $(SRCDIR),*.$(cxxext), $1))
+CXXSRC=$(foreach cxxext,$(CXXEXTS),$(call rwildcard, $(SRCDIR),*.$(cxxext), $1)) $(foreach cxxext,$(CXXEXTSNOLTO),$(call rwildcard, $(SRCDIR),*.$(cxxext), $1))
 CXXOBJ=$(addprefix $(BINDIR)/,$(patsubst $(SRCDIR)/%,%.o,$(call CXXSRC,$1)))
 
 GETALLOBJ=$(sort $(call ASMOBJ,$1) $(call COBJ,$1) $(call CXXOBJ,$1))
@@ -279,10 +280,20 @@ $(BINDIR)/%.$1.o: $(SRCDIR)/%.$1
 $(BINDIR)/%.$1.o: $(SRCDIR)/%.$1 $(DEPDIR)/$(basename %).d
 	$(VV)mkdir -p $$(dir $$@)
 	$(MAKEDEPFOLDER)
-	$$(call test_output_2,Compiled $$< ,$(CXX) -c $(INCLUDE) -iquote"$(INCDIR)/$$(dir $$*)" $(CXXFLAGS) $(EXTRA_CXXFLAGS) $(DEPFLAGS) -o $$@ $$<,$(OK_STRING))
+	$$(call test_output_2,Compiled $$< ,$(CXX) -c $(INCLUDE) -iquote"$(INCDIR)/$$(dir $$*)" $(CXXFLAGS) -flto=auto $(EXTRA_CXXFLAGS) $(DEPFLAGS) -o $$@ $$<,$(OK_STRING))
 	$(RENAMEDEPENDENCYFILE)
 endef
 $(foreach cxxext,$(CXXEXTS),$(eval $(call cxx_rule,$(cxxext))))
+
+define cxx_rule_no_lto
+$(BINDIR)/%.$1.o: $(SRCDIR)/%.$1
+$(BINDIR)/%.$1.o: $(SRCDIR)/%.$1 $(DEPDIR)/$(basename %).d
+	$(VV)mkdir -p $$(dir $$@)
+	$(MAKEDEPFOLDER)
+	$$(call test_output_2,Compiled $$< ,$(CXX) -c $(INCLUDE) -iquote"$(INCDIR)/$$(dir $$*)" $(CXXFLAGS) -fno-lto $(EXTRA_CXXFLAGS) $(DEPFLAGS) -o $$@ $$<,$(OK_STRING))
+	$(RENAMEDEPENDENCYFILE)
+endef
+$(foreach cxxext,$(CXXEXTSNOLTO),$(eval $(call cxx_rule_no_lto,$(cxxext))))
 
 
 # should be able to run even if it already exists

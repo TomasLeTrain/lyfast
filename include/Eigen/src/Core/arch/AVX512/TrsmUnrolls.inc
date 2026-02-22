@@ -28,7 +28,7 @@ EIGEN_ALWAYS_INLINE int64_t idA(int64_t i, int64_t j, int64_t LDA) {
  *     func(startI,startJ)                                startJ = (startC)%(endJ)
  *                                                        func(...)
  *
- * The 1-D loop can be unrolled recursively by using enable_if and defining an auxillary function
+ * The 1-D loop can be unrolled recursively by using enable_if and defining an auxiliary function
  * with a template parameter used as a counter.
  *
  * template <endI, endJ, counter>
@@ -124,7 +124,7 @@ EIGEN_ALWAYS_INLINE void trans8x8blocks(PacketBlock<Packet8d, 8> &kernel) {
 }
 
 /***
- * Unrolls for tranposed C stores
+ * Unrolls for transposed C stores
  */
 template <typename Scalar>
 class trans {
@@ -134,7 +134,7 @@ class trans {
   static constexpr int64_t PacketSize = packet_traits<Scalar>::size;
 
   /***********************************
-   * Auxillary Functions for:
+   * Auxiliary Functions for:
    *  - storeC
    ***********************************
    */
@@ -213,11 +213,12 @@ class trans {
   }
 
   /**
-   * Transposes LxunrollN row major block of matrices stored EIGEN_AVX_MAX_NUM_ACC zmm registers to
+   * Transposes LxunrollN row major block of matrices stored `EIGEN_AVX_MAX_NUM_ACC` zmm registers to
    * "unrollN"xL ymm registers to be stored col-major into C.
    *
    *  For 8x48, the 8x48 block (row-major) is stored in zmm as follows:
    *
+   *  ```
    *  row0: zmm0 zmm1 zmm2
    *  row1: zmm3 zmm4 zmm5
    *    .
@@ -231,10 +232,10 @@ class trans {
    *    .
    *    .
    *  row7: zmm14 zmm15
-   *
+   * ```
    *
    * In general we will have {1,2,3} groups of avx registers each of size
-   * EIGEN_AVX_MAX_NUM_ROW. packetIndexOffset is used to select which "block" of
+   * `EIGEN_AVX_MAX_NUM_ROW`. packetIndexOffset is used to select which "block" of
    * avx registers are being transposed.
    */
   template <int64_t unrollN, int64_t packetIndexOffset>
@@ -285,7 +286,7 @@ class transB {
   static constexpr int64_t PacketSize = packet_traits<Scalar>::size;
 
   /***********************************
-   * Auxillary Functions for:
+   * Auxiliary Functions for:
    *  - loadB
    *  - storeB
    *  - loadBBlock
@@ -299,7 +300,7 @@ class transB {
    * 1-D unroll
    *      for(startN = 0; startN < endN; startN++)
    **/
-  template <int64_t endN, int64_t counter, int64_t packetIndexOffset, bool remM>
+  template <int64_t endN, int64_t counter, int64_t packetIndexOffset, bool remM, int64_t remN_>
   static EIGEN_ALWAYS_INLINE std::enable_if_t<(counter > 0)> aux_loadB(
       Scalar *B_arr, int64_t LDB, PacketBlock<vecHalf, EIGEN_ARCH_DEFAULT_NUMBER_OF_REGISTERS> &ymm,
       int64_t remM_ = 0) {
@@ -310,12 +311,18 @@ class transB {
       ymm.packet[packetIndexOffset + startN] =
           ploadu<vecHalf>((const Scalar *)&B_arr[startN * LDB], remMask<EIGEN_AVX_MAX_NUM_ROW>(remM_));
     }
-    else ymm.packet[packetIndexOffset + startN] = ploadu<vecHalf>((const Scalar *)&B_arr[startN * LDB]);
+    else {
+      EIGEN_IF_CONSTEXPR(remN_ == 0) {
+        ymm.packet[packetIndexOffset + startN] = ploadu<vecHalf>((const Scalar *)&B_arr[startN * LDB]);
+      }
+      else ymm.packet[packetIndexOffset + startN] =
+          ploadu<vecHalf>((const Scalar *)&B_arr[startN * LDB], remMask<EIGEN_AVX_MAX_NUM_ROW>(remN_));
+    }
 
-    aux_loadB<endN, counter - 1, packetIndexOffset, remM>(B_arr, LDB, ymm, remM_);
+    aux_loadB<endN, counter - 1, packetIndexOffset, remM, remN_>(B_arr, LDB, ymm, remM_);
   }
 
-  template <int64_t endN, int64_t counter, int64_t packetIndexOffset, bool remM>
+  template <int64_t endN, int64_t counter, int64_t packetIndexOffset, bool remM, int64_t remN_>
   static EIGEN_ALWAYS_INLINE std::enable_if_t<(counter <= 0)> aux_loadB(
       Scalar *B_arr, int64_t LDB, PacketBlock<vecHalf, EIGEN_ARCH_DEFAULT_NUMBER_OF_REGISTERS> &ymm,
       int64_t remM_ = 0) {
@@ -363,17 +370,17 @@ class transB {
    * 1-D unroll
    *      for(startN = 0; startN < endN; startN += EIGEN_AVX_MAX_NUM_ROW)
    **/
-  template <int64_t endN, int64_t counter, bool toTemp, bool remM>
+  template <int64_t endN, int64_t counter, bool toTemp, bool remM, int64_t remN_>
   static EIGEN_ALWAYS_INLINE std::enable_if_t<(counter > 0)> aux_loadBBlock(
       Scalar *B_arr, int64_t LDB, Scalar *B_temp, int64_t LDB_,
       PacketBlock<vecHalf, EIGEN_ARCH_DEFAULT_NUMBER_OF_REGISTERS> &ymm, int64_t remM_ = 0) {
     constexpr int64_t counterReverse = endN - counter;
     constexpr int64_t startN = counterReverse;
-    transB::template loadB<EIGEN_AVX_MAX_NUM_ROW, startN, false>(&B_temp[startN], LDB_, ymm);
-    aux_loadBBlock<endN, counter - EIGEN_AVX_MAX_NUM_ROW, toTemp, remM>(B_arr, LDB, B_temp, LDB_, ymm, remM_);
+    transB::template loadB<EIGEN_AVX_MAX_NUM_ROW, startN, false, (toTemp ? 0 : remN_)>(&B_temp[startN], LDB_, ymm);
+    aux_loadBBlock<endN, counter - EIGEN_AVX_MAX_NUM_ROW, toTemp, remM, remN_>(B_arr, LDB, B_temp, LDB_, ymm, remM_);
   }
 
-  template <int64_t endN, int64_t counter, bool toTemp, bool remM>
+  template <int64_t endN, int64_t counter, bool toTemp, bool remM, int64_t remN_>
   static EIGEN_ALWAYS_INLINE std::enable_if_t<(counter <= 0)> aux_loadBBlock(
       Scalar *B_arr, int64_t LDB, Scalar *B_temp, int64_t LDB_,
       PacketBlock<vecHalf, EIGEN_ARCH_DEFAULT_NUMBER_OF_REGISTERS> &ymm, int64_t remM_ = 0) {
@@ -424,11 +431,11 @@ class transB {
    * Wrappers for aux_XXXX to hide counter parameter
    ********************************************************/
 
-  template <int64_t endN, int64_t packetIndexOffset, bool remM>
+  template <int64_t endN, int64_t packetIndexOffset, bool remM, int64_t remN_>
   static EIGEN_ALWAYS_INLINE void loadB(Scalar *B_arr, int64_t LDB,
                                         PacketBlock<vecHalf, EIGEN_ARCH_DEFAULT_NUMBER_OF_REGISTERS> &ymm,
                                         int64_t remM_ = 0) {
-    aux_loadB<endN, endN, packetIndexOffset, remM>(B_arr, LDB, ymm, remM_);
+    aux_loadB<endN, endN, packetIndexOffset, remM, remN_>(B_arr, LDB, ymm, remM_);
   }
 
   template <int64_t endN, int64_t packetIndexOffset, bool remK, bool remM>
@@ -438,13 +445,13 @@ class transB {
     aux_storeB<endN, endN, packetIndexOffset, remK, remM>(B_arr, LDB, ymm, rem_);
   }
 
-  template <int64_t unrollN, bool toTemp, bool remM>
+  template <int64_t unrollN, bool toTemp, bool remM, int64_t remN_ = 0>
   static EIGEN_ALWAYS_INLINE void loadBBlock(Scalar *B_arr, int64_t LDB, Scalar *B_temp, int64_t LDB_,
                                              PacketBlock<vecHalf, EIGEN_ARCH_DEFAULT_NUMBER_OF_REGISTERS> &ymm,
                                              int64_t remM_ = 0) {
-    EIGEN_IF_CONSTEXPR(toTemp) { transB::template loadB<unrollN, 0, remM>(&B_arr[0], LDB, ymm, remM_); }
+    EIGEN_IF_CONSTEXPR(toTemp) { transB::template loadB<unrollN, 0, remM, 0>(&B_arr[0], LDB, ymm, remM_); }
     else {
-      aux_loadBBlock<unrollN, unrollN, toTemp, remM>(B_arr, LDB, B_temp, LDB_, ymm, remM_);
+      aux_loadBBlock<unrollN, unrollN, toTemp, remM, remN_>(B_arr, LDB, B_temp, LDB_, ymm, remM_);
     }
   }
 
@@ -550,13 +557,13 @@ class transB {
     }
     else EIGEN_IF_CONSTEXPR(unrollN == 2) {
       // load Lx2 B col major, transpose Lx2 row major
-      transB::template loadBBlock<2, toTemp, remM>(B_arr, LDB, B_temp, LDB_, ymm, remM_);
+      transB::template loadBBlock<2, toTemp, remM, 2>(B_arr, LDB, B_temp, LDB_, ymm, remM_);
       transB::template transposeLxL<0>(ymm);
       transB::template storeBBlock<2, toTemp, remM, 2>(B_arr, LDB, B_temp, LDB_, ymm, remM_);
     }
     else EIGEN_IF_CONSTEXPR(unrollN == 1) {
       // load Lx1 B col major, transpose Lx1 row major
-      transB::template loadBBlock<1, toTemp, remM>(B_arr, LDB, B_temp, LDB_, ymm, remM_);
+      transB::template loadBBlock<1, toTemp, remM, 1>(B_arr, LDB, B_temp, LDB_, ymm, remM_);
       transB::template transposeLxL<0>(ymm);
       transB::template storeBBlock<1, toTemp, remM, 1>(B_arr, LDB, B_temp, LDB_, ymm, remM_);
     }
@@ -582,7 +589,7 @@ class trsm {
   static constexpr int64_t PacketSize = packet_traits<Scalar>::size;
 
   /***********************************
-   * Auxillary Functions for:
+   * Auxiliary Functions for:
    *  - loadRHS
    *  - storeRHS
    *  - divRHSByDiag
@@ -861,7 +868,7 @@ class gemm {
   static constexpr int64_t PacketSize = packet_traits<Scalar>::size;
 
   /***********************************
-   * Auxillary Functions for:
+   * Auxiliary Functions for:
    *  - setzero
    *  - updateC
    *  - storeC
@@ -1095,7 +1102,7 @@ class gemm {
       }
     }
 
-    // We have updated all accumlators, time to load next set of B's
+    // We have updated all accumulators, time to load next set of B's
     EIGEN_IF_CONSTEXPR((startN == endN - 1) && (startM == endM - 1)) {
       gemm::template loadB<endM, endN, startK, endK, numLoad, numBCast, rem>(B_t, LDB, zmm, rem_);
     }

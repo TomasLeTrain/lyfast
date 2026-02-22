@@ -3,7 +3,8 @@
 # filename extensions
 CEXTS:=c
 ASMEXTS:=s S
-CXXEXTS:=cpp c++ cc
+CXXEXTS:=cpp cc
+CXXEXTSNOLTO:=c++
 
 # probably shouldn't modify these, but you may need them below
 ROOT=.

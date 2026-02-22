@@ -6,6 +6,7 @@
 #include "lyfast/api.hpp"
 #include "lyfast/geometry/line.hpp"
 #include "lyfast/geometry/primitives.hpp"
+#include "lyfast/lqr.hpp"
 #include "lyfast/motion_profiling/constraints.hpp"
 #include "lyfast/motion_profiling/mp.hpp"
 #include "lyfast/motion_profiling/simple_mp.hpp"
@@ -186,20 +187,24 @@ RunExecutor run;
 AsyncExecutor async;
 
 blazing::lyfast::DifferentialVelocityController linear_velocity_controller(
-  lyfast::VelocityControllerParams { // custom accel
-                                     .left_Kv = 0.426161 * volt / mps,
-                                     .left_Ka = 0.08 * volt / mps2,
-                                     .left_Ks = 0.0481902 * volt,
-                                     .left_Kp = 0.934514846239 * volt / mps,
-                                     .left_Ki = 4.58736473058 * volt / m,
+  lyfast::VelocityControllerParams {
+    // custom accel
+    .left_Kv = 0.426161 * volt / mps,
+    .left_Ka = 0.08 * volt / mps2,
+    .left_Ks = 0.0481902 * volt,
+    .left_Kp = 0.934514846239 * volt / mps,
+    .left_Ki = 4.58736473058 * volt / m,
 
-                                     .right_Kv = 0.425642 * volt / mps,
-                                     .right_Ka = 0.081 * volt / mps2,
-                                     .right_Ks = 0.0499037 * volt,
-                                     .right_Kp = 0.940127699096 * volt / mps,
-                                     .right_Ki = 4.65515950473 * volt / m,
-	},
+    .right_Kv = 0.425642 * volt / mps,
+    .right_Ka = 0.081 * volt / mps2,
+    .right_Ks = 0.0499037 * volt,
+    .right_Kp = 0.940127699096 * volt / mps,
+    .right_Ki = 4.65515950473 * volt / m,
+  },
+  70_inps,
   track_width,
+  1.0,
+  false,
   drivetrain);
 
 blazing::lyfast::DifferentialVelocityController angular_velocity_controller(
@@ -217,13 +222,17 @@ blazing::lyfast::DifferentialVelocityController angular_velocity_controller(
     .right_Kp = 1.054508 * volt / mps,
     .right_Ki = 4.24337 * volt / m,
   },
+  70_inps,
   track_width,
+  1.0,
+  false,
   drivetrain);
 
 lyfast::ArcadeVelocityController vel_controller { linear_velocity_controller,
                                                   angular_velocity_controller,
-                                                  track_width,
-                                                  drivetrain };
+                                                  70_inps,
+                                                  false,
+                                                  track_width };
 
 PID<Length, LinearVelocity> linear_vel_pid(0.5,
                                            0.0,
@@ -922,6 +931,9 @@ void simple_mp_test() {
 }
 
 void opcontrol() {
+    auto thing = blazing::lyfast::lqr::doStuff();
+    std::cout << "thing returned " << thing.left_vel << std::endl;
+
     // pros::delay(2000);
     linear_ka_kp_ki_tuner();
     // create_accel_data({ 0.5_volt, 0.5_volt, 2_sec }, "Linear");
@@ -930,106 +942,107 @@ void opcontrol() {
 
     // manual_mp_test();
 
-    Length distance = 10_in;
-    LinearVelocity start_vel = 0_inps;
-    LinearVelocity end_vel = 0_inps;
-
-    lyfast::geometry::Point start { 0_in, 0_in };
-    lyfast::geometry::Point end { distance, 0_in };
-
-    lyfast::geometry::Line line(start, end);
-
-    Length track_width = 10.5_in;
-    float coeff_friction = 0.9;
-    Length wheel_diameter = 3.25_in;
-    AngularVelocity final_rpm = 450_rpm;
-    Mass robot_mass = 14.8_lb;
-    float motor_count = 6.0;
-
-    LinearVelocity max_vel = 70_inps;
-    LinearAcceleration max_accel = 10000_inps2;
-    LinearAcceleration max_decel = 10000_inps2;
-
-    lyfast::mp::RobotConstraints robot_constraints(track_width,
-                                                   coeff_friction,
-                                                   wheel_diameter,
-                                                   final_rpm,
-                                                   robot_mass,
-                                                   motor_count);
-    lyfast::mp::LinearConstraints linear_constraints(max_vel,
-                                                     max_accel,
-                                                     max_decel);
-    lyfast::mp::AngularConstraints angular_constraints {
-        AngularVelocity(20_radps),
-        FAngularAcceleration(200_radps2),
-        AngularAcceleration(200_radps2)
-    };
-
-    lyfast::mp::Constraints constraints(robot_constraints,
-                                        linear_constraints,
-                                        angular_constraints);
-
-    lyfast::mp::Trajectory trajectory(&line,
-                                      constraints,
-                                      {},
-                                      start_vel,
-                                      end_vel,
-                                      0.1_in);
-
-    auto print =
-      []<typename T>(std::string name, std::vector<T>& list, T target_units) {
-          std::cout << name << "=\\left[";
-          for (size_t i = 0; i < list.size(); i++) {
-              if (i != 0) std::cout << ",";
-              std::cout << list[i].convert(target_units);
-          }
-          std::cout << "\\right]" << std::endl;
-      };
-
-    bool printing = true;
-    if (printing) {
-        print("a_{kin}", trajectory.max_kin_accel_debug, Finps2);
-        print("a_{turn}", trajectory.max_turn_accel_debug, Finps2);
-        print("d_{kin}", trajectory.max_kin_decel_debug, Finps2);
-        print("d_{turn}", trajectory.max_turn_decel_debug, Finps2);
-        //
-        print("v_{kin}", trajectory.max_kin_vel_debug, Finps);
-        print("v_{turn}", trajectory.max_turn_vel_debug, Finps);
-        print("v_{friction}", trajectory.max_friction_vel_debug, Finps);
-
-        print("v_{forward}", trajectory.forwards_pass_debug, Finps);
-        print("v_{backward}", trajectory.backwards_pass_debug, Finps);
-
-        print("v_{final}", trajectory.final_vels_debug, Finps);
-
-        std::cout << "l_{times}=\\left[";
-        for (auto& point : trajectory.points) {
-            std::cout << point.travel_time.convert(sec) << ",";
-        }
-        std::cout << "\\right]" << std::endl;
-
-        std::cout << "l_{points}=\\left[";
-        for (auto& point : trajectory.points) {
-            std::cout << "\\left(" << point.point.x.convert(in) << ","
-                      << point.point.y.convert(in) << "\\right),";
-        }
-        std::cout << "\\right]" << std::endl;
-
-        std::cout << "l_{headings}=\\left[";
-        for (auto& point : trajectory.points) {
-            std::cout << point.heading.internal() << ",";
-        }
-        std::cout << "\\right]" << std::endl;
-    }
-
-    // mb.moveTo(20, 20).velocity_based(true) | run;
-    // mb.turnTo(20, 20).velocity_based(true) | run;
-    // mb.boomerang(20, 20, 0).velocity_based(true) | run;
-    // mb.arc(20, 20, 1_in).velocity_based(true) | run;
-
-    // arc_pose_tracker.setPose({ -23.6_in, -23.6_in, 270_stDeg });
-    // std::cout << "what!" << std::endl;
-    // stanley_test();
-    // std::cout << "finished motion!" << std::endl;
-    // drivetrain.moveTank(0_volt, 0_volt);
+    // Length distance = 10_in;
+    // LinearVelocity start_vel = 0_inps;
+    // LinearVelocity end_vel = 0_inps;
+    //
+    // lyfast::geometry::Point start { 0_in, 0_in };
+    // lyfast::geometry::Point end { distance, 0_in };
+    //
+    // lyfast::geometry::Line line(start, end);
+    //
+    // Length track_width = 10.5_in;
+    // float coeff_friction = 0.9;
+    // Length wheel_diameter = 3.25_in;
+    // AngularVelocity final_rpm = 450_rpm;
+    // Mass robot_mass = 14.8_lb;
+    // float motor_count = 6.0;
+    //
+    // LinearVelocity max_vel = 70_inps;
+    // LinearAcceleration max_accel = 10000_inps2;
+    // LinearAcceleration max_decel = 10000_inps2;
+    //
+    // lyfast::mp::RobotConstraints robot_constraints(track_width,
+    //                                                coeff_friction,
+    //                                                wheel_diameter,
+    //                                                final_rpm,
+    //                                                robot_mass,
+    //                                                motor_count);
+    // lyfast::mp::LinearConstraints linear_constraints(max_vel,
+    //                                                  max_accel,
+    //                                                  max_decel);
+    // lyfast::mp::AngularConstraints angular_constraints {
+    //     AngularVelocity(20_radps),
+    //     FAngularAcceleration(200_radps2),
+    //     AngularAcceleration(200_radps2)
+    // };
+    //
+    // lyfast::mp::Constraints constraints(robot_constraints,
+    //                                     linear_constraints,
+    //                                     angular_constraints);
+    //
+    // lyfast::mp::Trajectory trajectory(&line,
+    //                                   constraints,
+    //                                   {},
+    //                                   start_vel,
+    //                                   end_vel,
+    //                                   0.1_in);
+    //
+    // auto print =
+    //   []<typename T>(std::string name, std::vector<T>& list, T target_units)
+    //   {
+    //       std::cout << name << "=\\left[";
+    //       for (size_t i = 0; i < list.size(); i++) {
+    //           if (i != 0) std::cout << ",";
+    //           std::cout << list[i].convert(target_units);
+    //       }
+    //       std::cout << "\\right]" << std::endl;
+    //   };
+    //
+    // bool printing = true;
+    // if (printing) {
+    //     print("a_{kin}", trajectory.max_kin_accel_debug, Finps2);
+    //     print("a_{turn}", trajectory.max_turn_accel_debug, Finps2);
+    //     print("d_{kin}", trajectory.max_kin_decel_debug, Finps2);
+    //     print("d_{turn}", trajectory.max_turn_decel_debug, Finps2);
+    //     //
+    //     print("v_{kin}", trajectory.max_kin_vel_debug, Finps);
+    //     print("v_{turn}", trajectory.max_turn_vel_debug, Finps);
+    //     print("v_{friction}", trajectory.max_friction_vel_debug, Finps);
+    //
+    //     print("v_{forward}", trajectory.forwards_pass_debug, Finps);
+    //     print("v_{backward}", trajectory.backwards_pass_debug, Finps);
+    //
+    //     print("v_{final}", trajectory.final_vels_debug, Finps);
+    //
+    //     std::cout << "l_{times}=\\left[";
+    //     for (auto& point : trajectory.points) {
+    //         std::cout << point.travel_time.convert(sec) << ",";
+    //     }
+    //     std::cout << "\\right]" << std::endl;
+    //
+    //     std::cout << "l_{points}=\\left[";
+    //     for (auto& point : trajectory.points) {
+    //         std::cout << "\\left(" << point.point.x.convert(in) << ","
+    //                   << point.point.y.convert(in) << "\\right),";
+    //     }
+    //     std::cout << "\\right]" << std::endl;
+    //
+    //     std::cout << "l_{headings}=\\left[";
+    //     for (auto& point : trajectory.points) {
+    //         std::cout << point.heading.internal() << ",";
+    //     }
+    //     std::cout << "\\right]" << std::endl;
+    // }
+    //
+    // // mb.moveTo(20, 20).velocity_based(true) | run;
+    // // mb.turnTo(20, 20).velocity_based(true) | run;
+    // // mb.boomerang(20, 20, 0).velocity_based(true) | run;
+    // // mb.arc(20, 20, 1_in).velocity_based(true) | run;
+    //
+    // // arc_pose_tracker.setPose({ -23.6_in, -23.6_in, 270_stDeg });
+    // // std::cout << "what!" << std::endl;
+    // // stanley_test();
+    // // std::cout << "finished motion!" << std::endl;
+    // // drivetrain.moveTank(0_volt, 0_volt);
 }
