@@ -6,7 +6,7 @@
 #include "lyfast/api.hpp"
 #include "lyfast/geometry/line.hpp"
 #include "lyfast/geometry/primitives.hpp"
-#include "lyfast/lqr.hpp"
+#include "lyfast/ltv_unicycle_controller.hpp"
 #include "lyfast/motion_profiling/constraints.hpp"
 #include "lyfast/motion_profiling/mp.hpp"
 #include "lyfast/motion_profiling/simple_mp.hpp"
@@ -21,6 +21,7 @@
 #include "units/units.hpp"
 #include <cmath>
 #include <iostream>
+#include <limits>
 #include <mutex>
 #include <numeric>
 #include <utility>
@@ -931,16 +932,62 @@ void simple_mp_test() {
 }
 
 void opcontrol() {
-    auto thing = blazing::lyfast::lqr::doStuff();
-    std::cout << "thing returned " << thing.left_vel << std::endl;
+    blazing::lyfast::state_space::LTVUnicycleController lqr_controller;
+
+	// TODO: how to actually tune these?
+    lqr_controller.setQMatrix(
+      { // max forwards of 10 inches?
+        (10_in).internal(),
+        // max crosstrack of 6 inches?
+        (6_in).internal(),
+        // maximum is 180, go a bit higher to prevent possible wrapping issues?
+        (190_stDeg).internal() });
+
+    FLength track_radius = track_width * 0.5;
+
+    FLinearVelocity max_velocity = 76_Finps;
+    // w = v / r
+    FAngularVelocity max_angular_velocity = (max_velocity / track_radius) * Frad;
+
+    lqr_controller.setRMatrix({ // max velocity
+                                max_velocity.internal(),
+                                // max angular velocity
+                                max_angular_velocity.internal() });
+
+    // assume robot is at 0,0
+    lqr_controller.setState({
+      .pose = { 0_in, 0_in, 0_stDeg },
+      .linear_velocity = 0_inps,
+      .angular_velocity = 0_radps,
+    });
+
+    // want to reach (10, 10) with angle of 10 degrees and with some velocity
+    lqr_controller.setReference({
+      // .pose = { 10_in, 10_in, 45_stDeg },
+      .pose = { 1_in, 1_in, 10_stDeg },
+      .linear_velocity = 10_inps,
+      .angular_velocity = 1_radps,
+    });
+
+    lqr_controller.update();
+
+    auto result = lqr_controller.getInput();
+
+    if (result.has_value()) {
+        std::cout << "lqr returned: " << result->linear_velocity.convert(inps) << "_inps "
+                  << result->angular_velocity << std::endl;
+    } else {
+        std::cout << "LQR encountered an error" << std::endl;
+    }
 
     // pros::delay(2000);
-    linear_ka_kp_ki_tuner();
-    // create_accel_data({ 0.5_volt, 0.5_volt, 2_sec }, "Linear");
-    // //
-    // return;
-
+    // linear_ka_kp_ki_tuner();
+    // // create_accel_data({ 0.5_volt, 0.5_volt, 2_sec }, "Linear");
+    // // //
+    // // return;
+    //
     // manual_mp_test();
+    // stanley_test();
 
     // Length distance = 10_in;
     // LinearVelocity start_vel = 0_inps;

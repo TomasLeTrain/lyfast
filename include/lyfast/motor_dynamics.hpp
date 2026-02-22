@@ -2,6 +2,9 @@
 
 #include "units/units.hpp"
 
+namespace blazing {
+namespace lyfast {
+
 // pct should be speed / max_speed
 // outputs torque from motor for a specific velocity
 inline FTorque motor_torque(float pct) {
@@ -11,3 +14,6 @@ inline FTorque motor_torque(float pct) {
 
     return -1.62902591131_FNm * pct + 1.85125762613_FNm;
 }
+
+} // namespace lyfast
+} // namespace blazing
