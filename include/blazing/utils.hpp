@@ -21,9 +21,19 @@ struct LeftRightVoltages {
     Voltage right_voltage;
 };
 
+struct FLeftRightVoltages {
+    FVoltage left_voltage;
+    FVoltage right_voltage;
+};
+
 struct LeftRightSpeeds {
     LinearVelocity left_vel;
     LinearVelocity right_vel;
+};
+
+struct FLeftRightSpeeds {
+    FLinearVelocity left_vel;
+    FLinearVelocity right_vel;
 };
 
 struct DifferentialSpeeds {
@@ -31,9 +41,19 @@ struct DifferentialSpeeds {
     AngularVelocity angular_velocity;
 };
 
+struct FDifferentialSpeeds {
+    FLinearVelocity linear_velocity;
+    FAngularVelocity angular_velocity;
+};
+
 struct DifferentialVoltages {
     Voltage linear_voltage;
     Voltage angular_voltage;
+};
+
+struct FDifferentialVoltages {
+    FVoltage linear_voltage;
+    FVoltage angular_voltage;
 };
 
 // returns time since program started
@@ -78,12 +98,12 @@ Number signed_sgn(Q num) {
 // scales all values of saturated such that max(desaturated) <= max
 template<isQuantity T, size_t size>
 std::array<T, size> desaturate(std::array<T, size> saturated, T max) {
-
     auto abs_compare = [](T a, T b) {
         return units::abs(a) < units::abs(b);
     };
 
-    T largest_magnitude = *std::ranges::max_element(saturated, abs_compare);
+    T largest_magnitude =
+      units::abs(*std::ranges::max_element(saturated, abs_compare));
     Number multiplier = max / largest_magnitude;
 
     if (largest_magnitude > max) {
@@ -94,7 +114,6 @@ std::array<T, size> desaturate(std::array<T, size> saturated, T max) {
                            return num * multiplier;
                        });
     };
-
     return saturated;
 }
 

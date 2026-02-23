@@ -32,10 +32,12 @@ class PID {
     KD_t<Input, Output> m_kd;
 
     std::optional<Input> m_windupRange;
-
     std::optional<Output> m_maxOutput;
+    std::optional<double> m_derivative_alpha;
 
     std::optional<Input> previousError;
+    std::optional<Input> previousMeasurement;
+    std::optional<Divided<Input, Time>> last_applied_derivative;
     Multiplied<Input, Time> integral = Multiplied<Input, Time>(0);
 
     std::optional<Time> previousTime = std::nullopt;
@@ -45,18 +47,21 @@ class PID {
         KI_t<Input, Output> ki,
         KD_t<Input, Output> kd,
         std::optional<Input> windupRange = std::nullopt,
-        std::optional<Output> maxVoltage = std::nullopt)
+        std::optional<Output> maxVoltage = std::nullopt,
+        std::optional<double> derivative_alpha = std::nullopt)
         : m_kp(kp),
           m_ki(ki),
           m_kd(kd),
           m_windupRange(windupRange),
-          m_maxOutput(maxVoltage) {}
+          m_maxOutput(maxVoltage),
+          m_derivative_alpha(derivative_alpha) {}
 
     PID(double kp,
         double ki,
         double kd,
         std::optional<double> windupRange = std::nullopt,
         std::optional<double> maxVoltage = std::nullopt,
+        std::optional<double> derivative_alpha = std::nullopt,
         Time timeUnits = 1_sec,
         Input inputUnits = Input(1),
         Output outputUnits = Output(1))
@@ -76,7 +81,8 @@ class PID {
           m_maxOutput(
             maxVoltage.transform([outputUnits](double maxVoltage) -> Output {
                 return maxVoltage * outputUnits;
-            })) {}
+            })),
+          m_derivative_alpha(derivative_alpha) {}
 
     // motions don't call this since they always copy the object,
     // however any other usage does need to call it
@@ -89,38 +95,87 @@ class PID {
         Input error = target - measurement;
 
         if (!previousError) previousError = error;
+        if (!previousMeasurement) previousMeasurement = measurement;
 
-        const Divided<Input, Time> derivative =
-          (dt != 0_sec) ? (error - *previousError) / dt :
+        // const Divided<Input, Time> curr_derivative =
+        //   (dt != 0_sec) ? (error - *previousError) / dt :
+        //                   Divided<Input, Time>(0);
+
+        // TODO: test that moveto's don't break because of this
+        const Divided<Input, Time> curr_derivative =
+          (dt != 0_sec) ? (*previousMeasurement - measurement) / dt :
                           Divided<Input, Time>(0);
+
+        Divided<Input, Time> applied_derivative = curr_derivative;
+
+        if (m_derivative_alpha && last_applied_derivative) {
+            // use low pass filter if wanted
+            applied_derivative =
+              curr_derivative * m_derivative_alpha.value() +
+              *last_applied_derivative * (1 - m_derivative_alpha.value());
+        }
+        last_applied_derivative = applied_derivative;
+
+        auto current_integral = integral;
 
         if (previousError)
             // use trapezoidal approximation if previous is available
-            integral += (error + *previousError) * dt * 0.5;
+            current_integral += (error + *previousError) * dt * 0.5;
         else
             // use Riemann sum approximation
-            integral += error * dt;
+            current_integral += error * dt;
+
+        // sign flip reset. If the sign of error changes, set the integral
+        // to 0
+        if (units::sgn(error) != units::sgn(*previousError)) {
+            current_integral = Multiplied<Input, Time>(0);
+            current_integral += error * dt;
+
+            // update integral regardless of saturation
+            integral = current_integral;
+        }
 
         previousError = error;
+        previousMeasurement = measurement;
 
-        // sign flip reset. If the sign of error changes, set the integral to 0
-        if (units::sgn(error) != units::sgn(*previousError))
-            integral = Multiplied<Input, Time>(0);
-
-        // anti windup range. Unless error is small enough, set the integral to
+        // anti windup range. Unless error is small enough, set the integral
+        // to
         // 0
-        if (m_windupRange
-              .transform([error](Input windupRange) {
-                  return units::abs(error) > windupRange;
-              })
-              .value_or(false))
-            integral = Multiplied<Input, Time>(0);
+        bool within_antiwindup_range =
+          m_windupRange
+            .transform([error](Input windupRange) {
+                return units::abs(error) <= windupRange;
+            })
+            .value_or(true);
 
-        Output result = error * m_kp + integral * m_ki + derivative * m_kd;
-
-        if (m_maxOutput) {
-            result = units::clamp(result, -(*m_maxOutput), *m_maxOutput);
+        // outside of windup range should be zero
+        if (!within_antiwindup_range) {
+            current_integral = Multiplied<Input, Time>(0);
+            // update integral regardless of saturation
+            integral = current_integral;
         }
+
+        Output result =
+          error * m_kp + current_integral * m_ki + applied_derivative * m_kd;
+
+        if (
+          // only apply saturation control if within windup range
+          within_antiwindup_range &&
+          // and max output defined
+          m_maxOutput &&
+          // and is saturating
+          units::abs(result) >= *m_maxOutput &&
+          // and saturation would be adding windup
+          units::sgn(error) == units::sgn(result)) {
+            // all conditions for saturation were met, don't update integral
+        } else {
+            // not saturating, update integral
+            integral = current_integral;
+        }
+
+        // clamp result
+        if (m_maxOutput)
+            result = units::clamp(result, -(*m_maxOutput), *m_maxOutput);
 
         return result;
     }
@@ -190,6 +245,10 @@ class PID {
           [outputUnits = this->m_outputUnits](auto maxOutput) -> Output {
               return maxOutput * outputUnits;
           });
+    }
+
+    void set_derivativeAlpha(std::optional<double> derivative_alpha) {
+        m_derivative_alpha = derivative_alpha;
     }
 };
 } // namespace blazing

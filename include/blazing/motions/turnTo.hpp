@@ -53,12 +53,20 @@ class turnToBase : public Motion<ControllersType,
     std::optional<TurnToState> m_state;
 
     Length m_radius = 0.0_in;
+    std::optional<LinearVelocity> constant_velocity;
 
     bool m_velocity_based = false;
 
   public:
     int getLoopDelayTime() override {
-        return 10;
+        // return 10;
+        if (m_velocity_based) {
+            // useful to make derivative not super bad
+            return 20;
+        } else {
+            // TODO: should probably also switch this one out?
+            return 10;
+        }
     }
 
     std::optional<motionExecutionResult> execute() override {
@@ -84,7 +92,7 @@ class turnToBase : public Motion<ControllersType,
             return reversed ? reverseAngle(heading) : heading;
         }();
 
-        // defalts to std::nullopt if tracker does not implements getPosition
+        // defaults to std::nullopt if tracker does not implements getPosition
         const std::optional<units::V2Position> position = [this] {
             if constexpr (positionTracker<TrackerType>)
                 return this->tracker.getPosition();
@@ -108,13 +116,24 @@ class turnToBase : public Motion<ControllersType,
             const Angle directionless_error =
               angleError(target_heading, heading);
 
-            const Angle directed_error =
+            Angle directed_error =
               angleError(target_heading, heading, m_direction);
+
+            // if motion has direction then:
+            // state.prev_directed_error ~ 3_deg
+            // directed_error ~ 360_deg
+            //
+            // state.prev_directionless_error ~ 3_deg
+            // state.prev_directionless_error ~ -3_deg
+            //
+            // sign change of directionless error can signal settling, but only
+            // if directed error is closer to zero (the prev error at least)
 
             // check for sign change in directionless error, if so then settling
             if (state.prev_directionless_error && state.prev_directed_error &&
-                // if this is not true it might cross signs on the opposite side
-                units::abs(*state.prev_directed_error) < 180_stDeg &&
+                // highly unlikely it can cross signs and also be greater than
+                // 160
+                units::abs(*state.prev_directed_error) < 160_stDeg &&
                 units::sgn(directionless_error) !=
                   units::sgn(*state.prev_directionless_error)) {
                 state.settling = true;
@@ -122,6 +141,15 @@ class turnToBase : public Motion<ControllersType,
 
             state.prev_directionless_error = directionless_error;
             state.prev_directed_error = directed_error;
+
+            // avoid oscilations when close to 180 error
+            if (!state.settling && !m_direction.has_value() &&
+                units::abs(directed_error) > 175_stDeg) {
+                // prefer going positive direction
+                if (directed_error < 0_stDeg) {
+                    directed_error += rot;
+                }
+            }
 
             return state.settling ? directionless_error : directed_error;
         }();
@@ -151,11 +179,13 @@ class turnToBase : public Motion<ControllersType,
         }
 
         // when chaining we would like to chain immediately
-        result.inChainTolerance = result.inChainTolerance
-                                    .transform([&](auto tolerance) {
-                                        return tolerance | state.settling;
-                                    })
-                                    .value_or(false);
+        result.inChainTolerance =
+          result.inChainTolerance
+            .transform([&](auto tolerance) {
+                return tolerance | state.settling;
+            })
+            // no in chain tolerance, could still trigger with settling
+            .value_or(state.settling);
 
         result.finished = state.settled;
 
@@ -185,30 +215,38 @@ class turnToBase : public Motion<ControllersType,
                     0_stRad,
                     delta_time);
 
-                LinearVelocity linear_vel =
-                  units::abs(angular_vel) * m_radius / rad;
-
-                if constexpr (hasLinearVelocityClamp<ControllersType>) {
-                    linear_vel =
-                      this->controllers.linear_velocity_clamp.apply(linear_vel);
-                }
                 if constexpr (hasAngularVelocityClamp<ControllersType>) {
                     angular_vel =
                       this->controllers.angular_velocity_clamp.apply(
                         angular_vel);
                 }
 
-                // apply slew
-                if constexpr (hasLinearVelocitySlew<ControllersType>) {
-                    linear_vel =
-                      this->controllers.linear_velocity_slew.apply(linear_vel,
-                                                                   delta_time);
-                }
                 if constexpr (hasAngularVelocitySlew<ControllersType>) {
                     angular_vel =
                       this->controllers.angular_velocity_slew.apply(angular_vel,
                                                                     delta_time);
                 }
+
+                // calculates linear based on the capped angular to keep ratio
+
+                LinearVelocity linear_vel = 0_inps;
+                if (constant_velocity.has_value()) {
+                    linear_vel = constant_velocity.value();
+                } else {
+                    linear_vel = units::abs(angular_vel) * m_radius / rad;
+                }
+
+                // if constexpr (hasLinearVelocityClamp<ControllersType>) {
+                //     linear_vel =
+                //       this->controllers.linear_velocity_clamp.apply(linear_vel);
+                // }
+                //
+                // // apply slew
+                // if constexpr (hasLinearVelocitySlew<ControllersType>) {
+                //     linear_vel =
+                //       this->controllers.linear_velocity_slew.apply(linear_vel,
+                //                                                    delta_time);
+                // }
 
                 DifferentialSpeeds target { linear_vel, angular_vel };
 
@@ -218,6 +256,29 @@ class turnToBase : public Motion<ControllersType,
                                                                 delta_time);
 
                 // TODO: apply voltage clamp/slew? probably not
+
+                auto [left_vel, right_vel] =
+                  this->drivetrain.getDrivetrainVelocities();
+                auto [actual_volt_left, actual_volt_right] =
+                  this->drivetrain.getDrivetrainVoltages();
+                //
+
+                // std::cout << std::fixed;
+                // std::cout << std::setprecision(5);
+                //
+                // std::cout << "dist/lin/ang/drive_left/drive_right/tv_l/tv_r/"
+                //              "av_l/av_r/x/y/theta/t_err: "
+                //           << angular_error.internal() << " "
+                //           << target.linear_velocity.internal() << " "
+                //           << target.angular_velocity.internal() << " "
+                //           << left_vel.internal() << " " <<
+                //           right_vel.internal()
+                //           << " " << left_voltage.internal() << " "
+                //           << right_voltage.internal() << " "
+                //           << actual_volt_left.internal() << " "
+                //           << actual_volt_right.internal() << " " << 0 << " "
+                //           << 0 << " " << heading.convert(deg) << " "
+                //           << angular_error.internal() << std::endl;
 
                 this->drivetrain.moveTank(left_voltage, right_voltage);
 
@@ -312,6 +373,12 @@ class turnToBase : public Motion<ControllersType,
 
     motionChanger radius(Length radius) {
         this->m_radius = radius;
+        return DerivedReturnType;
+    }
+
+    motionChanger constantVelocity(std::optional<LinearVelocity> vel) {
+        this->constant_velocity = vel;
+
         return DerivedReturnType;
     }
 

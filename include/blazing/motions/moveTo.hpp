@@ -52,13 +52,16 @@ class moveTo
     // moveTo-specific properties
     std::optional<Time> m_timeout = std::nullopt;
     bool reversed = false;
-    Length close_threshold = 4_in;
+    Length close_threshold = 7_in;
     std::optional<Voltage> max_overturn_output = std::nullopt;
 
     std::optional<Divided<Angle, Length>> m_k_lat = std::nullopt;
 
     bool m_only_x = false;
     bool m_only_y = false;
+
+    std::optional<Length> m_custom_x_settling = std::nullopt;
+    std::optional<Length> m_custom_y_settling = std::nullopt;
 
     bool m_velocity_based = false;
 
@@ -72,15 +75,23 @@ class moveTo
 
   public:
     int getLoopDelayTime() override {
-        return 10;
+        if (m_velocity_based) {
+            // useful to make derivative not super bad
+            return 20;
+        } else {
+            // TODO: should probably also switch this one out?
+            return 10;
+        }
     }
 
     std::optional<motionExecutionResult> execute() override {
         if (!m_state.has_value()) {
-            m_state = { .close = false,
-                        .last_time = now(),
-                        .start_time = now(),
-                        .locked_heading = std::nullopt };
+            m_state = {
+                .close = false,
+                .last_time = now(),
+                .start_time = now(),
+                .locked_heading = std::nullopt,
+            };
             // done to prevent values like delta_time being 0
             return std::nullopt;
         }
@@ -103,16 +114,33 @@ class moveTo
                               // or a function returning a point
                               std::get<point_func_t>(target)();
 
+        // components of local error vector
+        auto [forward_error, crosstrack_error] =
+          (target_point - position).rotatedBy(-heading);
+
         Length linear_error = [&] -> Length {
             double reverse_multiplier = reversed ? -1.0 : 1.0;
 
-            if (m_only_x) {
-                return units::abs(target_point.x - position.x) *
-                       reverse_multiplier;
+            // only go for x when settling
+            if (m_only_x && state.close) {
+                Length target_x = target_point.x;
+                if (m_custom_x_settling.has_value())
+                    target_x = *m_custom_x_settling;
+
+                return units::abs(target_x - position.x) * reverse_multiplier;
             }
-            if (m_only_y) {
-                return units::abs(target_point.y - position.y) *
-                       reverse_multiplier;
+            // only go for x when settling
+            if (m_only_y && state.close) {
+                Length target_y = target_point.y;
+                if (m_custom_y_settling.has_value())
+                    target_y = *m_custom_y_settling;
+
+                return units::abs(target_y - position.y) * reverse_multiplier;
+            }
+
+            // use forward error when settling
+            if (state.close) {
+                return units::abs(forward_error) * reverse_multiplier;
             }
 
             // none active, error like normal
@@ -145,6 +173,7 @@ class moveTo
         linear_error *= signed_sgn(lin_multiplier);
 
         this->tolerances.linearErrorToleranceUpdate(linear_error);
+
         this->tolerances.linearVelocityToleranceUpdate(
           this->tracker.getLinearVelocity());
         // TODO: does half circle exit make sense here?
@@ -201,17 +230,9 @@ class moveTo
                     0_stRad,
                     delta_time);
 
-                if (m_k_lat) {
-                    angular_vel =
-                      angular_vel +
-                      *m_k_lat * (rad / m) * linear_vel *
-                        (target_point - position).rotatedBy(-heading).y *
-                        sinc(angular_error);
-                }
-
                 // sign was already applied to error, only applies cosine
                 // scaling component
-                linear_vel *= units::abs(lin_multiplier);
+                if (!state.close) linear_vel *= units::abs(lin_multiplier);
 
                 // here the robot would attempt to move backwards, when instead
                 // the robot should turn around until it should start moving
@@ -232,16 +253,20 @@ class moveTo
                         angular_vel);
                 }
 
-                // apply slew
-                if constexpr (hasLinearVelocitySlew<ControllersType>) {
-                    linear_vel =
-                      this->controllers.linear_velocity_slew.apply(linear_vel,
-                                                                   delta_time);
-                }
-                if constexpr (hasAngularVelocitySlew<ControllersType>) {
-                    angular_vel =
-                      this->controllers.angular_velocity_slew.apply(angular_vel,
-                                                                    delta_time);
+                // don't apply slew when settling
+                if (!state.close) {
+                    if constexpr (hasLinearVelocitySlew<ControllersType>) {
+                        linear_vel =
+                          this->controllers.linear_velocity_slew.apply(
+                            linear_vel,
+                            delta_time);
+                    }
+                    if constexpr (hasAngularVelocitySlew<ControllersType>) {
+                        angular_vel =
+                          this->controllers.angular_velocity_slew.apply(
+                            angular_vel,
+                            delta_time);
+                    }
                 }
 
                 DifferentialSpeeds target { linear_vel, angular_vel };
@@ -252,6 +277,30 @@ class moveTo
                                                                 delta_time);
 
                 // TODO: apply voltage clamp/slew? probably not
+
+                auto [left_vel, right_vel] =
+                  this->drivetrain.getDrivetrainVelocities();
+                auto [actual_volt_left, actual_volt_right] =
+                  this->drivetrain.getDrivetrainVoltages();
+
+                // std::cout << std::fixed;
+                // std::cout << std::setprecision(5);
+                //
+                // std::cout << "dist/lin/ang/drive_left/drive_right/tv_l/tv_r/"
+                //              "av_l/av_r/x/y/theta/t_err: "
+                //           << linear_error.internal() << " "
+                //           << target.linear_velocity.internal() << " "
+                //           << target.angular_velocity.internal() << " "
+                //           << left_vel.internal() << " " <<
+                //           right_vel.internal()
+                //           << " " << left_voltage.internal() << " "
+                //           << right_voltage.internal() << " "
+                //           << actual_volt_left.internal() << " "
+                //           << actual_volt_right.internal() << " "
+                //           << position.x.convert(in) << " "
+                //           << position.y.convert(in) << " "
+                //           << projected_cte_error.convert(in) << " "
+                //           << angular_error.internal() << std::endl;
 
                 this->drivetrain.moveTank(left_voltage, right_voltage);
 
@@ -435,14 +484,20 @@ class moveTo
         return *this;
     }
 
-    motionChangerMsg moveTo& only_x(bool only_x) {
+    motionChangerMsg moveTo&
+    only_x(bool only_x,
+           std::optional<Length> custom_x_settling = std::nullopt) {
         this->m_only_x = only_x;
+        this->m_custom_x_settling = custom_x_settling;
 
         return *this;
     }
 
-    motionChangerMsg moveTo& only_y(bool only_y) {
+    motionChangerMsg moveTo&
+    only_y(bool only_y,
+           std::optional<Length> custom_y_settling = std::nullopt) {
         this->m_only_y = only_y;
+        this->m_custom_y_settling = custom_y_settling;
 
         return *this;
     }

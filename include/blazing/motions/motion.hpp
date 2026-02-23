@@ -227,6 +227,18 @@ class Motion : public MotionBase {
         return DerivedReturnType;
     }
 
+    // required to be the same type as original controller
+    motionChangerT withVelocityFeedforwardController(T new_controllers) {
+        this->controllers.set_velocity_feedforward(new_controllers);
+        return DerivedReturnType;
+    }
+
+    // required to be the same type as original controller
+    motionChangerT withVelocityFeedbackController(T new_controllers) {
+        this->controllers.set_velocity_feedfback(new_controllers);
+        return DerivedReturnType;
+    }
+
     void start_motion_callback() override {
         // before motion should be blocking - prereq to the motion executing
 
@@ -668,14 +680,14 @@ class LinearMotion {
         return DerivedReturnType;
     }
 
-    motionChangerT drive_vel_PIDmaxVolt(T maxVoltage) {
+    motionChangerT drive_vel_PIDmaxVel(T maxVoltage) {
         ThisDerived->controllers.linear_velocity_feedback.set_maxOutput(
           maxVoltage);
         return DerivedReturnType;
     }
 
     // linear Velocity constraints
-    motionChangerTU drive_vel_minMaxVolt(T minVelocity, U maxVelocity)
+    motionChangerTU drive_vel_minMaxVel(T minVelocity, U maxVelocity)
         requires std::derived_from<typename Derived::controllersType,
                                    LinearVelocityClampController>
     {
@@ -684,7 +696,7 @@ class LinearMotion {
         return DerivedReturnType;
     }
 
-    motionChangerT drive_vel_minVolt(T minVelocity)
+    motionChangerT drive_vel_minVel(T minVelocity)
         requires std::derived_from<typename Derived::controllersType,
                                    LinearVelocityClampController>
     {
@@ -692,7 +704,7 @@ class LinearMotion {
         return DerivedReturnType;
     }
 
-    motionChangerT drive_vel_maxVolt(T maxVelocity)
+    motionChangerT drive_vel_maxVel(T maxVelocity)
         requires std::derived_from<typename Derived::controllersType,
                                    LinearVelocityClampController>
     {
@@ -735,6 +747,17 @@ class LinearMotion {
         requires hasLinearVelocitySlew<typename Derived::controllersType>
     {
         ThisDerived->controllers.linear_velocity_slew.set_decel(decelSlew);
+        return DerivedReturnType;
+    }
+
+    motionChangerT drive_vel_mp_maxVel(T max_vel) {
+        ThisDerived->controllers.linear_velocity_feedback.setMaxVel(max_vel);
+        return DerivedReturnType;
+    }
+
+    motionChangerT drive_vel_mp_setMaxAccel(T max_accel) {
+        ThisDerived->controllers.linear_velocity_feedback.setMaxAccel(
+          max_accel);
         return DerivedReturnType;
     }
 };

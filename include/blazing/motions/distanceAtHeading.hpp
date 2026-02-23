@@ -230,16 +230,20 @@ class distanceAtHeading
                         angular_vel);
                 }
 
-                // apply slew
-                if constexpr (hasLinearVelocitySlew<ControllersType>) {
-                    linear_vel =
-                      this->controllers.linear_velocity_slew.apply(linear_vel,
-                                                                   delta_time);
-                }
-                if constexpr (hasAngularVelocitySlew<ControllersType>) {
-                    angular_vel =
-                      this->controllers.angular_velocity_slew.apply(angular_vel,
-                                                                    delta_time);
+                // don't apply slew when settling
+                if (!state.settling) {
+                    if constexpr (hasLinearVelocitySlew<ControllersType>) {
+                        linear_vel =
+                          this->controllers.linear_velocity_slew.apply(
+                            linear_vel,
+                            delta_time);
+                    }
+                    if constexpr (hasAngularVelocitySlew<ControllersType>) {
+                        angular_vel =
+                          this->controllers.angular_velocity_slew.apply(
+                            angular_vel,
+                            delta_time);
+                    }
                 }
 
                 DifferentialSpeeds target { linear_vel, angular_vel };
@@ -250,6 +254,30 @@ class distanceAtHeading
                                                                 delta_time);
 
                 // TODO: apply voltage clamp/slew? probably not
+
+                auto [left_vel, right_vel] =
+                  this->drivetrain.getDrivetrainVelocities();
+                auto [actual_volt_left, actual_volt_right] =
+                  this->drivetrain.getDrivetrainVoltages();
+
+                // std::cout << std::fixed;
+                // std::cout << std::setprecision(5);
+                //
+                // std::cout << "dist/lin/ang/drive_left/drive_right/tv_l/tv_r/"
+                //              "av_l/av_r/x/y/theta/t_err: "
+                //           << linear_error.internal() << " "
+                //           << target.linear_velocity.internal() << " "
+                //           << target.angular_velocity.internal() << " "
+                //           << left_vel.internal() << " " <<
+                //           right_vel.internal()
+                //           << " " << left_voltage.internal() << " "
+                //           << right_voltage.internal() << " "
+                //           << actual_volt_left.internal() << " "
+                //           << actual_volt_right.internal() << " "
+                //           << position.x.convert(in) << " "
+                //           << position.y.convert(in) << " "
+                //           << projected_cte_error.convert(in) << " "
+                //           << angular_error.internal() << std::endl;
 
                 this->drivetrain.moveTank(left_voltage, right_voltage);
 

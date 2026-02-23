@@ -84,7 +84,13 @@ class boomerang : public Motion<ControllersType,
 
   public:
     int getLoopDelayTime() override {
-        return 10;
+        if (m_velocity_based) {
+            // useful to make derivative not super bad
+            return 20;
+        } else {
+            // TODO: should probably also switch this one out?
+            return 10;
+        }
     }
 
     std::optional<motionExecutionResult> execute() override {
@@ -124,13 +130,6 @@ class boomerang : public Motion<ControllersType,
         const Angle target_orientation = target_pose.orientation;
 
         const Length pose_target_distance = position.distanceTo(target_pose);
-
-        // when close gets activated it switches to move to point behavior
-
-        if (units::abs(pose_target_distance) < close_threshold &&
-            !state.close) {
-            state.close = true;
-        }
 
         const units::V2Position carrot = [&] -> units::V2Position {
             if (state.close) return target_pose;
@@ -195,13 +194,33 @@ class boomerang : public Motion<ControllersType,
             }
         }();
 
+        // components of local error vector
+        auto [forward_error, crosstrack_error] =
+          (carrot - position).rotatedBy(-heading);
+
+        // Length linear_error =
+        //   position.distanceTo(carrot) * (reversed ? -1.0 : 1.0);
+        Length linear_error = [&] -> Length {
+            double reverse_multiplier = reversed ? -1.0 : 1.0;
+
+            // use forward error when settling
+            if (state.close) {
+                return units::abs(forward_error) * reverse_multiplier;
+            }
+
+            // none active, error like normal
+            return position.distanceTo(carrot) * reverse_multiplier;
+        }();
+
+        // when close gets activated it switches to move to point behavior
+        if (units::abs(linear_error) < close_threshold && !state.close) {
+            state.close = true;
+        }
+
         Angle position_carrot_heading = position.angleTo(carrot);
 
         const Angle target_heading =
           state.close ? target_orientation : position_carrot_heading;
-
-        Length linear_error =
-          position.distanceTo(carrot) * (reversed ? -1.0 : 1.0);
 
         Angle angular_error = angleError(target_heading, heading);
 
@@ -274,19 +293,9 @@ class boomerang : public Motion<ControllersType,
                     0_stRad,
                     delta_time);
 
-                if (m_k_lat &&
-                    (!k_lat_only_settling ||
-                     (k_lat_only_settling && state.crossed_sideways))) {
-                    angular_vel =
-                      angular_vel +
-                      *m_k_lat * (rad / m) * linear_vel *
-                        (target_pose - position).rotatedBy(-heading).y *
-                        sinc(angular_error);
-                }
-
                 // sign was already applied to error, only applies cosine
                 // scaling component
-                linear_vel *= units::abs(lin_multiplier);
+                if (!state.close) linear_vel *= units::abs(lin_multiplier);
 
                 // here the robot would attempt to move backwards, when instead
                 // the robot should turn around until it should start moving
@@ -307,16 +316,20 @@ class boomerang : public Motion<ControllersType,
                         angular_vel);
                 }
 
-                // apply slew
-                if constexpr (hasLinearVelocitySlew<ControllersType>) {
-                    linear_vel =
-                      this->controllers.linear_velocity_slew.apply(linear_vel,
-                                                                   delta_time);
-                }
-                if constexpr (hasAngularVelocitySlew<ControllersType>) {
-                    angular_vel =
-                      this->controllers.angular_velocity_slew.apply(angular_vel,
-                                                                    delta_time);
+                // don't apply slew when settling
+                if (!state.close) {
+                    if constexpr (hasLinearVelocitySlew<ControllersType>) {
+                        linear_vel =
+                          this->controllers.linear_velocity_slew.apply(
+                            linear_vel,
+                            delta_time);
+                    }
+                    if constexpr (hasAngularVelocitySlew<ControllersType>) {
+                        angular_vel =
+                          this->controllers.angular_velocity_slew.apply(
+                            angular_vel,
+                            delta_time);
+                    }
                 }
 
                 DifferentialSpeeds target { linear_vel, angular_vel };
@@ -328,13 +341,38 @@ class boomerang : public Motion<ControllersType,
 
                 // TODO: apply voltage clamp/slew? probably not
 
+                auto [left_vel, right_vel] =
+                  this->drivetrain.getDrivetrainVelocities();
+                auto [actual_volt_left, actual_volt_right] =
+                  this->drivetrain.getDrivetrainVoltages();
+
+                // std::cout << std::fixed;
+                // std::cout << std::setprecision(5);
+                //
+                // std::cout << "dist/lin/ang/drive_left/drive_right/tv_l/tv_r/"
+                //              "av_l/av_r/x/y/theta/t_err: "
+                //           << linear_error.internal() << " "
+                //           << target.linear_velocity.internal() << " "
+                //           << target.angular_velocity.internal() << " "
+                //           << left_vel.internal() << " " <<
+                //           right_vel.internal()
+                //           << " " << left_voltage.internal() << " "
+                //           << right_voltage.internal() << " "
+                //           << actual_volt_left.internal() << " "
+                //           << actual_volt_right.internal() << " "
+                //           << position.x.convert(in) << " "
+                //           << position.y.convert(in) << " "
+                //           << projected_cte_error.convert(in) << " "
+                //           << angular_error.internal() << std::endl;
+
                 this->drivetrain.moveTank(left_voltage, right_voltage);
 
                 // we return here, so none of the below code executes
                 return result;
             } else {
                 // assert to warn user?
-                // assert("want to use velocity but don't have requirements!");
+                // assert("want to use velocity but don't have
+                // requirements!");
             }
         }
 
@@ -363,8 +401,8 @@ class boomerang : public Motion<ControllersType,
         // here the robot would attempt to move backwards, when instead the
         // robot should turn around until it should start moving towards the
         // target
-        // the reason that this is done to linear_output and not linear_error is
-        // because that would trigger error tolerances
+        // the reason that this is done to linear_output and not
+        // linear_error is because that would trigger error tolerances
         if (!state.close && lin_multiplier < 0) {
             linear_output = 0_volt;
         }
