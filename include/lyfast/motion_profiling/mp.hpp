@@ -70,8 +70,10 @@ class Trajectory {
 
     std::vector<FLinearVelocity> final_vels_debug;
 
-  private:
     geometry::Curve* curve;
+
+  private:
+    geometry::Curve* getCurve();
 
     void compute();
 
@@ -100,31 +102,20 @@ class Trajectory {
 
     std::vector<PointConstraint> point_constraints;
 
-    // total time that the motion should take
-    FTime travel_time;
+    int indexByDistance(FLength distance, int start_ind = 0);
+    int indexByTime(FTime time, int start_ind = 0);
+
+    int indexByClosestPoint(geometry::Point point,
+                            int start_ind = 0,
+                            FLength max_dist = Length(INFINITY));
 
     FLength getTotalDistance();
+    FTime getTotalTime();
 
-    int get_index_by_distance(Length distance);
-    int get_index_by_time(Time time);
+    size_t getNumPoints();
+    MotionPoint& getPoint(int index);
 
-    DifferentialSpeeds get_vel_by_time(Time time);
-    Time getTotalTime();
-
-    int findClosestPointIndex(geometry::Point point) {
-        Length best = Length(INFINITY);
-        double result = 0;
-
-        for (size_t i = 0; i < points.size(); i++) {
-            auto& motion_point = points[i];
-            Length curr_distance = point.distanceTo(motion_point.point);
-            if (curr_distance < best) {
-                best = curr_distance;
-                result = i;
-            }
-        }
-        return result;
-    }
+    FDifferentialSpeeds differentialVelocitiesByIndex(int index);
 
     Trajectory(geometry::Curve* curve,
                Constraints constraints,

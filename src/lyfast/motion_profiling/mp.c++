@@ -8,6 +8,10 @@ namespace blazing {
 namespace lyfast {
 namespace mp {
 
+geometry::Curve* Trajectory::getCurve() {
+    return curve;
+}
+
 void Trajectory::compute() {
     auto start_time = pros::c::micros();
 
@@ -272,85 +276,119 @@ void Trajectory::setTravelTimes() {
 
         point.travel_time = last_point.travel_time + delta_travel_time;
     }
-    // update the total travel_time
-    travel_time = points.back().travel_time;
 }
 
-int Trajectory::get_index_by_distance(Length distance) {
-    // TODO: could implement O(1) search since delta distance is constant
-
+int Trajectory::indexByDistance(FLength distance, int start_ind) {
     // actual values of the point don't really matter
     // (except for arc_length)
     MotionPoint query_point = points[0];
 
     query_point.arc_length = distance;
 
-    auto travel_distance_cmp = [](const MotionPoint& lhs,
-                                  const MotionPoint& rhs) -> bool {
-        return lhs.arc_length < rhs.arc_length;
+    int idx_guess = std::round(distance / delta_distance);
+
+    return std::clamp(idx_guess, start_ind, int(points.size() - 1));
+};
+
+int Trajectory::indexByTime(FTime time, int start_ind) {
+    // actual values of the point don't really matter
+    // (except for travel_time)
+    MotionPoint query_point = points[0];
+
+    query_point.travel_time = time;
+
+    auto travel_time_cmp = [](const MotionPoint& lhs,
+                              const MotionPoint& rhs) -> bool {
+        return lhs.travel_time < rhs.travel_time;
     };
 
     // search for time in points
-    auto result_itr = lower_bound(points.begin(),
+    // bind to points only after start_ind
+    auto result_itr = lower_bound(points.begin() + start_ind,
                                   points.end(),
                                   query_point,
-                                  travel_distance_cmp);
+                                  travel_time_cmp);
 
     return std::min(std::distance(points.begin(), result_itr),
                     int(points.size() - 1));
 };
+
+int Trajectory::indexByClosestPoint(geometry::Point point,
+                                    int start_ind,
+                                    FLength max_look_dist) {
+    FLength best = Length(INFINITY);
+    int result = 0;
+
+    FLength resolution = 1_in;
+    FLength original_start_dist = points[start_ind].arc_length;
+    // either some max look dist or look until the end of the array
+    FLength original_end_dist =
+      units::min(original_start_dist + max_look_dist, getTotalDistance());
+
+    FLength start_dist = original_start_dist;
+    FLength end_dist = original_end_dist;
+
+    for (Length curr_dist = start_dist; curr_dist <= end_dist;
+         curr_dist += resolution) {
+        // get index by distance
+        int i = indexByDistance(curr_dist);
+
+        auto& motion_point = points[i];
+        Length curr_distance = point.distanceTo(motion_point.point);
+        if (curr_distance < best) {
+            best = curr_distance;
+            result = i;
+        }
+    }
+
+    // here result is likely close to optimal, but we can run second loop to
+    // find closest one
+    // the clamping makes sure we don't bypass the set constraints
+    start_dist = units::clamp(getPoint(result).arc_length - resolution,
+                              original_start_dist,
+                              original_end_dist);
+    end_dist = units::clamp(getPoint(result).arc_length + resolution,
+                            original_start_dist,
+                            original_end_dist);
+
+    // search with 10x resolution in small search space around found solution
+    for (Length curr_dist = start_dist; curr_dist <= end_dist;
+         curr_dist += resolution / 10.0) {
+        // get index by distance
+        int i = indexByDistance(curr_dist);
+
+        auto& motion_point = points[i];
+        Length curr_distance = point.distanceTo(motion_point.point);
+        if (curr_distance < best) {
+            best = curr_distance;
+            result = i;
+        }
+    }
+
+    // here result is very likely optimal
+    return result;
+}
+
+FDifferentialSpeeds Trajectory::differentialVelocitiesByIndex(int index) {
+    auto& point = getPoint(index);
+
+    return { point.vel, Frad * point.vel * point.curvature };
+}
 
 FLength Trajectory::getTotalDistance() {
     return points.back().arc_length;
 }
 
-int Trajectory::get_index_by_time(Time time) {
-    // actual values of the point don't really matter
-    // (except for travel_time)
-    MotionPoint query_point = points[0];
-
-    query_point.travel_time = time;
-
-    auto travel_time_cmp = [](const MotionPoint& lhs,
-                              const MotionPoint& rhs) -> bool {
-        return lhs.travel_time < rhs.travel_time;
-    };
-
-    // search for time in points
-    auto result_itr =
-      lower_bound(points.begin(), points.end(), query_point, travel_time_cmp);
-
-    return std::min(std::distance(points.begin(), result_itr),
-                    int(points.size() - 1));
-};
-
-DifferentialSpeeds Trajectory::get_vel_by_time(Time time) {
-    // actual values of the point don't really matter
-    // (except for travel_time)
-    MotionPoint query_point = points[0];
-
-    query_point.travel_time = time;
-
-    auto travel_time_cmp = [](const MotionPoint& lhs,
-                              const MotionPoint& rhs) -> bool {
-        return lhs.travel_time < rhs.travel_time;
-    };
-
-    // search for time in points
-    auto result_itr =
-      lower_bound(points.begin(), points.end(), query_point, travel_time_cmp);
-
-    if (result_itr == points.end()) {
-        return { points.back().vel,
-                 Frad * points.back().vel * points.back().curvature };
-    } else {
-        return { result_itr->vel,
-                 Frad * result_itr->vel * result_itr->curvature };
-    }
+FTime Trajectory::getTotalTime() {
+    return points.back().travel_time;
 }
 
-Time Trajectory::getTotalTime() {
-    return points.back().travel_time;
+size_t Trajectory::getNumPoints() {
+    return points.size();
+}
+
+MotionPoint& Trajectory::getPoint(int index) {
+    return points.at(index);
 }
 
 Trajectory::Trajectory(geometry::Curve* curve,
@@ -365,8 +403,6 @@ Trajectory::Trajectory(geometry::Curve* curve,
       end_vel(end_vel),
       delta_distance(change_in_distance),
       point_constraints(point_constraints) {
-
-    travel_time = 0_sec;
 
     printf("total distance: %f\n", curve->total_distance.convert(in));
     printf("delta_distance: %f\n", delta_distance.convert(in));

@@ -5,22 +5,25 @@
 #include "blazing/motions/motion.hpp"
 #include "blazing/trackers/tracker.hpp"
 #include "blazing/utils.hpp"
+#include "liblvgl/misc/lv_types.h"
 #include "lyfast/motion_profiling/mp.hpp"
 #include "lyfast/vel_controller.hpp"
 #include "units/Angle.hpp"
 #include "units/Pose.hpp"
 #include "units/Vector2D.hpp"
 #include "units/units.hpp"
+#include <variant>
 
 namespace blazing {
 namespace lyfast {
 
-struct RamseteState {
+struct PathFollowState {
     std::optional<Time> last_time;
     Time start_time;
     Length start_distance;
 };
 
+// generic motion for path following supporting various feedback control laws
 template<typename ControllersType,
          typename DrivetrainType,
          typename TrackerType,
@@ -28,38 +31,45 @@ template<typename ControllersType,
     requires poseTracker<TrackerType> && forwardTravelTracker<TrackerType> &&
                TankDrivetrain<DrivetrainType> &&
                hasVelocityFeedforward<ControllersType>
-class Ramsete
-    : public Motion<
-        ControllersType,
-        DrivetrainType,
-        TrackerType,
-        TolerancesType,
-        Ramsete<ControllersType, DrivetrainType, TrackerType, TolerancesType>>,
-      public LinearMotion<
-        Ramsete<ControllersType, DrivetrainType, TrackerType, TolerancesType>>,
-      public AngularMotion<
-        Ramsete<ControllersType, DrivetrainType, TrackerType, TolerancesType>> {
+class PathFollow : public Motion<ControllersType,
+                                 DrivetrainType,
+                                 TrackerType,
+                                 TolerancesType,
+                                 PathFollow<ControllersType,
+                                            DrivetrainType,
+                                            TrackerType,
+                                            TolerancesType>>,
+                   public LinearMotion<PathFollow<ControllersType,
+                                                  DrivetrainType,
+                                                  TrackerType,
+                                                  TolerancesType>>,
+                   public AngularMotion<PathFollow<ControllersType,
+                                                   DrivetrainType,
+                                                   TrackerType,
+                                                   TolerancesType>> {
   private:
-    using zeta_units = Divided<Number, Angle>;
-    using beta_units = Exponentiated<Divided<Angle, Length>, std::ratio<2>>;
-
-    std::optional<RamseteState> m_state;
+    std::optional<PathFollowState> m_state;
     bool reversed = false;
 
+    // TODO: pointer??
     mp::Trajectory* target_trajectory;
-
-    // zeta = 1 / rad
-    const Divided<Number, Angle> zeta = 1 / rad;
-    // beta = rad^2 / length^2
-    const Exponentiated<Divided<Angle, Length>, std::ratio<2>> beta =
-      0.5 * units::pow<2>(rad / m);
 
     std::optional<Time> m_timeout = std::nullopt;
     Length close_threshold = 4_in;
 
+    enum parameterizationType {
+        time_based,
+        distance_based,
+        closest_point_based
+    };
+
+    parameterizationType m_parameterization_type;
+    std::variant<Length, Time> m_lookahead = 0_in;
+
   public:
     int getLoopDelayTime() override {
-        return 10;
+        // 20 to allow accurate positioning
+        return 20;
     }
 
     std::optional<motionExecutionResult> execute() override {
@@ -73,10 +83,11 @@ class Ramsete
             return std::nullopt;
         }
 
-        RamseteState& state = m_state.value();
+        PathFollowState& state = m_state.value();
         motionExecutionResult result;
 
         Time delta_time = deltaTime(state.last_time);
+        const Time elapsed_motion_time = now() - state.start_time;
 
         const units::V2Position position = this->tracker.getPosition();
         const Angle heading = [&] -> Angle {
@@ -85,12 +96,33 @@ class Ramsete
             return reversed ? reverseAngle(heading) : heading;
         }();
 
-        int target_idx =
-          // target_trajectory->get_index_by_distance(
-          //        units::max(0_in,
-          //                   this->tracker.getForwardTravel() -
-          //                   state.start_distance));
-          target_trajectory->indexByClosestPoint(position);
+        int target_idx = -1;
+
+        if (m_parameterization_type == time_based) {
+            // time based
+            target_idx =
+              target_trajectory->indexByTime(elapsed_motion_time);
+        } else if (m_parameterization_type == distance_based) {
+            // distance based
+            target_idx = target_trajectory->indexByDistance(units::max(
+              0_in,
+              this->tracker.getForwardTravel() - state.start_distance));
+        } else if (m_parameterization_type == closest_point_based) {
+            // closest point based
+            target_idx = target_trajectory->indexByClosestPoint(position);
+        }
+
+        // performs the lookahead logic
+        // TODO: possibly could make more performant?
+        if (std::holds_alternative<Length>(m_lookahead)) {
+            target_idx = target_trajectory->indexByDistance(
+              target_trajectory->points[target_idx].arc_length +
+              std::get<Length>(m_lookahead));
+        } else {
+            target_idx = target_trajectory->indexByTime(
+              target_trajectory->points[target_idx].travel_time +
+              std::get<Time>(m_lookahead));
+        }
 
         mp::MotionPoint target_motion_point =
           target_trajectory->points[target_idx];
@@ -111,12 +143,6 @@ class Ramsete
         // reverse angular as well?
 
         Angle errorAngle = angleError(target.orientation, heading);
-
-        // k = 1 / time
-        const Frequency k =
-          2.0 * zeta *
-          units::sqrt(units::square(target_speeds.angular_velocity) +
-                      beta * units::square(target_speeds.linear_velocity));
 
         DifferentialSpeeds new_speeds;
 
@@ -205,55 +231,65 @@ class Ramsete
     }
 
     [[nodiscard("motion won't be executed unless run or async are used!")]]
-    Ramsete(ControllersType controllers,
-            Chassis<DrivetrainType, TrackerType, TolerancesType> chassis,
-            mp::Trajectory* target_trajectory,
-            zeta_units zeta,
-            beta_units beta)
+    PathFollow(ControllersType controllers,
+               Chassis<DrivetrainType, TrackerType, TolerancesType> chassis,
+               mp::Trajectory* target_trajectory,
+               zeta_units zeta,
+               beta_units beta)
         : Motion<ControllersType,
                  DrivetrainType,
                  TrackerType,
                  TolerancesType,
-                 Ramsete<ControllersType,
-                         DrivetrainType,
-                         TrackerType,
-                         TolerancesType>>(controllers, chassis),
+                 PathFollow<ControllersType,
+                            DrivetrainType,
+                            TrackerType,
+                            TolerancesType>>(controllers, chassis),
           target_trajectory(target_trajectory),
           zeta(zeta),
           beta(beta) {}
 
     [[nodiscard("motion won't be executed unless run or async are used!")]]
-    Ramsete(ControllersType controllers,
-            Chassis<DrivetrainType, TrackerType, TolerancesType> chassis,
-            mp::Trajectory* target_trajectory,
-            double zeta,
-            double beta)
+    PathFollow(ControllersType controllers,
+               Chassis<DrivetrainType, TrackerType, TolerancesType> chassis,
+               mp::Trajectory* target_trajectory,
+               double zeta,
+               double beta)
         : Motion<ControllersType,
                  DrivetrainType,
                  TrackerType,
                  TolerancesType,
-                 Ramsete<ControllersType,
-                         DrivetrainType,
-                         TrackerType,
-                         TolerancesType>>(controllers, chassis),
-          target_trajectory(target_trajectory),
-          zeta(zeta),
-          beta(beta) {}
+                 PathFollow<ControllersType,
+                            DrivetrainType,
+                            TrackerType,
+                            TolerancesType>>(controllers, chassis),
+          target_trajectory(target_trajectory) {}
 
     // changer methods
 
-    motionChangerMsg Ramsete& reverse() {
+    motionChangerMsg PathFollow& reverse() {
         this->reversed = true;
 
         return *this;
     }
 
-    motionChangerMsg Ramsete& closeThreshold(Length threshold) {
+    motionChangerMsg PathFollow&
+    lookahead(std::variant<Length, Time> lookahead) {
+        this->m_lookahead = lookahead;
+        return *this;
+    }
+
+    motionChangerMsg PathFollow&
+    lookahead(parameterizationType parameterization_type) {
+        this->m_parameterization_type = parameterization_type;
+        return *this;
+    }
+
+    motionChangerMsg PathFollow& closeThreshold(Length threshold) {
         this->close_threshold = threshold;
         return *this;
     }
 
-    motionChangerMsg Ramsete& timeout(Time timeout) {
+    motionChangerMsg PathFollow& timeout(Time timeout) {
         this->m_timeout = timeout;
 
         return *this;

@@ -85,7 +85,7 @@ class Stanley
         }();
 
         size_t trajectory_idx =
-          target_trajectory->findClosestPointIndex(position);
+          target_trajectory->indexByClosestPoint(position);
 
         mp::MotionPoint motion_point =
           target_trajectory->points[trajectory_idx];
