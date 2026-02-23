@@ -115,6 +115,9 @@ class Trajectory {
     size_t getNumPoints();
     MotionPoint& getPoint(int index);
 
+    MotionPoint& getMotionEndPoint();
+    MotionPoint& getMotionStartPoint();
+
     FDifferentialSpeeds differentialVelocitiesByIndex(int index);
 
     Trajectory(geometry::Curve* curve,

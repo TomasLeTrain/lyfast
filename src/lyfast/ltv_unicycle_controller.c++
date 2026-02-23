@@ -35,7 +35,7 @@ void LTVUnicycleController::setRMatrix(std::array<float, 2> R) {
     m_R = R;
 }
 
-void LTVUnicycleController::update() {
+void LTVUnicycleController::compute() {
     const auto local_error =
       (m_reference.pose - m_state.pose).rotatedBy(-m_state.pose.orientation);
 
@@ -100,6 +100,32 @@ void LTVUnicycleController::update() {
         std::cout << "LQR returned error: " << to_string(K.error())
                   << std::endl;
         m_input = std::nullopt;
+    }
+}
+
+DifferentialSpeeds LTVUnicycleController::update(PathPoseFeedbackT state,
+                                                 PathPoseFeedbackT reference,
+                                                 Time duration) {
+    setState({
+      .pose = state.pose,
+      .linear_velocity = state.velocities.linear_velocity,
+      .angular_velocity = state.velocities.angular_velocity,
+    });
+
+    setReference({
+      .pose = reference.pose,
+      .linear_velocity = reference.velocities.linear_velocity,
+      .angular_velocity = reference.velocities.angular_velocity,
+    });
+
+    compute();
+    auto result = getInput();
+
+    if (result.has_value()) {
+        return result.value();
+    } else {
+        // TODO: compute would have already logged?
+        return { 0_inps, 0_radps };
     }
 }
 

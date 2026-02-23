@@ -1,6 +1,7 @@
 #pragma once
 
 #include "blazing/utils.hpp"
+#include "path_pose_feedback.hpp"
 #include "units/Pose.hpp"
 
 namespace blazing {
@@ -36,7 +37,10 @@ struct LTVUnicycleController {
     // R matrix determined by bryson's rule
     void setRMatrix(std::array<float, 2> R);
 
-    void update();
+    void compute();
+
+    DifferentialSpeeds
+    update(PathPoseFeedbackT state, PathPoseFeedbackT reference, Time duration);
 
     LTVUnicycleController();
     LTVUnicycleController(std::array<float, 3> Q, std::array<float, 2> R);

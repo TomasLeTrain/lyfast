@@ -5,8 +5,8 @@
 #include "blazing/motions/motion.hpp"
 #include "blazing/trackers/tracker.hpp"
 #include "blazing/utils.hpp"
-#include "liblvgl/misc/lv_types.h"
 #include "lyfast/motion_profiling/mp.hpp"
+#include "lyfast/path_pose_feedback.hpp"
 #include "lyfast/vel_controller.hpp"
 #include "units/Angle.hpp"
 #include "units/Pose.hpp"
@@ -16,7 +16,6 @@
 
 namespace blazing {
 namespace lyfast {
-
 struct PathFollowState {
     std::optional<Time> last_time;
     Time start_time;
@@ -30,7 +29,8 @@ template<typename ControllersType,
          typename TolerancesType>
     requires poseTracker<TrackerType> && forwardTravelTracker<TrackerType> &&
                TankDrivetrain<DrivetrainType> &&
-               hasVelocityFeedforward<ControllersType>
+               hasVelocityFeedforward<ControllersType> &&
+               hasPathPoseFeedback<ControllersType>
 class PathFollow : public Motion<ControllersType,
                                  DrivetrainType,
                                  TrackerType,
@@ -51,7 +51,6 @@ class PathFollow : public Motion<ControllersType,
     std::optional<PathFollowState> m_state;
     bool reversed = false;
 
-    // TODO: pointer??
     mp::Trajectory* target_trajectory;
 
     std::optional<Time> m_timeout = std::nullopt;
@@ -63,7 +62,7 @@ class PathFollow : public Motion<ControllersType,
         closest_point_based
     };
 
-    parameterizationType m_parameterization_type;
+    parameterizationType m_parameterization_type = closest_point_based;
     std::variant<Length, Time> m_lookahead = 0_in;
 
   public:
@@ -100,8 +99,7 @@ class PathFollow : public Motion<ControllersType,
 
         if (m_parameterization_type == time_based) {
             // time based
-            target_idx =
-              target_trajectory->indexByTime(elapsed_motion_time);
+            target_idx = target_trajectory->indexByTime(elapsed_motion_time);
         } else if (m_parameterization_type == distance_based) {
             // distance based
             target_idx = target_trajectory->indexByDistance(units::max(
@@ -113,56 +111,41 @@ class PathFollow : public Motion<ControllersType,
         }
 
         // performs the lookahead logic
-        // TODO: possibly could make more performant?
         if (std::holds_alternative<Length>(m_lookahead)) {
             target_idx = target_trajectory->indexByDistance(
-              target_trajectory->points[target_idx].arc_length +
+              target_trajectory->getPoint(target_idx).arc_length +
               std::get<Length>(m_lookahead));
         } else {
             target_idx = target_trajectory->indexByTime(
-              target_trajectory->points[target_idx].travel_time +
+              target_trajectory->getPoint(target_idx).travel_time +
               std::get<Time>(m_lookahead));
         }
 
-        mp::MotionPoint target_motion_point =
-          target_trajectory->points[target_idx];
+        mp::MotionPoint& target_motion_point =
+          target_trajectory->getPoint(target_idx);
 
-        units::Pose target = { target_motion_point.point,
-                               target_motion_point.heading };
+        units::Pose reference_pose = { target_motion_point.point,
+                                       target_motion_point.heading };
 
-        DifferentialSpeeds target_speeds = { target_motion_point.vel,
-                                             Frad * target_motion_point.vel *
-                                               target_motion_point.curvature };
-
-        units::V2Position local_error = (target - position).rotatedBy(-heading);
+        DifferentialSpeeds reference_speeds = {
+            target_motion_point.vel,
+            Frad * target_motion_point.vel * target_motion_point.curvature
+        };
 
         double reverse_multiplier = reversed ? -1.0 : 1.0;
 
+        // TODO: add option for custom settling conditions (different control
+        // law maybe)
+
         // reverse linear_velocity if needed
-        target_speeds.linear_velocity *= reverse_multiplier;
-        // reverse angular as well?
+        reference_speeds.linear_velocity *= reverse_multiplier;
 
-        Angle errorAngle = angleError(target.orientation, heading);
-
-        DifferentialSpeeds new_speeds;
-
-        // v_new = cos(e_theta) * v + k * e_x
-        new_speeds.linear_velocity =
-          units::cos(errorAngle) * target_speeds.linear_velocity +
-          k * local_error.x;
-
-        // w_new = w + k * e_theta + beta * v * sinc(e_theta) * e_y
-        new_speeds.angular_velocity = target_speeds.angular_velocity +
-                                      k * errorAngle +
-                                      beta * target_speeds.linear_velocity *
-                                        sinc(errorAngle) * local_error.y;
-
-        LeftRightVoltages voltages =
-          this->controllers.velocity_feedforward.update(new_speeds, delta_time);
-
-        auto curve_endpoint = target_trajectory->points.back().point;
-        auto curve_endpoint_heading = target_trajectory->points.back().heading;
-        auto distance_to_end = curve_endpoint.distanceTo(position);
+        // points used for tolerances
+        mp::MotionPoint& curve_endpoint =
+          target_trajectory->getMotionEndPoint();
+        const Angle curve_endpoint_heading = curve_endpoint.heading;
+        const Length distance_to_end =
+          curve_endpoint.point.distanceTo(position);
 
         // update tolerances
         this->tolerances.linearErrorToleranceUpdate(distance_to_end);
@@ -202,28 +185,31 @@ class PathFollow : public Motion<ControllersType,
             return result;
         }
 
+        PathPoseFeedbackT path_pose_state {
+            .pose = units::Pose { position, heading },
+            // TODO: could feed actual velocities instead?
+            .velocities = reference_speeds
+        };
+        PathPoseFeedbackT path_pose_reference { .pose = reference_pose,
+                                                .velocities =
+                                                  reference_speeds };
+
+        // use feedback control law to figure out new velocities
+        DifferentialSpeeds new_speeds =
+          this->controllers.path_pose_feedback.update(path_pose_state,
+                                                      path_pose_reference,
+                                                      delta_time);
+
+        LeftRightVoltages voltages =
+          this->controllers.velocity_feedforward.update(new_speeds, delta_time);
+
+        // TODO: need to do?
         std::array<Voltage, 2> saturated_voltages { voltages.left_voltage,
                                                     voltages.right_voltage };
 
         // normalizes voltages to [-1, 1]
         auto [normal_left_voltage, normal_right_voltage] =
           desaturate(saturated_voltages, 1_volt);
-
-        // std::cout << std::format("pos: {:.2f} {:.2f}, error: {:.2f} "
-        //                          "{:.2f}, target: {:.2f} {:.2f} k {:.4f}",
-        //                          // "lin/alg: {:.2f} {:.2f}, k {:.4f}",
-        //                          // new_speeds.linear_velocity.convert(inps),
-        //                          //
-        //                          new_speeds.angular_velocity.convert(radps),
-        //                          // k.internal())
-        //                          position.x.convert(in),
-        //                          position.y.convert(in),
-        //                          local_error.x.convert(in),
-        //                          local_error.y.convert(in),
-        //                          target.x.convert(in),
-        //                          target.y.convert(in),
-        //                          k.internal())
-        //           << std::endl;
 
         this->drivetrain.moveTank(normal_left_voltage, normal_right_voltage);
 
@@ -233,27 +219,7 @@ class PathFollow : public Motion<ControllersType,
     [[nodiscard("motion won't be executed unless run or async are used!")]]
     PathFollow(ControllersType controllers,
                Chassis<DrivetrainType, TrackerType, TolerancesType> chassis,
-               mp::Trajectory* target_trajectory,
-               zeta_units zeta,
-               beta_units beta)
-        : Motion<ControllersType,
-                 DrivetrainType,
-                 TrackerType,
-                 TolerancesType,
-                 PathFollow<ControllersType,
-                            DrivetrainType,
-                            TrackerType,
-                            TolerancesType>>(controllers, chassis),
-          target_trajectory(target_trajectory),
-          zeta(zeta),
-          beta(beta) {}
-
-    [[nodiscard("motion won't be executed unless run or async are used!")]]
-    PathFollow(ControllersType controllers,
-               Chassis<DrivetrainType, TrackerType, TolerancesType> chassis,
-               mp::Trajectory* target_trajectory,
-               double zeta,
-               double beta)
+               mp::Trajectory* target_trajectory)
         : Motion<ControllersType,
                  DrivetrainType,
                  TrackerType,
@@ -265,7 +231,6 @@ class PathFollow : public Motion<ControllersType,
           target_trajectory(target_trajectory) {}
 
     // changer methods
-
     motionChangerMsg PathFollow& reverse() {
         this->reversed = true;
 

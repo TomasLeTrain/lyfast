@@ -391,6 +391,14 @@ MotionPoint& Trajectory::getPoint(int index) {
     return points.at(index);
 }
 
+MotionPoint& Trajectory::getMotionEndPoint() {
+    return points.front();
+}
+
+MotionPoint& Trajectory::getMotionStartPoint() {
+    return points.back();
+}
+
 Trajectory::Trajectory(geometry::Curve* curve,
                        Constraints constraints,
                        std::vector<PointConstraint> point_constraints,
