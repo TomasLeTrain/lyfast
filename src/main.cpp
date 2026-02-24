@@ -10,12 +10,14 @@
 #include "lyfast/motion_profiling/constraints.hpp"
 #include "lyfast/motion_profiling/mp.hpp"
 #include "lyfast/motion_profiling/simple_mp.hpp"
+#include "lyfast/path_pose_feedback.hpp"
 #include "lyfast/system_identification.hpp"
 #include "lyfast/vel_controller.hpp"
 #include "pros/apix.h"
 #include "pros/imu.h"
 #include "pros/motor_group.hpp"
 #include "pros/optical.h"
+#include "pros/rtos.hpp"
 #include "units/Angle.hpp"
 #include "units/Vector2D.hpp"
 #include "units/units.hpp"
@@ -279,6 +281,11 @@ CascadedControllers<decltype(angular_vel_pid),
                     Voltage>
   angular_control(angular_vel_pid, vel_controller);
 
+blazing::lyfast::state_space::LTVUnicycleController lqr_controller;
+
+lyfast::PathPoseFeedbackController<decltype(lqr_controller)>
+  path_pose_feedback_controller(lqr_controller);
+
 Controllers controllers(
   // pid controllers
   // PIDLinearController(linear_pid),
@@ -288,6 +295,8 @@ Controllers controllers(
   AngularFeedbackController<decltype(angular_control)>(angular_control),
 
   lyfast::VelocityFeedforward<lyfast::ArcadeVelocityController>(vel_controller),
+
+  path_pose_feedback_controller,
 
   // slew controllers
   // LinearSlewController(0.07_volt, 0.06_volt),
@@ -942,16 +951,14 @@ void simple_mp_test() {
 }
 
 void opcontrol() {
-    blazing::lyfast::state_space::LTVUnicycleController lqr_controller;
 
     // TODO: how to actually tune these?
-    lqr_controller.setQMatrix(
-      { // max forwards of 10 inches?
-        (10_in).internal(),
-        // max crosstrack of 6 inches?
-        (6_in).internal(),
-        // maximum is 180, go a bit higher to prevent possible wrapping issues?
-        (190_stDeg).internal() });
+    lqr_controller.setQMatrix({ // max forwards of 10 inches?
+                                (10_in).internal(),
+                                // max crosstrack of 6 inches?
+                                (6_in).internal(),
+                                // maximum is 180
+                                (180_stDeg).internal() });
 
     FLength track_radius = track_width * 0.5;
 
@@ -966,27 +973,39 @@ void opcontrol() {
                                 max_angular_velocity.internal() });
 
     // assume robot is at 0,0
-    lqr_controller.setState({
-      .pose = { 0_in, 0_in, 0_stDeg },
-      .linear_velocity = 0_inps,
-      .angular_velocity = 0_radps,
-    });
+    lyfast::PathPoseFeedbackT state {
+        .pose = { 0_in, 0_in, 0_stDeg },
+        .velocities = {.linear_velocity = 0_inps, .angular_velocity = 0_radps,}
+    };
 
     // want to reach (10, 10) with angle of 10 degrees and with some velocity
-    lqr_controller.setReference({
-      // .pose = { 10_in, 10_in, 45_stDeg },
-      .pose = { 1_in, 1_in, 10_stDeg },
-      .linear_velocity = 10_inps,
-      .angular_velocity = 1_radps,
-    });
+    lyfast::PathPoseFeedbackT reference {
+        .pose = { 1_in, 1_in, 10_stDeg },
+        .velocities = { .linear_velocity = 10_inps, .angular_velocity = 1_radps,
+		}
+    };
 
-    lqr_controller.update();
+    lqr_controller.setState(
+      lyfast::state_space::LTVUnicycleController::State::fromPathPoseFeedback(
+        (state)));
+
+    lqr_controller.setReference(
+      lyfast::state_space::LTVUnicycleController::State::fromPathPoseFeedback(
+        (reference)));
+
+    auto start_time = pros::micros();
+    lqr_controller.compute();
+    auto end_time = pros::micros();
+
+    std::cout << "LQR in " << end_time - start_time << " micro seconds"
+              << std::endl;
 
     auto result = lqr_controller.getInput();
+    // auto result = lqr_controller.update(state, reference, 10_msec);
 
     if (result.has_value()) {
         std::cout << "lqr returned: " << result->linear_velocity.convert(inps)
-                  << "_inps " << result->angular_velocity << std::endl;
+                  << " inps " << result->angular_velocity << std::endl;
     } else {
         std::cout << "LQR encountered an error" << std::endl;
     }

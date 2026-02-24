@@ -107,7 +107,8 @@ class Trajectory {
 
     int indexByClosestPoint(geometry::Point point,
                             int start_ind = 0,
-                            FLength max_dist = Length(INFINITY));
+                            FLength max_dist = Length(INFINITY),
+                            FLength resolution = 1_in);
 
     FLength getTotalDistance();
     FTime getTotalTime();

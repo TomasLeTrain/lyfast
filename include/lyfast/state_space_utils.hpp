@@ -628,14 +628,25 @@ LinearQuadraticRegulator_K(const Eigen::Matrix<float, States, States>& A,
     Eigen::Matrix<float, States, Inputs> discB;
     DiscretizeAB<States, Inputs>(A, B, dt, &discA, &discB);
 
-    if (auto S = DARE<States, Inputs>(discA, discB, Q, R, N)) {
-        // K = (BᵀSB + R)⁻¹(BᵀSA + Nᵀ)
-        return (discB.transpose() * S.value() * discB + R)
-          .llt()
-          .solve(discB.transpose() * S.value() * discA + N.transpose());
-    } else {
-        return std::unexpected { S.error() };
-    }
+    auto R_llt = R.llt();
+
+    auto S = detail::DARE<States, Inputs>(discA, discB, Q, R_llt);
+
+    // K = (BᵀSB + R)⁻¹(BᵀSA + Nᵀ)
+    return (discB.transpose() * S * discB + R)
+      .llt()
+      .solve(discB.transpose() * S * discA
+             // + N.transpose()
+      );
+
+    // if (auto S = DARE<States, Inputs>(discA, discB, Q, R, N, true)) {
+    //     // K = (BᵀSB + R)⁻¹(BᵀSA + Nᵀ)
+    //     return (discB.transpose() * S.value() * discB + R)
+    //       .llt()
+    //       .solve(discB.transpose() * S.value() * discA + N.transpose());
+    // } else {
+    //     return std::unexpected { S.error() };
+    // }
 }
 
 } // namespace lyfast

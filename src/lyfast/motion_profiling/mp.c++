@@ -315,11 +315,11 @@ int Trajectory::indexByTime(FTime time, int start_ind) {
 
 int Trajectory::indexByClosestPoint(geometry::Point point,
                                     int start_ind,
-                                    FLength max_look_dist) {
+                                    FLength max_look_dist,
+                                    FLength resolution) {
     FLength best = Length(INFINITY);
     int result = 0;
 
-    FLength resolution = 1_in;
     FLength original_start_dist = points[start_ind].arc_length;
     // either some max look dist or look until the end of the array
     FLength original_end_dist =

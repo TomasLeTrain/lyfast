@@ -7,6 +7,7 @@
 #include "units/Vector2D.hpp"
 #include "units/units.hpp"
 #include "unsupported/Eigen/MatrixFunctions"
+#include <iostream>
 #include <utility>
 
 namespace blazing {
@@ -19,6 +20,10 @@ void LTVUnicycleController::setState(State new_state) {
 
 void LTVUnicycleController::setReference(State new_reference) {
     m_reference = new_reference;
+}
+
+void LTVUnicycleController::setDeltaTime(Time delta_time) {
+    m_delta_time = delta_time;
 }
 
 std::optional<DifferentialSpeeds> LTVUnicycleController::getInput() {
@@ -35,6 +40,9 @@ void LTVUnicycleController::setRMatrix(std::array<float, 2> R) {
     m_R = R;
 }
 
+// TODO: K only depends on reference velocity - could precompute K for all
+// possible velocities for O(1) lookup
+// however would also have to recompute all values if changing Q or R
 void LTVUnicycleController::compute() {
     const auto local_error =
       (m_reference.pose - m_state.pose).rotatedBy(-m_state.pose.orientation);
@@ -48,75 +56,55 @@ void LTVUnicycleController::compute() {
 
     // states x states
     const Eigen::Matrix3f Q = MakeCostMatrix(m_Q);
-
     // inputs x inputs
     const Eigen::Matrix2f R = MakeCostMatrix(m_R);
 
-    // states x inputs
-    // TODO: how to use??
-    const Eigen::Matrix<float, 3, 2> N {
-        {
-         0.0, 0.0,
-         },
-        {
-         0.0,   0.0,
-         },
-        {
-         0.0, 0.0,
-         }
-    };
+    float A_state_velocity = m_state.velocities.linear_velocity.internal();
 
-    float A_reference_velocity = m_state.linear_velocity.internal();
-
-    // avoid lqr error
-    if (std::abs(A_reference_velocity) < 1e-6) {
-        A_reference_velocity = 1e-6;
+    // avoid a dare error by keeping velocity non-zero
+    if (std::abs(A_state_velocity) < 1e-4) {
+        A_state_velocity = 1e-4;
     }
 
     // states x states
     const Eigen::Matrix3f A {
-        { 0.0, 0.0, 0.0                  },
-        { 0.0, 0.0, A_reference_velocity },
-        { 0.0, 0.0, 0.0                  }
+        { 0.0, 0.0, 0.0              },
+        { 0.0, 0.0, A_state_velocity },
+        { 0.0, 0.0, 0.0              }
     };
 
     // states x inputs
     const Eigen::Matrix<float, 3, 2> B {
-        { 1.0, 0.0 },
-        { 0.0, 0.0 },
-        { 0.0, 1.0 }
+        { 1.0, .0  },
+        { .0,  .0  },
+        { .0,  1.0 }
     };
 
-    Eigen::Matrix3f discA;
+    Eigen::Matrix<float, 3, 3> discA;
     Eigen::Matrix<float, 3, 2> discB;
+    DiscretizeAB<3, 2>(A, B, m_delta_time, &discA, &discB);
 
-    if (const auto K =
-          LinearQuadraticRegulator_K<3, 2>(A, B, Q, R, N, 10_msec)) {
-        const Eigen::Vector2f u = K.value() * error;
+    auto R_llt = R.llt();
 
-        m_input = { m_reference.linear_velocity + u.x() * mps,
-                    m_reference.angular_velocity + u.y() * radps };
-    } else {
-        std::cout << "LQR returned error: " << to_string(K.error())
-                  << std::endl;
-        m_input = std::nullopt;
-    }
+    // use dare directly for better performance
+    auto S = detail::DARE<3, 2>(discA, discB, Q, R_llt);
+
+    // K = (BᵀSB + R)⁻¹(BᵀSA)
+    auto K = (discB.transpose() * S * discB + R)
+               .llt()
+               .solve(discB.transpose() * S * discA);
+
+    const Eigen::Vector2f u = K * error;
+
+    m_input = { m_reference.velocities.linear_velocity + u.x() * mps,
+                m_reference.velocities.angular_velocity + u.y() * radps };
 }
 
 DifferentialSpeeds LTVUnicycleController::update(PathPoseFeedbackT state,
                                                  PathPoseFeedbackT reference,
                                                  Time duration) {
-    setState({
-      .pose = state.pose,
-      .linear_velocity = state.velocities.linear_velocity,
-      .angular_velocity = state.velocities.angular_velocity,
-    });
-
-    setReference({
-      .pose = reference.pose,
-      .linear_velocity = reference.velocities.linear_velocity,
-      .angular_velocity = reference.velocities.angular_velocity,
-    });
+    setState(State::fromPathPoseFeedback(state));
+    setReference(State::fromPathPoseFeedback(reference));
 
     compute();
     auto result = getInput();
@@ -124,7 +112,7 @@ DifferentialSpeeds LTVUnicycleController::update(PathPoseFeedbackT state,
     if (result.has_value()) {
         return result.value();
     } else {
-        // TODO: compute would have already logged?
+        // compute would have already logged error
         return { 0_inps, 0_radps };
     }
 }

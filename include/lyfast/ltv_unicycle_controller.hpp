@@ -13,13 +13,20 @@ struct LTVUnicycleController {
     // stores state of the system
     struct State {
         units::Pose pose;
-        LinearVelocity linear_velocity;
-        AngularVelocity angular_velocity;
+        DifferentialSpeeds velocities;
+
+        // allow convinient convertion
+        static State
+        fromPathPoseFeedback(PathPoseFeedbackT path_pose_feedback) {
+            return State { .pose = path_pose_feedback.pose,
+                           .velocities = path_pose_feedback.velocities };
+        }
     };
 
   private:
     State m_state;
     State m_reference;
+    Time m_delta_time = 10_msec;
     std::optional<DifferentialSpeeds> m_input = std::nullopt;
 
     std::array<float, 3> m_Q;
@@ -28,6 +35,7 @@ struct LTVUnicycleController {
   public:
     void setState(State new_state);
     void setReference(State new_reference);
+    void setDeltaTime(Time delta_time);
 
     std::optional<DifferentialSpeeds> getInput();
 

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "blazing/controllers/controllers.hpp"
 #include "blazing/controllers/feedback/feedback.hpp"
 #include "blazing/utils.hpp"
 #include "units/Angle.hpp"
@@ -20,6 +21,24 @@ concept hasPathPoseFeedback = Feedback<decltype(Controller::path_pose_feedback),
                                        PathPoseFeedbackT,
                                        DifferentialSpeeds>;
 
+// wrapper for path pose feedback controllers
+template<typename Controller>
+    requires Feedback<Controller, PathPoseFeedbackT, DifferentialSpeeds>
+struct PathPoseFeedbackController : virtual ControllerBase {
+  public:
+    Controller path_pose_feedback;
+
+    PathPoseFeedbackController(Controller path_pose_feedback_controller)
+        : path_pose_feedback(path_pose_feedback_controller) {}
+
+    // creates a copy of the controller with different linear feedback
+    // controller
+    void
+    set_PathPoseFeedbackController(Controller path_pose_feedback_controller) {
+        this->path_pose_feedback = path_pose_feedback_controller;
+    }
+};
+
 class RamsetteController {
   public:
     using zeta_unit = Divided<Number, Angle>;
@@ -27,7 +46,7 @@ class RamsetteController {
 
   private:
     // zeta = 1 / rad
-    zeta_unit zeta = 1 / rad;
+    zeta_unit zeta = 1 * (1 / rad);
     // beta = rad^2 / length^2
     beta_unit beta = 0.5 * units::pow<2>(rad / m);
 
