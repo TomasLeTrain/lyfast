@@ -153,7 +153,7 @@ class PathFollow : public Motion<ControllersType,
           this->tracker.getLinearVelocity());
         this->tolerances.linearHalfcircleToleranceUpdate(
           position,
-          curve_endpoint,
+          curve_endpoint.point,
           curve_endpoint_heading);
 
         result.finished = false;

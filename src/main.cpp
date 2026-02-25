@@ -10,6 +10,7 @@
 #include "lyfast/motion_profiling/constraints.hpp"
 #include "lyfast/motion_profiling/mp.hpp"
 #include "lyfast/motion_profiling/simple_mp.hpp"
+#include "lyfast/path_follower.hpp"
 #include "lyfast/path_pose_feedback.hpp"
 #include "lyfast/system_identification.hpp"
 #include "lyfast/vel_controller.hpp"
@@ -94,26 +95,29 @@ class ScaledIMU : public pros::IMU {
 // motor groups
 
 
-int8_t left_front = 3;
-int8_t left_middle = -1;
-int8_t left_back = -15;
+int8_t left_front = 15;
+int8_t left_middle = -14;
+int8_t left_back = -12;
 
-int8_t right_front = -13;
-int8_t right_middle = 14;
-int8_t right_back = 12;
+int8_t right_front = -17;
+int8_t right_middle = 16;
+int8_t right_back = 19;
 
-bool vexmaps_logging_enabled = false;
+bool vexmaps_logging_enabled = true;
+bool custom_particling = true;
 
 pros::MotorGroup left_motors({ left_front, left_middle, left_back }, pros::MotorGears::blue, pros::MotorEncoderUnits::rotations);
 pros::MotorGroup right_motors({ right_front, right_middle, right_back }, pros::MotorGears::blue, pros::MotorEncoderUnits::rotations);
 // clang-format on
 
-ScaledIMU imu(15, (360.0 + 3.8) / 360.0);
+ScaledIMU imu(20, (360.0 + 1.5) / 360.0);
+
 pros::Controller master(pros::E_CONTROLLER_MASTER);
 
 // odom rotation sensors
-pros::Rotation forwards_odom_rotation(4);
-pros::Rotation sideways_odom_rotation(3);
+// pros::Rotation forwards_odom_rotation(-20);
+pros::Rotation forwards_odom_rotation(-13);
+pros::Rotation sideways_odom_rotation(18);
 
 using namespace blazing;
 
@@ -133,8 +137,22 @@ ForwardsTracker right_motor_tracker(&right_motors,
                                     wheel_diameter,
                                     final_rpm);
 
-ForwardsTracker forwards_tracker(&forwards_odom_rotation, 0.1_in, 1.9654_in);
-SidewaysTracker sideways_tracker(&sideways_odom_rotation, 1.0_in, 1.9869_in);
+// tracker configs - same signs as lemlib
+// tracker_config_t forwards_tracker_config = {
+//     .diameter = 1.991_in,
+//     // geometric is also 0
+//     .offset = -0.08_in,
+// };
+//
+// tracker_config_t sideways_tracker_config = {
+//     .diameter = 1.991_in,
+//     // geometric are -2.5, meaning cor is 0.5_in forwards from geometric
+//     center .offset = -3.17_in,
+// };
+
+// TODO: update since now sideways might be zero
+ForwardsTracker forwards_tracker(&forwards_odom_rotation, -0.08_in, 1.991_in);
+SidewaysTracker sideways_tracker(&sideways_odom_rotation, -0.0_in, 1.991_in);
 
 TrackingImu tracking_imu(&imu);
 
@@ -199,51 +217,60 @@ AsyncExecutor async;
 
 blazing::lyfast::DifferentialVelocityController linear_velocity_controller(
   lyfast::VelocityControllerParams {
-    // custom accel
-    .left_Kv = 0.426161 * volt / mps,
-    .left_Ka = 0.08 * volt / mps2,
-    .left_Ks = 0.0481902 * volt,
-    .left_Kp = 0.934514846239 * volt / mps,
-    .left_Ki = 4.58736473058 * volt / m,
+    .left_Kv = 0.42 * volt / mps,
 
-    .right_Kv = 0.425642 * volt / mps,
-    .right_Ka = 0.081 * volt / mps2,
-    .right_Ks = 0.0499037 * volt,
-    .right_Kp = 0.940127699096 * volt / mps,
-    .right_Ki = 4.65515950473 * volt / m,
+    // length kp and ka term create a feedback loop intenuating noise
+    .left_Ka = 0.08 * volt / mps2,
+    .left_Ks = 0.08 * volt,
+
+    .left_Kp = 0.7 * volt / mps,
+    .left_Ki = 4.0 * volt / m,
+
+    .right_Kv = 0.43 * volt / mps,
+    .right_Ka = 0.09 * volt / mps2,
+    .right_Ks = 0.08 * volt,
+
+    .right_Kp = 0.7 * volt / mps,
+    .right_Ki = 4.0 * volt / m,
   },
   70_inps,
   track_width,
-  1.0,
-  false,
-  drivetrain);
+  0.8,
+  false, // prioritize angular everywhere?
+  std::ref(drivetrain));
 
+// --- turning vel stuff --- //
+// goated for turning
 blazing::lyfast::DifferentialVelocityController angular_velocity_controller(
   lyfast::VelocityControllerParams {
-    // desmos constants
-    .left_Kv = 0.451918 * volt / mps,
-    .left_Ka = 0.1457828 * volt / mps2,
-    .left_Ks = 0.0922515 * volt,
-    .left_Kp = 0.9984206 * volt / mps,
-    .left_Ki = 3.457622 * volt / m,
 
-    .right_Kv = 0.477938 * volt / mps,
-    .right_Ka = 0.132789 * volt / mps2,
-    .right_Ks = 0.0824404 * volt,
-    .right_Kp = 1.054508 * volt / mps,
-    .right_Ki = 4.24337 * volt / m,
+    .left_Kv = 0.47 * volt / mps,
+    .left_Ka = 0.09 * volt / mps2,
+    .left_Ks = 0.08 * volt,
+
+    .left_Kp = 0.3 * volt / mps,
+    .left_Ki = 5.09538143189 * volt / m,
+
+    .right_Kv = 0.475 * volt / mps,
+    .right_Ka = 0.09 * volt / mps2,
+    .right_Ks = 0.08 * volt,
+
+    .right_Kp = 0.3 * volt / mps,
+    .right_Ki = 5.5578634857 * volt / m,
   },
-  70_inps,
+  76_inps,
   track_width,
-  1.0,
-  false,
-  drivetrain);
+  0.85,
+  false, // TODO: shouldn't affect swings?
+  std::ref(drivetrain));
 
-lyfast::ArcadeVelocityController vel_controller { linear_velocity_controller,
-                                                  angular_velocity_controller,
-                                                  70_inps,
-                                                  false,
-                                                  track_width };
+lyfast::ArcadeVelocityController vel_controller {
+    linear_velocity_controller,
+    angular_velocity_controller,
+    76_inps,
+    false, // prioritize angular everywhere?
+    track_width
+};
 
 PID<Length, LinearVelocity> linear_vel_pid(0.5,
                                            0.0,
@@ -281,7 +308,26 @@ CascadedControllers<decltype(angular_vel_pid),
                     Voltage>
   angular_control(angular_vel_pid, vel_controller);
 
-blazing::lyfast::state_space::LTVUnicycleController lqr_controller;
+FLength track_radius = track_width * 0.5;
+
+FLinearVelocity max_velocity = 76_Finps;
+// w = v / r
+FAngularVelocity max_angular_velocity = (max_velocity / track_radius) * Frad;
+
+std::array<float, 3> Q { // max forwards of 10 inches?
+                         (10_in).internal(),
+                         // max crosstrack of 6 inches?
+                         (6_in).internal(),
+                         // maximum is 180
+                         (180_stDeg).internal()
+};
+std::array<float, 2> R { // max velocity
+                         max_velocity.internal(),
+                         // max angular velocity
+                         max_angular_velocity.internal()
+};
+
+blazing::lyfast::state_space::LTVUnicycleController lqr_controller(Q, R);
 
 lyfast::PathPoseFeedbackController<decltype(lqr_controller)>
   path_pose_feedback_controller(lqr_controller);
@@ -327,141 +373,144 @@ void initialize() {
     });
 
     // default a timeout
-    vel_mb.setTurnToModifier([](auto&& turnTo) {
-        return std::move(
-          turnTo
-            .velocity_based(true)
-            // specifically uses turn heading pid instead of drive pid
-            .timeout(5_sec));
-    });
-
-    vel_mb.setDistanceAtHeadingModifier([](auto&& distanceAtHeading) {
-        return std::move(distanceAtHeading.velocity_based(true).timeout(5_sec));
-    });
-
-    vel_mb.setMoveToModifier([](auto&& moveTo) {
-        // return moveTo.customAngularLinearFunc(angular_linear_func);
-        return std::move(
-          moveTo.velocity_based(true).k_lat(0.15 * rad / m).timeout(3_sec));
-        // return moveTo.timeout(3_sec);
-        // .customAngularLinearFunc(angular_linear_func);
-    });
-
-    vel_mb.setBoomerangModifier([](auto&& boomerang) {
-        // return boomerang.customAngularLinearFunc(angular_linear_func);
-        // return boomerang.k_lat();
-        return std::move(boomerang.velocity_based(true)
-                           .k_lat(0.15 * rad / m, true)
-                           .timeout(5_sec));
-        // .customAngularLinearFunc(angular_linear_func);
-    });
+    // vel_mb.setTurnToModifier([](auto&& turnTo) {
+    //     return std::move(
+    //       turnTo
+    //         .velocity_based(true)
+    //         // specifically uses turn heading pid instead of drive pid
+    //         .timeout(5_sec));
+    // });
+    //
+    // vel_mb.setDistanceAtHeadingModifier([](auto&& distanceAtHeading) {
+    //     return
+    //     std::move(distanceAtHeading.velocity_based(true).timeout(5_sec));
+    // });
+    //
+    // vel_mb.setMoveToModifier([](auto&& moveTo) {
+    //     // return moveTo.customAngularLinearFunc(angular_linear_func);
+    //     return std::move(
+    //       moveTo.velocity_based(true).k_lat(0.15 * rad / m).timeout(3_sec));
+    //     // return moveTo.timeout(3_sec);
+    //     // .customAngularLinearFunc(angular_linear_func);
+    // });
+    //
+    // vel_mb.setBoomerangModifier([](auto&& boomerang) {
+    //     // return boomerang.customAngularLinearFunc(angular_linear_func);
+    //     // return boomerang.k_lat();
+    //     return std::move(boomerang.velocity_based(true)
+    //                        .k_lat(0.15 * rad / m, true)
+    //                        .timeout(5_sec));
+    //     // .customAngularLinearFunc(angular_linear_func);
+    // });
 }
 
-void stanley_test() {
-    using namespace blazing::lyfast;
-    using namespace blazing::lyfast::geometry;
-    using namespace blazing::lyfast::mp;
-
-    Line line({ -23.6_in, -23.6_in }, { -34.72_in, -39.79_in });
-    CubicBezier test_cubic({ -34.72_in, -39.79_in },
-                           { -36.58_in, -41.79_in },
-                           { -36.86_in, -46.17_in },
-                           { -56_in, -47.1_in });
-
-    Spline spline({ &line, &test_cubic });
-
-    RobotConstraints robot_constraints(10.5_in,
-                                       // 0.043,
-                                       // 0.08,
-                                       0.3,
-                                       3.25_in,
-                                       450_rpm,
-                                       12_lb,
-                                       6.0f);
-
-    LinearConstraints linear_constraints(40_inps, 20.0_mps2, 2.0_mps2);
-    // 1.6_mps2);
-    // effectively infinity
-    AngularConstraints angular_constraints(20_radps, 20_radps2, 20_radps2);
-
-    Constraints constraints(robot_constraints,
-                            linear_constraints,
-                            angular_constraints);
-
-    Trajectory cubic_trajectory(
-      &spline,
-      constraints,
-      {
-        // lyfast::mp::PointConstraint {
-        //                              .timeframe = 18_in,
-        //                              .vel = 10_inps,
-        //                              },
-      },
-      10_inps,
-      0_inps,
-      0.1_in);
-
-    // print out final trajectory and debug info
-
-    auto print =
-      []<typename T>(std::string name, std::vector<T>& list, T target_units) {
-          std::cout << name << "=\\left[";
-          for (size_t i = 0; i < list.size(); i++) {
-              if (i != 0) std::cout << ",";
-              std::cout << list[i].convert(target_units);
-          }
-          std::cout << "\\right]" << std::endl;
-      };
-
-    bool printing = false;
-    if (printing) {
-        print("a_{kin}", cubic_trajectory.max_kin_accel_debug, Finps2);
-        print("a_{turn}", cubic_trajectory.max_turn_accel_debug, Finps2);
-        print("d_{kin}", cubic_trajectory.max_kin_decel_debug, Finps2);
-        print("d_{turn}", cubic_trajectory.max_turn_decel_debug, Finps2);
-        //
-        print("v_{kin}", cubic_trajectory.max_kin_vel_debug, Finps);
-        print("v_{turn}", cubic_trajectory.max_turn_vel_debug, Finps);
-        print("v_{friction}", cubic_trajectory.max_friction_vel_debug, Finps);
-
-        print("v_{forward}", cubic_trajectory.forwards_pass_debug, Finps);
-        print("v_{backward}", cubic_trajectory.backwards_pass_debug, Finps);
-
-        print("v_{final}", cubic_trajectory.final_vels_debug, Finps);
-
-        std::cout << "l_{times}=\\left[";
-        for (auto& point : cubic_trajectory.points) {
-            std::cout << point.travel_time.convert(sec) << ",";
-        }
-        std::cout << "\\right]" << std::endl;
-
-        std::cout << "l_{points}=\\left[";
-        for (auto& point : cubic_trajectory.points) {
-            std::cout << "\\left(" << point.point.x.convert(in) << ","
-                      << point.point.y.convert(in) << "\\right),";
-        }
-        std::cout << "\\right]" << std::endl;
-
-        std::cout << "l_{headings}=\\left[";
-        for (auto& point : cubic_trajectory.points) {
-            std::cout << point.heading.internal() << ",";
-        }
-        std::cout << "\\right]" << std::endl;
-    }
-
-    // drivetrain.setBrakeMode(pros::v5::MotorBrake::hold);
-
-    // run spline on ramsette
-    // blazing::lyfast::Ramsete(controllers,
-    //                          chassis,
-    //                          &cubic_trajectory,
-    //                          0.7,
-    //                          35.0) |
-    //   run;
-
-    // run spline on stanley
-    Stanley(controllers, chassis, &cubic_trajectory).k(0.5 / sec) | run;
-}
+// void stanley_test() {
+//     using namespace blazing::lyfast;
+//     using namespace blazing::lyfast::geometry;
+//     using namespace blazing::lyfast::mp;
+//
+//     Line line({ -23.6_in, -23.6_in }, { -34.72_in, -39.79_in });
+//     CubicBezier test_cubic({ -34.72_in, -39.79_in },
+//                            { -36.58_in, -41.79_in },
+//                            { -36.86_in, -46.17_in },
+//                            { -56_in, -47.1_in });
+//
+//     Spline spline({ &line, &test_cubic });
+//
+//     RobotConstraints robot_constraints(10.5_in,
+//                                        // 0.043,
+//                                        // 0.08,
+//                                        0.3,
+//                                        3.25_in,
+//                                        450_rpm,
+//                                        12_lb,
+//                                        6.0f);
+//
+//     LinearConstraints linear_constraints(40_inps, 20.0_mps2, 2.0_mps2);
+//     // 1.6_mps2);
+//     // effectively infinity
+//     AngularConstraints angular_constraints(20_radps, 20_radps2, 20_radps2);
+//
+//     Constraints constraints(robot_constraints,
+//                             linear_constraints,
+//                             angular_constraints);
+//
+//     Trajectory cubic_trajectory(
+//       &spline,
+//       constraints,
+//       {
+//         // lyfast::mp::PointConstraint {
+//         //                              .timeframe = 18_in,
+//         //                              .vel = 10_inps,
+//         //                              },
+//       },
+//       10_inps,
+//       0_inps,
+//       0.1_in);
+//
+//     // print out final trajectory and debug info
+//
+//     auto print =
+//       []<typename T>(std::string name, std::vector<T>& list, T target_units)
+//       {
+//           std::cout << name << "=\\left[";
+//           for (size_t i = 0; i < list.size(); i++) {
+//               if (i != 0) std::cout << ",";
+//               std::cout << list[i].convert(target_units);
+//           }
+//           std::cout << "\\right]" << std::endl;
+//       };
+//
+//     bool printing = false;
+//     if (printing) {
+//         print("a_{kin}", cubic_trajectory.max_kin_accel_debug, Finps2);
+//         print("a_{turn}", cubic_trajectory.max_turn_accel_debug, Finps2);
+//         print("d_{kin}", cubic_trajectory.max_kin_decel_debug, Finps2);
+//         print("d_{turn}", cubic_trajectory.max_turn_decel_debug, Finps2);
+//         //
+//         print("v_{kin}", cubic_trajectory.max_kin_vel_debug, Finps);
+//         print("v_{turn}", cubic_trajectory.max_turn_vel_debug, Finps);
+//         print("v_{friction}", cubic_trajectory.max_friction_vel_debug,
+//         Finps);
+//
+//         print("v_{forward}", cubic_trajectory.forwards_pass_debug, Finps);
+//         print("v_{backward}", cubic_trajectory.backwards_pass_debug, Finps);
+//
+//         print("v_{final}", cubic_trajectory.final_vels_debug, Finps);
+//
+//         std::cout << "l_{times}=\\left[";
+//         for (auto& point : cubic_trajectory.points) {
+//             std::cout << point.travel_time.convert(sec) << ",";
+//         }
+//         std::cout << "\\right]" << std::endl;
+//
+//         std::cout << "l_{points}=\\left[";
+//         for (auto& point : cubic_trajectory.points) {
+//             std::cout << "\\left(" << point.point.x.convert(in) << ","
+//                       << point.point.y.convert(in) << "\\right),";
+//         }
+//         std::cout << "\\right]" << std::endl;
+//
+//         std::cout << "l_{headings}=\\left[";
+//         for (auto& point : cubic_trajectory.points) {
+//             std::cout << point.heading.internal() << ",";
+//         }
+//         std::cout << "\\right]" << std::endl;
+//     }
+//
+//     // drivetrain.setBrakeMode(pros::v5::MotorBrake::hold);
+//
+//     // run spline on ramsette
+//     // blazing::lyfast::Ramsete(controllers,
+//     //                          chassis,
+//     //                          &cubic_trajectory,
+//     //                          0.7,
+//     //                          35.0) |
+//     //   run;
+//
+//     // run spline on stanley
+//     Stanley(controllers, chassis, &cubic_trajectory).k(0.5 / sec) | run;
+// }
 
 // allows running tuning routine multiple times
 // press A to run routine, X to get raw data
@@ -950,65 +999,170 @@ void simple_mp_test() {
     }
 }
 
-void opcontrol() {
+void path_follow_test() {
+    using namespace blazing::lyfast;
+    using namespace blazing::lyfast::geometry;
+    using namespace blazing::lyfast::mp;
 
-    // TODO: how to actually tune these?
-    lqr_controller.setQMatrix({ // max forwards of 10 inches?
-                                (10_in).internal(),
-                                // max crosstrack of 6 inches?
-                                (6_in).internal(),
-                                // maximum is 180
-                                (180_stDeg).internal() });
+    Line line({ -23.6_in, 0_in }, { 0_in, 0_in });
+    CubicBezier test_cubic({ 0_in, 0_in },
+                           { 23.6_in, 0_in },
+                           { 23.6_in, 23.6_in },
+                           { 47.2_in, 23.6_in });
 
-    FLength track_radius = track_width * 0.5;
+    Spline spline({ &line, &test_cubic });
 
-    FLinearVelocity max_velocity = 76_Finps;
-    // w = v / r
-    FAngularVelocity max_angular_velocity =
-      (max_velocity / track_radius) * Frad;
+    RobotConstraints robot_constraints(
+      10.5_in, // track with
+      0.9, // friction coeff
+      3.25_in, // wheel diameter
+      410_rpm, // max ang vel - determined somewhat from data
+      14.8_lb, // about 6.7 kg
+      2.0f); // motor count - determined somewhat from data
 
-    lqr_controller.setRMatrix({ // max velocity
-                                max_velocity.internal(),
-                                // max angular velocity
-                                max_angular_velocity.internal() });
+    LinearConstraints linear_constraints(
+      40_inps, // max vel - for testing
+      20.0_inps2, // max accel - for testing
+      170_inps2 // max decel - for testing also
+    );
+    // 1.6_mps2);
+    // effectively infinity
+    AngularConstraints angular_constraints(20_radps, 20_radps2, 20_radps2);
 
-    // assume robot is at 0,0
-    lyfast::PathPoseFeedbackT state {
-        .pose = { 0_in, 0_in, 0_stDeg },
-        .velocities = {.linear_velocity = 0_inps, .angular_velocity = 0_radps,}
-    };
+    Constraints constraints(robot_constraints,
+                            linear_constraints,
+                            angular_constraints);
 
-    // want to reach (10, 10) with angle of 10 degrees and with some velocity
-    lyfast::PathPoseFeedbackT reference {
-        .pose = { 1_in, 1_in, 10_stDeg },
-        .velocities = { .linear_velocity = 10_inps, .angular_velocity = 1_radps,
-		}
-    };
+    Trajectory test_trajectory(
+      &spline,
+      constraints,
+      {
+        // lyfast::mp::PointConstraint {
+        //                              .timeframe = 18_in,
+        //                              .vel = 10_inps,
+        //                              },
+      },
+      0_inps,
+      0_inps,
+      0.1_in);
 
-    lqr_controller.setState(
-      lyfast::state_space::LTVUnicycleController::State::fromPathPoseFeedback(
-        (state)));
+    // print out final trajectory and debug info
 
-    lqr_controller.setReference(
-      lyfast::state_space::LTVUnicycleController::State::fromPathPoseFeedback(
-        (reference)));
+    auto print =
+      []<typename T>(std::string name, std::vector<T>& list, T target_units) {
+          std::cout << name << "=\\left[";
+          for (size_t i = 0; i < list.size(); i++) {
+              if (i != 0) std::cout << ",";
+              std::cout << list[i].convert(target_units);
+          }
+          std::cout << "\\right]" << std::endl;
+      };
 
-    auto start_time = pros::micros();
-    lqr_controller.compute();
-    auto end_time = pros::micros();
+    bool printing = true;
+    if (printing) {
+        print("a_{kin}", test_trajectory.max_kin_accel_debug, Finps2);
+        print("a_{turn}", test_trajectory.max_turn_accel_debug, Finps2);
+        print("d_{kin}", test_trajectory.max_kin_decel_debug, Finps2);
+        print("d_{turn}", test_trajectory.max_turn_decel_debug, Finps2);
+        //
+        print("v_{kin}", test_trajectory.max_kin_vel_debug, Finps);
+        print("v_{turn}", test_trajectory.max_turn_vel_debug, Finps);
+        print("v_{friction}", test_trajectory.max_friction_vel_debug, Finps);
 
-    std::cout << "LQR in " << end_time - start_time << " micro seconds"
-              << std::endl;
+        print("v_{forward}", test_trajectory.forwards_pass_debug, Finps);
+        print("v_{backward}", test_trajectory.backwards_pass_debug, Finps);
 
-    auto result = lqr_controller.getInput();
-    // auto result = lqr_controller.update(state, reference, 10_msec);
+        print("v_{final}", test_trajectory.final_vels_debug, Finps);
 
-    if (result.has_value()) {
-        std::cout << "lqr returned: " << result->linear_velocity.convert(inps)
-                  << " inps " << result->angular_velocity << std::endl;
-    } else {
-        std::cout << "LQR encountered an error" << std::endl;
+        std::cout << "l_{times}=\\left[";
+        for (auto& point : test_trajectory.points) {
+            std::cout << point.travel_time.convert(sec) << ",";
+        }
+        std::cout << "\\right]" << std::endl;
+
+        std::cout << "l_{points}=\\left[";
+        for (auto& point : test_trajectory.points) {
+            std::cout << "\\left(" << point.point.x.convert(in) << ","
+                      << point.point.y.convert(in) << "\\right),";
+        }
+        std::cout << "\\right]" << std::endl;
+
+        std::cout << "l_{headings}=\\left[";
+        for (auto& point : test_trajectory.points) {
+            std::cout << point.heading.internal() << ",";
+        }
+        std::cout << "\\right]" << std::endl;
     }
+
+    // drivetrain.setBrakeMode(pros::v5::MotorBrake::hold);
+
+    // run spline on ramsette
+    // blazing::lyfast::Ramsete(controllers,
+    //                          chassis,
+    //                          &cubic_trajectory,
+    //                          0.7,
+    //                          35.0) |
+    //   run;
+
+    std::cout << "running path!" << std::endl;
+    // use path follow to follow the path
+    lyfast::PathFollow<decltype(controllers),
+                       decltype(drivetrain),
+                       decltype(arc_pose_tracker),
+                       decltype(tolerances)>(controllers,
+                                             chassis,
+                                             &test_trajectory) |
+      run;
+}
+
+void opcontrol() {
+    // TODO: how to actually tune these?
+    //   lqr_controller.setQMatrix(Q);
+    //   lqr_controller.setRMatrix(R);
+    //
+    //   // assume robot is at 0,0
+    //   lyfast::PathPoseFeedbackT state {
+    //       .pose = { 0_in, 0_in, 0_stDeg },
+    //       .velocities = {.linear_velocity = 0_inps, .angular_velocity =
+    //       0_radps,}
+    //   };
+    //
+    //   // want to reach (10, 10) with angle of 10 degrees and with some
+    //   // velocity
+    //   lyfast::PathPoseFeedbackT reference {
+    //       .pose = { 1_in, 1_in, 10_stDeg },
+    //       .velocities = { .linear_velocity = 10_inps, .angular_velocity =
+    //       1_radps,
+    // }
+    //   };
+    //
+    //   lqr_controller.setState(
+    //     lyfast::state_space::LTVUnicycleController::State::fromPathPoseFeedback(
+    //       (state)));
+    //
+    //   lqr_controller.setReference(
+    //     lyfast::state_space::LTVUnicycleController::State::fromPathPoseFeedback(
+    //       (reference)));
+    //
+    //   auto start_time = pros::micros();
+    //   lqr_controller.compute();
+    //   auto end_time = pros::micros();
+    //
+    //   std::cout << "LQR in " << end_time - start_time << " micro seconds"
+    //             << std::endl;
+    //
+    //   auto result = lqr_controller.getInput();
+    //   // auto result = lqr_controller.update(state, reference, 10_msec);
+    //
+    //   if (result.has_value()) {
+    //       std::cout << "lqr returned: " <<
+    //       result->linear_velocity.convert(inps)
+    //                 << " inps " << result->angular_velocity << std::endl;
+    //   } else {
+    //       std::cout << "LQR encountered an error" << std::endl;
+    //   }
+
+    path_follow_test();
 
     // pros::delay(2000);
     // linear_ka_kp_ki_tuner();
@@ -1066,7 +1220,8 @@ void opcontrol() {
     //                                   0.1_in);
     //
     // auto print =
-    //   []<typename T>(std::string name, std::vector<T>& list, T target_units)
+    //   []<typename T>(std::string name, std::vector<T>& list, T
+    //   target_units)
     //   {
     //       std::cout << name << "=\\left[";
     //       for (size_t i = 0; i < list.size(); i++) {

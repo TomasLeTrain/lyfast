@@ -78,6 +78,25 @@ void Trajectory::isolatedConstraints() {
         const FLength abs_radius = 1.0f / abs_curvature;
         const auto abs_radius_rad = abs_radius / Frad;
 
+        // left and right velocties cannot go above v_max:
+        // l = v - w * tr <= v_max
+        // r = v + w * tr <= v_max
+        //
+        // l = v - (v * c) * tr <= v_max
+        // r = v + (v * c) * tr <= v_max
+        //
+        // l = v(1 - c * tr) <= v_max
+        // r = v(1 + c * tr) <= v_max
+        //
+        // v = v_max / (1 - c * tr)
+        // v = v_max / (1 + c * tr)
+        //
+        // v = v_max / max(1 - c * tr, 1 + c * tr)
+        // v = v_max / (1 + |c|*tr)
+        // ->
+        // kin_multiplier = 1 / (1 + |c|*tr)
+        // v = v_max * kin_multiplier
+
         const float kin_multiplier =
           1.0 / (1.0 + (track_radius * abs_curvature));
 
