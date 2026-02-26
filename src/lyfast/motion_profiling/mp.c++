@@ -1,14 +1,16 @@
 #include "lyfast/motion_profiling/mp.hpp"
+#include "lyfast/geometry/curve.hpp"
 #include "units/Angle.hpp"
 #include "units/units.hpp"
 #include <iterator>
+#include <memory>
 #include <variant>
 
 namespace blazing {
 namespace lyfast {
 namespace mp {
 
-geometry::Curve* Trajectory::getCurve() {
+std::shared_ptr<geometry::Curve> Trajectory::getCurve() {
     return curve;
 }
 
@@ -262,6 +264,8 @@ void Trajectory::backwardsPass() {
 
         // predicted max decel from motors
         const FLinearAcceleration motor_accel =
+          // sort of predicting backwards here, but we don't know what point's
+          // vel will be
           get_accel(units::abs(next_point.vel));
 
         // decel from current point used since the motion still goes
@@ -418,7 +422,7 @@ MotionPoint& Trajectory::getMotionStartPoint() {
     return points.back();
 }
 
-Trajectory::Trajectory(geometry::Curve* curve,
+Trajectory::Trajectory(std::shared_ptr<geometry::Curve> curve,
                        Constraints constraints,
                        std::vector<PointConstraint> point_constraints,
                        LinearVelocity start_vel,

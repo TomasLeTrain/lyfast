@@ -104,6 +104,9 @@ class RamsetteController {
     }
 };
 
+// seems pretty bad since it assumes linear veloctiy and angular veloctiy independence
+// (modeled after cars which do have this property)
+// however in practice it might be decent, maybe one day should test
 class StanleyController {
   public:
     // larger values lead to more aggressive angle correction

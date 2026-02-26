@@ -8,8 +8,11 @@ namespace lyfast {
 // pct should be speed / max_speed
 // outputs torque from motor for a specific velocity
 inline FTorque motor_torque(float pct) {
+    // make sure its positive
+    pct = std::abs(pct);
+
     // custom motor model that matches somewhat with recorded drivetrain data
-    if (pct >= 0.0) return 0_FNm;
+    if (pct >= 1.0) return 0_FNm;
 
     return 1.85125762613_FNm * (1 - pct);
 

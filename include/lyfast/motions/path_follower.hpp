@@ -5,13 +5,14 @@
 #include "blazing/motions/motion.hpp"
 #include "blazing/trackers/tracker.hpp"
 #include "blazing/utils.hpp"
+#include "lyfast/controllers/path_pose_feedback.hpp"
+#include "lyfast/controllers/vel_controller.hpp"
 #include "lyfast/motion_profiling/mp.hpp"
-#include "lyfast/path_pose_feedback.hpp"
-#include "lyfast/vel_controller.hpp"
 #include "units/Angle.hpp"
 #include "units/Pose.hpp"
 #include "units/Vector2D.hpp"
 #include "units/units.hpp"
+#include <memory>
 #include <variant>
 
 namespace blazing {
@@ -51,7 +52,7 @@ class PathFollow : public Motion<ControllersType,
     std::optional<PathFollowState> m_state;
     bool reversed = false;
 
-    mp::Trajectory* target_trajectory;
+    std::shared_ptr<mp::Trajectory> target_trajectory;
 
     std::optional<Time> m_timeout = std::nullopt;
     Length close_threshold = 4_in;
@@ -63,7 +64,8 @@ class PathFollow : public Motion<ControllersType,
     };
 
     parameterizationType m_parameterization_type = closest_point_based;
-    std::variant<Length, Time> m_lookahead = 0_in;
+    // look ahead one iteration at a time
+    std::variant<Length, Time> m_lookahead = 20_msec;
 
   public:
     int getLoopDelayTime() override {
@@ -91,45 +93,58 @@ class PathFollow : public Motion<ControllersType,
         const units::V2Position position = this->tracker.getPosition();
         const Angle heading = [&] -> Angle {
             const Angle heading = this->tracker.getAngle();
-            // TODO: maybe reversing should be part of the motion?
             return reversed ? reverseAngle(heading) : heading;
         }();
 
-        int target_idx = -1;
+        int reference_idx = -1, next_reference_idx = -1;
 
         if (m_parameterization_type == time_based) {
             // time based
-            target_idx = target_trajectory->indexByTime(elapsed_motion_time);
+            reference_idx = target_trajectory->indexByTime(elapsed_motion_time);
         } else if (m_parameterization_type == distance_based) {
             // distance based
-            target_idx = target_trajectory->indexByDistance(units::max(
+            reference_idx = target_trajectory->indexByDistance(units::max(
               0_in,
               this->tracker.getForwardTravel() - state.start_distance));
         } else if (m_parameterization_type == closest_point_based) {
             // closest point based
-            target_idx = target_trajectory->indexByClosestPoint(position);
+            reference_idx = target_trajectory->indexByClosestPoint(position);
         }
+
+        // in case there is no lookahead we just use the same reference
+        next_reference_idx = reference_idx;
 
         // performs the lookahead logic
         if (std::holds_alternative<Length>(m_lookahead)) {
-            target_idx = target_trajectory->indexByDistance(
-              target_trajectory->getPoint(target_idx).arc_length +
+            next_reference_idx = target_trajectory->indexByDistance(
+              target_trajectory->getPoint(reference_idx).arc_length +
               std::get<Length>(m_lookahead));
         } else {
-            target_idx = target_trajectory->indexByTime(
-              target_trajectory->getPoint(target_idx).travel_time +
+            next_reference_idx = target_trajectory->indexByTime(
+              target_trajectory->getPoint(reference_idx).travel_time +
               std::get<Time>(m_lookahead));
         }
 
-        mp::MotionPoint& target_motion_point =
-          target_trajectory->getPoint(target_idx);
+        mp::MotionPoint& reference_motion_point =
+          target_trajectory->getPoint(reference_idx);
 
-        units::Pose reference_pose = { target_motion_point.point,
-                                       target_motion_point.heading };
+        mp::MotionPoint& next_reference_motion_point =
+          target_trajectory->getPoint(next_reference_idx);
+
+        units::Pose reference_pose = { reference_motion_point.point,
+                                       reference_motion_point.heading };
+
+        units::Pose next_reference_pose = { reference_motion_point.point,
+                                            reference_motion_point.heading };
 
         DifferentialSpeeds reference_speeds = {
-            target_motion_point.vel,
-            Frad * target_motion_point.vel * target_motion_point.curvature
+            reference_motion_point.vel,
+            Frad * reference_motion_point.vel * reference_motion_point.curvature
+        };
+
+        DifferentialSpeeds next_reference_speeds = {
+            reference_motion_point.vel,
+            Frad * reference_motion_point.vel * reference_motion_point.curvature
         };
 
         double reverse_multiplier = reversed ? -1.0 : 1.0;
@@ -139,6 +154,7 @@ class PathFollow : public Motion<ControllersType,
 
         // reverse linear_velocity if needed
         reference_speeds.linear_velocity *= reverse_multiplier;
+        next_reference_speeds.linear_velocity *= reverse_multiplier;
 
         // points used for tolerances
         mp::MotionPoint& curve_endpoint =
@@ -185,20 +201,27 @@ class PathFollow : public Motion<ControllersType,
             return result;
         }
 
+        // current state
         PathPoseFeedbackT path_pose_state {
             .pose = units::Pose { position, heading },
-            // TODO: could feed actual velocities instead?
+            // use from current reference
+            // TODO: use actual speeds?
             .velocities = reference_speeds
         };
-        PathPoseFeedbackT path_pose_reference { .pose = reference_pose,
+
+        // seeking the next reference
+        PathPoseFeedbackT path_pose_reference { .pose = next_reference_pose,
+                                                // target next reference
                                                 .velocities =
-                                                  reference_speeds };
+                                                  next_reference_speeds };
 
         // use feedback control law to figure out new velocities
         DifferentialSpeeds new_speeds =
           this->controllers.path_pose_feedback.update(path_pose_state,
                                                       path_pose_reference,
                                                       delta_time);
+
+        // linear and angular should be references for the velocity controller
 
         LeftRightVoltages voltages =
           this->controllers.velocity_feedforward.update(new_speeds, delta_time);
@@ -211,6 +234,29 @@ class PathFollow : public Motion<ControllersType,
         auto [normal_left_voltage, normal_right_voltage] =
           desaturate(saturated_voltages, 1_volt);
 
+        auto [left_vel, right_vel] = this->drivetrain.getDrivetrainVelocities();
+        auto [actual_volt_left, actual_volt_right] =
+          this->drivetrain.getDrivetrainVoltages();
+
+        std::cout << std::fixed;
+        std::cout << std::setprecision(5);
+
+        std::cout << "lin/ang/drive_left/drive_right/tv_l/tv_r/"
+                     "av_l/av_r/x/y/theta/tx/ty/ttheta: "
+                  << new_speeds.linear_velocity.internal() << " "
+                  << new_speeds.angular_velocity.internal() << " "
+                  << left_vel.internal() << " " << right_vel.internal() << " "
+                  << normal_left_voltage.internal() << " "
+                  << normal_right_voltage.internal() << " "
+                  << actual_volt_left.internal() << " "
+                  << actual_volt_right.internal() << " "
+                  << position.x.convert(in) << " " //
+                  << position.y.convert(in) << " " //
+                  << heading.convert(deg) << " "
+                  << reference_motion_point.point.x.convert(in) << " "
+                  << reference_motion_point.point.y.convert(in) << " "
+                  << reference_motion_point.heading.convert(deg) << std::endl;
+
         this->drivetrain.moveTank(normal_left_voltage, normal_right_voltage);
 
         return result;
@@ -219,7 +265,7 @@ class PathFollow : public Motion<ControllersType,
     [[nodiscard("motion won't be executed unless run or async are used!")]]
     PathFollow(ControllersType controllers,
                Chassis<DrivetrainType, TrackerType, TolerancesType> chassis,
-               mp::Trajectory* target_trajectory)
+               std::shared_ptr<mp::Trajectory> target_trajectory)
         : Motion<ControllersType,
                  DrivetrainType,
                  TrackerType,

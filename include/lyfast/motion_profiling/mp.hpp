@@ -3,7 +3,7 @@
 #include "blazing/utils.hpp"
 #include "lyfast/geometry/curve.hpp"
 #include "lyfast/motion_profiling/constraints.hpp"
-#include "lyfast/motor_dynamics.hpp"
+#include "lyfast/utils/motor_dynamics.hpp"
 #include "pros/rtos.h"
 #include "units/Angle.hpp"
 #include "units/Pose.hpp"
@@ -70,10 +70,10 @@ class Trajectory {
 
     std::vector<FLinearVelocity> final_vels_debug;
 
-    geometry::Curve* curve;
+    std::shared_ptr<geometry::Curve> curve;
 
   private:
-    geometry::Curve* getCurve();
+    std::shared_ptr<geometry::Curve> getCurve();
 
     void compute();
 
@@ -121,7 +121,7 @@ class Trajectory {
 
     FDifferentialSpeeds differentialVelocitiesByIndex(int index);
 
-    Trajectory(geometry::Curve* curve,
+    Trajectory(std::shared_ptr<geometry::Curve> curve,
                Constraints constraints,
                std::vector<PointConstraint> point_constraints,
                LinearVelocity start_vel,

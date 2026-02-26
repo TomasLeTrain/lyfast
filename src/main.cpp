@@ -4,16 +4,6 @@
 #include "blazing/controllers/slew.hpp"
 #include "blazing/utils.hpp"
 #include "lyfast/api.hpp"
-#include "lyfast/geometry/line.hpp"
-#include "lyfast/geometry/primitives.hpp"
-#include "lyfast/ltv_unicycle_controller.hpp"
-#include "lyfast/motion_profiling/constraints.hpp"
-#include "lyfast/motion_profiling/mp.hpp"
-#include "lyfast/motion_profiling/simple_mp.hpp"
-#include "lyfast/path_follower.hpp"
-#include "lyfast/path_pose_feedback.hpp"
-#include "lyfast/system_identification.hpp"
-#include "lyfast/vel_controller.hpp"
 #include "pros/apix.h"
 #include "pros/imu.h"
 #include "pros/motor_group.hpp"
@@ -25,6 +15,7 @@
 #include <cmath>
 #include <iostream>
 #include <limits>
+#include <memory>
 #include <mutex>
 #include <numeric>
 #include <utility>
@@ -151,8 +142,8 @@ ForwardsTracker right_motor_tracker(&right_motors,
 // };
 
 // TODO: update since now sideways might be zero
-ForwardsTracker forwards_tracker(&forwards_odom_rotation, -0.08_in, 1.991_in);
-SidewaysTracker sideways_tracker(&sideways_odom_rotation, -0.0_in, 1.991_in);
+ForwardsTracker forwards_tracker(&forwards_odom_rotation, 0.5_in, 1.991_in);
+SidewaysTracker sideways_tracker(&sideways_odom_rotation, -2.6_in, 1.991_in);
 
 TrackingImu tracking_imu(&imu);
 
@@ -315,11 +306,11 @@ FLinearVelocity max_velocity = 76_Finps;
 FAngularVelocity max_angular_velocity = (max_velocity / track_radius) * Frad;
 
 std::array<float, 3> Q { // max forwards of 10 inches?
-                         (10_in).internal(),
+                         (20_in).internal(),
                          // max crosstrack of 6 inches?
-                         (6_in).internal(),
+                         (10_in).internal(),
                          // maximum is 180
-                         (180_stDeg).internal()
+                         (90_stDeg).internal()
 };
 std::array<float, 2> R { // max velocity
                          max_velocity.internal(),
@@ -1003,14 +994,18 @@ void path_follow_test() {
     using namespace blazing::lyfast;
     using namespace blazing::lyfast::geometry;
     using namespace blazing::lyfast::mp;
+    arc_pose_tracker.setPose({ 0_in, 0_in, 0_stDeg });
 
-    Line line({ -23.6_in, 0_in }, { 0_in, 0_in });
-    CubicBezier test_cubic({ 0_in, 0_in },
-                           { 23.6_in, 0_in },
-                           { 23.6_in, 23.6_in },
-                           { 47.2_in, 23.6_in });
+    std::shared_ptr<Line> line(new Line({ -23.6_in, 0_in }, { 0_in, 0_in }));
+    std::shared_ptr<CubicBezier> bezier(new CubicBezier({ 0_in, 0_in },
+                                                        { 23.6_in, 0_in },
+                                                        { 23.6_in, 23.6_in },
+                                                        { 47.2_in, 23.6_in }));
 
-    Spline spline({ &line, &test_cubic });
+    // TODO: fix whatever is wrong with spline thingy
+    std::shared_ptr<geometry::Spline> spline_ptr { new Spline(
+      { line, bezier }) };
+    //   { bezier }) };
 
     RobotConstraints robot_constraints(
       10.5_in, // track with
@@ -1021,30 +1016,36 @@ void path_follow_test() {
       2.0f); // motor count - determined somewhat from data
 
     LinearConstraints linear_constraints(
-      40_inps, // max vel - for testing
-      20.0_inps2, // max accel - for testing
-      170_inps2 // max decel - for testing also
+      60_inps, // max vel - for testing
+      // 20.0_inps2, // max accel - for testing
+      10000.0_inps2, // max accel - for testing
+      100_inps2 // max decel - for testing also
     );
     // 1.6_mps2);
     // effectively infinity
-    AngularConstraints angular_constraints(20_radps, 20_radps2, 20_radps2);
+    AngularConstraints angular_constraints(2.0_radps, 1.3_radps2, 1.3_radps2);
 
     Constraints constraints(robot_constraints,
                             linear_constraints,
                             angular_constraints);
 
-    Trajectory test_trajectory(
-      &spline,
-      constraints,
-      {
-        // lyfast::mp::PointConstraint {
-        //                              .timeframe = 18_in,
-        //                              .vel = 10_inps,
-        //                              },
-      },
-      0_inps,
-      0_inps,
-      0.1_in);
+    // std::make_shared<geometry::Curve>(spline);
+
+    std::shared_ptr<Trajectory> test_trajectory(
+      new Trajectory(bezier,
+                     constraints,
+                     {
+                       // lyfast::mp::PointConstraint {
+                       //                              .timeframe = 18_in,
+                       //                              .vel = 10_inps,
+                       //                              },
+                     },
+                     // some initial velocity for it to move?
+                     // TODO: could there be a place on the curve that also has
+                     // a velof zero? if so this would also have the same issue?
+                     1_inps,
+                     0_inps,
+                     0.1_in));
 
     // print out final trajectory and debug info
 
@@ -1060,35 +1061,35 @@ void path_follow_test() {
 
     bool printing = true;
     if (printing) {
-        print("a_{kin}", test_trajectory.max_kin_accel_debug, Finps2);
-        print("a_{turn}", test_trajectory.max_turn_accel_debug, Finps2);
-        print("d_{kin}", test_trajectory.max_kin_decel_debug, Finps2);
-        print("d_{turn}", test_trajectory.max_turn_decel_debug, Finps2);
+        print("a_{kin}", test_trajectory->max_kin_accel_debug, Finps2);
+        print("a_{turn}", test_trajectory->max_turn_accel_debug, Finps2);
+        print("d_{kin}", test_trajectory->max_kin_decel_debug, Finps2);
+        print("d_{turn}", test_trajectory->max_turn_decel_debug, Finps2);
         //
-        print("v_{kin}", test_trajectory.max_kin_vel_debug, Finps);
-        print("v_{turn}", test_trajectory.max_turn_vel_debug, Finps);
-        print("v_{friction}", test_trajectory.max_friction_vel_debug, Finps);
+        print("v_{kin}", test_trajectory->max_kin_vel_debug, Finps);
+        print("v_{turn}", test_trajectory->max_turn_vel_debug, Finps);
+        print("v_{friction}", test_trajectory->max_friction_vel_debug, Finps);
 
-        print("v_{forward}", test_trajectory.forwards_pass_debug, Finps);
-        print("v_{backward}", test_trajectory.backwards_pass_debug, Finps);
+        print("v_{forward}", test_trajectory->forwards_pass_debug, Finps);
+        print("v_{backward}", test_trajectory->backwards_pass_debug, Finps);
 
-        print("v_{final}", test_trajectory.final_vels_debug, Finps);
+        print("v_{final}", test_trajectory->final_vels_debug, Finps);
 
         std::cout << "l_{times}=\\left[";
-        for (auto& point : test_trajectory.points) {
+        for (auto& point : test_trajectory->points) {
             std::cout << point.travel_time.convert(sec) << ",";
         }
         std::cout << "\\right]" << std::endl;
 
         std::cout << "l_{points}=\\left[";
-        for (auto& point : test_trajectory.points) {
+        for (auto& point : test_trajectory->points) {
             std::cout << "\\left(" << point.point.x.convert(in) << ","
                       << point.point.y.convert(in) << "\\right),";
         }
         std::cout << "\\right]" << std::endl;
 
         std::cout << "l_{headings}=\\left[";
-        for (auto& point : test_trajectory.points) {
+        for (auto& point : test_trajectory->points) {
             std::cout << point.heading.internal() << ",";
         }
         std::cout << "\\right]" << std::endl;
@@ -1111,7 +1112,10 @@ void path_follow_test() {
                        decltype(arc_pose_tracker),
                        decltype(tolerances)>(controllers,
                                              chassis,
-                                             &test_trajectory) |
+                                             test_trajectory)
+        .drive_toleranceDuration(100_sec)
+        .drive_largeToleranceDuration(100_sec)
+        .timeout(5_sec) |
       run;
 }
 
@@ -1162,6 +1166,7 @@ void opcontrol() {
     //       std::cout << "LQR encountered an error" << std::endl;
     //   }
 
+    pros::delay(2000);
     path_follow_test();
 
     // pros::delay(2000);

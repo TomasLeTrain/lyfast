@@ -1,7 +1,7 @@
-#include "lyfast/ltv_unicycle_controller.hpp"
+#include "lyfast/state_space/ltv_unicycle_controller.hpp"
 #include "Eigen/Dense"
 #include "blazing/utils.hpp"
-#include "lyfast/state_space_utils.hpp"
+#include "lyfast/state_space/state_space_utils.hpp"
 #include "units/Angle.hpp"
 #include "units/Pose.hpp"
 #include "units/Vector2D.hpp"
@@ -18,8 +18,9 @@ void LTVUnicycleController::setState(State new_state) {
     m_state = new_state;
 }
 
-void LTVUnicycleController::setReference(State new_reference) {
-    m_reference = new_reference;
+void LTVUnicycleController::setNextReference(State new_reference) {
+    m_current_reference = m_next_reference;
+    m_next_reference = new_reference;
 }
 
 void LTVUnicycleController::setDeltaTime(Time delta_time) {
@@ -44,11 +45,11 @@ void LTVUnicycleController::setRMatrix(std::array<float, 2> R) {
 // possible velocities for O(1) lookup
 // however would also have to recompute all values if changing Q or R
 void LTVUnicycleController::compute() {
-    const auto local_error =
-      (m_reference.pose - m_state.pose).rotatedBy(-m_state.pose.orientation);
+    const auto local_error = (m_next_reference.pose - m_state.pose)
+                               .rotatedBy(-m_state.pose.orientation);
 
     const Angle angle_error =
-      angleError(m_reference.pose.orientation, m_state.pose.orientation);
+      angleError(m_next_reference.pose.orientation, m_state.pose.orientation);
 
     const Eigen::Vector3f error(local_error.x.internal(),
                                 local_error.y.internal(),
@@ -90,21 +91,22 @@ void LTVUnicycleController::compute() {
     auto S = detail::DARE<3, 2>(discA, discB, Q, R_llt);
 
     // K = (BᵀSB + R)⁻¹(BᵀSA)
-    auto K = (discB.transpose() * S * discB + R)
-               .llt()
-               .solve(discB.transpose() * S * discA);
+    auto K_feedback = (discB.transpose() * S * discB + R)
+                        .llt()
+                        .solve(discB.transpose() * S * discA);
 
-    const Eigen::Vector2f u = K * error;
+    const Eigen::Vector2f u_feedback = K_feedback * error;
 
-    m_input = { m_reference.velocities.linear_velocity + u.x() * mps,
-                m_reference.velocities.angular_velocity + u.y() * radps };
+    m_input = { m_next_reference.velocities.linear_velocity + u_feedback.x() * mps,
+                m_next_reference.velocities.angular_velocity + u_feedback.y() * radps };
 }
 
 DifferentialSpeeds LTVUnicycleController::update(PathPoseFeedbackT state,
                                                  PathPoseFeedbackT reference,
                                                  Time duration) {
     setState(State::fromPathPoseFeedback(state));
-    setReference(State::fromPathPoseFeedback(reference));
+    setNextReference(State::fromPathPoseFeedback(reference));
+    setDeltaTime(duration);
 
     compute();
     auto result = getInput();

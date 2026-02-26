@@ -99,9 +99,9 @@ float Spline::t_by_s(FLength target) {
     return t_by_s(target, -1.0);
 }
 
-Spline::Spline(std::vector<Curve*>&& curves)
+Spline::Spline(std::vector<std::shared_ptr<Curve>> curves)
     : Curve(curves.front()->endpoints[0], curves.back()->endpoints[1]),
-      m_curves(std::forward<std::vector<Curve*>>(curves)) {
+      m_curves(curves) {
     num_curves = static_cast<float>(m_curves.size());
 
     // check that endpoints between curves match
@@ -118,7 +118,7 @@ Spline::Spline(std::vector<Curve*>&& curves)
     Length distance = 0_m;
 
     // sets the distances to each curve
-    for (Curve* curve : m_curves) {
+    for (auto&& curve : m_curves) {
         distance += curve->total_distance;
         distance_to_curve.emplace_back(distance);
     }

@@ -286,8 +286,10 @@ concept sameQuantity =
     std::ratio_equal<typename Q::time, typename Q::time>() &&
     std::ratio_equal<typename Q::current, typename Quantities::current>() &&
     std::ratio_equal<typename Q::angle, typename Quantities::angle>() &&
-    std::ratio_equal<typename Q::temperature, typename Quantities::temperature>() &&
-    std::ratio_equal<typename Q::luminosity, typename Quantities::luminosity>() &&
+    std::ratio_equal<typename Q::temperature,
+                     typename Quantities::temperature>() &&
+    std::ratio_equal<typename Q::luminosity,
+                     typename Quantities::luminosity>() &&
     std::ratio_equal<typename Q::moles, typename Quantities::moles>()) &&
    ...);
 
@@ -310,6 +312,18 @@ using HigherPrecision =
                       std::numeric_limits<typename Q2::floatType>::digits),
                      typename Q1::floatType,
                      typename Q2::floatType>;
+
+// returns type with higher precision.
+template<isQuantity Q1, typename floatType>
+using ConvertFloatType = Named<Quantity<typename Q1::mass,
+                                        typename Q1::length,
+                                        typename Q1::time,
+                                        typename Q1::current,
+                                        typename Q1::angle,
+                                        typename Q1::temperature,
+                                        typename Q1::luminosity,
+                                        typename Q1::moles,
+                                        floatType>>;
 
 template<isQuantity Q1, isQuantity Q2>
 using Multiplied = Named<
@@ -798,6 +812,7 @@ template<typename T>
 constexpr auto to_quantity(T value)
   -> std::conditional_t<std::is_arithmetic_v<T>, Number, T> {
     if constexpr (std::is_arithmetic_v<T>)
+        // TODO: could convert to FNumber here if it gets implemented
         return Number(value);
     else
         return value;

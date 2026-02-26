@@ -1,7 +1,7 @@
 #pragma once
 
 #include "blazing/utils.hpp"
-#include "path_pose_feedback.hpp"
+#include "lyfast/controllers/path_pose_feedback.hpp"
 #include "units/Pose.hpp"
 
 namespace blazing {
@@ -25,7 +25,8 @@ struct LTVUnicycleController {
 
   private:
     State m_state;
-    State m_reference;
+    State m_next_reference;
+    State m_current_reference;
     Time m_delta_time = 10_msec;
     std::optional<DifferentialSpeeds> m_input = std::nullopt;
 
@@ -34,7 +35,7 @@ struct LTVUnicycleController {
 
   public:
     void setState(State new_state);
-    void setReference(State new_reference);
+    void setNextReference(State new_reference);
     void setDeltaTime(Time delta_time);
 
     std::optional<DifferentialSpeeds> getInput();

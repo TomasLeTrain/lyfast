@@ -2,7 +2,7 @@
 
 #include "blazing/drivetrains/differential.hpp"
 #include "blazing/utils.hpp"
-#include "lyfast/vel_controller.hpp"
+#include "lyfast/controllers/vel_controller.hpp"
 #include "pros/motor_group.hpp"
 #include "pros/rtos.h"
 #include "units/Angle.hpp"

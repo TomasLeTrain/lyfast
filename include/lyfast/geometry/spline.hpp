@@ -7,6 +7,7 @@
 #include "units/units.hpp"
 #include <array>
 #include <cassert>
+#include <memory>
 #include <vector>
 
 namespace blazing {
@@ -15,7 +16,7 @@ namespace geometry {
 class Spline : public Curve {
   private:
     float num_curves;
-    std::vector<Curve*> m_curves;
+    std::vector<std::shared_ptr<Curve>> m_curves;
 
     // stores the sum of arc lengths up to and before the i'th curve
     std::vector<FLength> distance_to_curve = { 0_m };
@@ -53,7 +54,7 @@ class Spline : public Curve {
         return result;
     }
 
-    Spline(std::vector<Curve*>&& curves);
+    Spline(std::vector<std::shared_ptr<Curve>> curves);
 
     ~Spline() override = default;
 };

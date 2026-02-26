@@ -16,45 +16,95 @@ enum class AngularDirection {
     RIGHT
 };
 
-struct LeftRightVoltages {
-    Voltage left_voltage;
-    Voltage right_voltage;
+template<typename floatType>
+struct LeftRightSpeedsT {
+    ConvertFloatType<LinearVelocity, floatType> left_vel;
+    ConvertFloatType<LinearVelocity, floatType> right_vel;
+
+    constexpr LeftRightSpeedsT& operator+=(const LeftRightSpeedsT& rhs) {
+        left_vel += rhs.left_vel;
+        right_vel += rhs.right_vel;
+        return *this;
+    }
 };
 
-struct FLeftRightVoltages {
-    FVoltage left_voltage;
-    FVoltage right_voltage;
+template<typename floatType>
+struct LeftRightVoltagesT {
+    ConvertFloatType<LinearVelocity, floatType> left_voltage;
+    ConvertFloatType<LinearVelocity, floatType> right_voltage;
+
+    constexpr LeftRightVoltagesT& operator+=(const LeftRightVoltagesT& rhs) {
+        left_voltage += rhs.left_voltage;
+        right_voltage += rhs.right_voltage;
+        return *this;
+    }
 };
 
-struct LeftRightSpeeds {
-    LinearVelocity left_vel;
-    LinearVelocity right_vel;
+template<typename floatType>
+struct DifferentialSpeedsT {
+    ConvertFloatType<LinearVelocity, floatType> linear_velocity;
+    ConvertFloatType<AngularVelocity, floatType> angular_velocity;
+
+    constexpr DifferentialSpeedsT& operator+=(const DifferentialSpeedsT& rhs) {
+        linear_velocity += rhs.linear_velocity;
+        angular_velocity += rhs.angular_velocity;
+        return *this;
+    }
 };
 
-struct FLeftRightSpeeds {
-    FLinearVelocity left_vel;
-    FLinearVelocity right_vel;
+template<typename floatType>
+struct DifferentialVoltagesT {
+    ConvertFloatType<LinearVelocity, floatType> linear_voltage;
+    ConvertFloatType<AngularVelocity, floatType> angular_voltage;
+
+    constexpr DifferentialVoltagesT&
+    operator+=(const DifferentialVoltagesT& rhs) {
+        linear_voltage += rhs.linear_voltage;
+        angular_voltage += rhs.angular_voltage;
+        return *this;
+    }
 };
 
-struct DifferentialSpeeds {
-    LinearVelocity linear_velocity;
-    AngularVelocity angular_velocity;
-};
+template<typename floatType>
+constexpr LeftRightSpeedsT<floatType>
+operator+(LeftRightSpeedsT<floatType> lhs,
+          const LeftRightSpeedsT<floatType>& rhs) {
+    return lhs += rhs;
+}
 
-struct FDifferentialSpeeds {
-    FLinearVelocity linear_velocity;
-    FAngularVelocity angular_velocity;
-};
+template<typename floatType>
+constexpr LeftRightVoltagesT<floatType>
+operator+(LeftRightVoltagesT<floatType> lhs,
+          const LeftRightVoltagesT<floatType>& rhs) {
+    return lhs += rhs;
+}
 
-struct DifferentialVoltages {
-    Voltage linear_voltage;
-    Voltage angular_voltage;
-};
+template<typename floatType>
+constexpr DifferentialSpeedsT<floatType>
+operator+(DifferentialSpeedsT<floatType> lhs,
+          const DifferentialSpeedsT<floatType>& rhs) {
+    return lhs += rhs;
+}
 
-struct FDifferentialVoltages {
-    FVoltage linear_voltage;
-    FVoltage angular_voltage;
-};
+template<typename floatType>
+constexpr DifferentialVoltagesT<floatType>
+operator+(DifferentialVoltagesT<floatType> lhs,
+          const DifferentialVoltagesT<floatType>& rhs) {
+    return lhs += rhs;
+}
+
+// TODO: could possibly explicitly instantiate?
+using LeftRightSpeeds = LeftRightSpeedsT<double>;
+using FLeftRightSpeeds = LeftRightSpeedsT<float>;
+
+using LeftRightVoltages = LeftRightVoltagesT<double>;
+using FLeftRightVoltages = LeftRightVoltagesT<float>;
+
+using DifferentialSpeeds = DifferentialSpeedsT<double>;
+using FDifferentialSpeeds = DifferentialSpeedsT<float>;
+
+using DifferentialVoltages = DifferentialVoltagesT<double>;
+using FDifferentialVoltages = DifferentialVoltagesT<float>;
 
 // returns time since program started
 // uses pros::millis to get the information
