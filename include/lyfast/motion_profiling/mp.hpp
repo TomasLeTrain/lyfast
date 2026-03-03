@@ -115,6 +115,7 @@ class Trajectory {
 
     size_t getNumPoints();
     MotionPoint& getPoint(int index);
+    int sanitizeIndex(int index);
 
     MotionPoint& getMotionEndPoint();
     MotionPoint& getMotionStartPoint();

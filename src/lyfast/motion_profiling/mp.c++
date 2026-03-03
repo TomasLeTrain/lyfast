@@ -2,6 +2,7 @@
 #include "lyfast/geometry/curve.hpp"
 #include "units/Angle.hpp"
 #include "units/units.hpp"
+#include <algorithm>
 #include <iterator>
 #include <memory>
 #include <variant>
@@ -310,7 +311,14 @@ int Trajectory::indexByDistance(FLength distance, int start_ind) {
 
     int idx_guess = std::round(distance / delta_distance);
 
-    return std::clamp(idx_guess, start_ind, int(points.size() - 1));
+    const int num_points = getNumPoints();
+
+    // adjust start_ind to avoid lo > hi clamp undefined behavior
+    if (start_ind >= num_points) {
+        start_ind = num_points - 1;
+    }
+
+    return std::clamp(idx_guess, start_ind, num_points - 1);
 };
 
 int Trajectory::indexByTime(FTime time, int start_ind) {
@@ -326,14 +334,19 @@ int Trajectory::indexByTime(FTime time, int start_ind) {
     };
 
     // search for time in points
-    // bind to points only after start_ind
-    auto result_itr = lower_bound(points.begin() + start_ind,
-                                  points.end(),
-                                  query_point,
-                                  travel_time_cmp);
+    auto result_itr =
+      lower_bound(points.begin(), points.end(), query_point, travel_time_cmp);
 
-    return std::min(std::distance(points.begin(), result_itr),
-                    int(points.size() - 1));
+    int idx = std::distance(points.begin(), result_itr);
+
+    const int num_points = getNumPoints();
+
+    // adjust start_ind to avoid lo > hi clamp undefined behavior
+    if (start_ind >= num_points) {
+        start_ind = num_points - 1;
+    }
+
+    return std::clamp(idx, start_ind, num_points - 1);
 };
 
 int Trajectory::indexByClosestPoint(geometry::Point point,
@@ -390,6 +403,10 @@ int Trajectory::indexByClosestPoint(geometry::Point point,
 
     // here result is very likely optimal
     return result;
+}
+
+int Trajectory::sanitizeIndex(int index) {
+    return std::clamp(index, 0, getNumPoints());
 }
 
 FDifferentialSpeeds Trajectory::differentialVelocitiesByIndex(int index) {

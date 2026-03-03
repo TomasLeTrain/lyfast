@@ -55,10 +55,8 @@ void LTVUnicycleController::compute() {
                                 local_error.y.internal(),
                                 angle_error.internal());
 
-    // states x states
-    const Eigen::Matrix3f Q = MakeCostMatrix(m_Q);
-    // inputs x inputs
-    const Eigen::Matrix2f R = MakeCostMatrix(m_R);
+    const Eigen::Matrix3f Q = MakeCostMatrix(m_Q); // states x states
+    const Eigen::Matrix2f R = MakeCostMatrix(m_R); // inputs x inputs
 
     float A_state_velocity = m_state.velocities.linear_velocity.internal();
 
@@ -97,8 +95,11 @@ void LTVUnicycleController::compute() {
 
     const Eigen::Vector2f u_feedback = K_feedback * error;
 
-    m_input = { m_next_reference.velocities.linear_velocity + u_feedback.x() * mps,
-                m_next_reference.velocities.angular_velocity + u_feedback.y() * radps };
+    DifferentialSpeeds feedback_velocities { u_feedback.x() * mps,
+                                             u_feedback.y() * radps };
+
+    // feedforward + feedback
+    m_input = m_next_reference.velocities + feedback_velocities;
 }
 
 DifferentialSpeeds LTVUnicycleController::update(PathPoseFeedbackT state,

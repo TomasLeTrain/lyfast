@@ -994,7 +994,7 @@ void path_follow_test() {
     using namespace blazing::lyfast;
     using namespace blazing::lyfast::geometry;
     using namespace blazing::lyfast::mp;
-    arc_pose_tracker.setPose({ 0_in, 0_in, 0_stDeg });
+    arc_pose_tracker.setPose({ -23.6_in, 0_in, 0_stDeg });
 
     std::shared_ptr<Line> line(new Line({ -23.6_in, 0_in }, { 0_in, 0_in }));
     std::shared_ptr<CubicBezier> bezier(new CubicBezier({ 0_in, 0_in },

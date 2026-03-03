@@ -111,46 +111,58 @@ class PathFollow : public Motion<ControllersType,
             reference_idx = target_trajectory->indexByClosestPoint(position);
         }
 
-        // in case there is no lookahead we just use the same reference
-        next_reference_idx = reference_idx;
+        // next direct point after current reference. used as fallback on
+        // certain cases relating to lookahead
+        int fixed_next_reference =
+          target_trajectory->sanitizeIndex(reference_idx + 1);
+
+        // in case there is no lookahead we use the next index point
+        next_reference_idx = fixed_next_reference;
 
         // performs the lookahead logic
         if (std::holds_alternative<Length>(m_lookahead)) {
             next_reference_idx = target_trajectory->indexByDistance(
               target_trajectory->getPoint(reference_idx).arc_length +
-              std::get<Length>(m_lookahead));
-        } else {
+                std::get<Length>(m_lookahead),
+              // limit to fixed_next_reference
+              fixed_next_reference);
+        } else if (std::holds_alternative<Time>(m_lookahead)) {
             next_reference_idx = target_trajectory->indexByTime(
               target_trajectory->getPoint(reference_idx).travel_time +
-              std::get<Time>(m_lookahead));
+                std::get<Time>(m_lookahead),
+              // limit to fixed_next_reference
+              fixed_next_reference);
         }
 
-        mp::MotionPoint& reference_motion_point =
+        const mp::MotionPoint& reference_motion_point =
           target_trajectory->getPoint(reference_idx);
-
-        mp::MotionPoint& next_reference_motion_point =
-          target_trajectory->getPoint(next_reference_idx);
 
         units::Pose reference_pose = { reference_motion_point.point,
                                        reference_motion_point.heading };
-
-        units::Pose next_reference_pose = { reference_motion_point.point,
-                                            reference_motion_point.heading };
 
         DifferentialSpeeds reference_speeds = {
             reference_motion_point.vel,
             Frad * reference_motion_point.vel * reference_motion_point.curvature
         };
 
+        const mp::MotionPoint& next_reference_motion_point =
+          target_trajectory->getPoint(next_reference_idx);
+
+        units::Pose next_reference_pose = {
+            next_reference_motion_point.point,
+            next_reference_motion_point.heading
+        };
+
         DifferentialSpeeds next_reference_speeds = {
-            reference_motion_point.vel,
-            Frad * reference_motion_point.vel * reference_motion_point.curvature
+            next_reference_motion_point.vel,
+            Frad * next_reference_motion_point.vel *
+              next_reference_motion_point.curvature
         };
 
         double reverse_multiplier = reversed ? -1.0 : 1.0;
 
-        // TODO: add option for custom settling conditions (different control
-        // law maybe)
+        // TODO: add option for custom settling conditions (different
+        // control law maybe)
 
         // reverse linear_velocity if needed
         reference_speeds.linear_velocity *= reverse_multiplier;
@@ -221,7 +233,8 @@ class PathFollow : public Motion<ControllersType,
                                                       path_pose_reference,
                                                       delta_time);
 
-        // linear and angular should be references for the velocity controller
+        // linear and angular should be references for the velocity
+        // controller
 
         LeftRightVoltages voltages =
           this->controllers.velocity_feedforward.update(new_speeds, delta_time);

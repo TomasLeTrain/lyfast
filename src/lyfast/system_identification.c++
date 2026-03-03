@@ -1,4 +1,4 @@
-#include "lyfast/system_identification.hpp"
+#include "lyfast/sysid/system_identification.hpp"
 #include "blazing/drivetrains/differential.hpp"
 #include "blazing/utils.hpp"
 #include "pros/abstract_motor.hpp"
@@ -6,7 +6,7 @@
 #include "units/Angle.hpp"
 #include "units/Vector2D.hpp"
 #include "units/units.hpp"
-#include "lyfast/vel_controller.hpp"
+#include "lyfast/controllers/vel_controller.hpp"
 #include <cmath>
 #include <vector>
 #include "Eigen/Dense"

@@ -30,8 +30,8 @@ struct LeftRightSpeedsT {
 
 template<typename floatType>
 struct LeftRightVoltagesT {
-    ConvertFloatType<LinearVelocity, floatType> left_voltage;
-    ConvertFloatType<LinearVelocity, floatType> right_voltage;
+    ConvertFloatType<Voltage, floatType> left_voltage;
+    ConvertFloatType<Voltage, floatType> right_voltage;
 
     constexpr LeftRightVoltagesT& operator+=(const LeftRightVoltagesT& rhs) {
         left_voltage += rhs.left_voltage;
@@ -54,8 +54,8 @@ struct DifferentialSpeedsT {
 
 template<typename floatType>
 struct DifferentialVoltagesT {
-    ConvertFloatType<LinearVelocity, floatType> linear_voltage;
-    ConvertFloatType<AngularVelocity, floatType> angular_voltage;
+    ConvertFloatType<Voltage, floatType> linear_voltage;
+    ConvertFloatType<Voltage, floatType> angular_voltage;
 
     constexpr DifferentialVoltagesT&
     operator+=(const DifferentialVoltagesT& rhs) {
