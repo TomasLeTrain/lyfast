@@ -19,12 +19,16 @@ namespace lyfast {
 
 // u = Ks * sgn(v) + Kv * v + Ka * a;
 using KsUnits = Voltage;
-using KvUnits = Divided<Voltage, LinearVelocity>;
-using KaUnits = Divided<Voltage, LinearAcceleration>;
+template<typename VelUnit>
+using KvUnits = Divided<Voltage, VelUnit>;
+template<typename VelUnit>
+using KaUnits = Divided<Voltage, Divided<VelUnit, Time>>;
 
 using FKsUnits = FVoltage;
-using FKvUnits = Divided<FVoltage, FLinearVelocity>;
-using FKaUnits = Divided<FVoltage, FLinearAcceleration>;
+template<typename VelUnit>
+using FKvUnits = ConvertFloatType<KvUnits<VelUnit>, float>;
+template<typename VelUnit>
+using FKaUnits = ConvertFloatType<KaUnits<VelUnit>, float>;
 
 inline DifferentialSpeeds
 desaturatePrioritizeAngularDiffSpeeds(DifferentialSpeeds target,
@@ -70,13 +74,13 @@ desaturateDifferentialSpeeds(DifferentialSpeeds target,
     return { new_lin_vel, new_ang_vel };
 }
 
-template<typename T>
+template<typename VelUnit>
 struct SimpleVelocityControllerParams {
-    Divided<Voltage, T> Kv;
-    Divided<Voltage, Divided<T, Time>> Ka;
+    KvUnits<VelUnit> Kv;
+    KaUnits<VelUnit> Ka;
     Voltage Ks;
-    Divided<Voltage, T> Kp { 0 };
-    Divided<Voltage, Multiplied<T, Time>> Ki { 0 };
+    KvUnits<VelUnit> Kp { 0 };
+    Divided<Voltage, Multiplied<VelUnit, Time>> Ki { 0 };
 
     Voltage max_output { 1_volt };
 
@@ -84,16 +88,16 @@ struct SimpleVelocityControllerParams {
 };
 
 struct VelocityControllerParams {
-    KvUnits left_Kv;
-    KaUnits left_Ka;
+    KvUnits<LinearVelocity> left_Kv;
+    KaUnits<LinearVelocity> left_Ka;
     KsUnits left_Ks;
     Divided<Voltage, LinearVelocity> left_Kp { 0 };
     Divided<Voltage, Length> left_Ki { 0 };
     Voltage left_max_output { 1_volt };
     double left_tbh_factor { 0.0 };
 
-    KvUnits right_Kv;
-    KaUnits right_Ka;
+    KvUnits<LinearVelocity> right_Kv;
+    KaUnits<LinearVelocity> right_Ka;
     KsUnits right_Ks;
     Divided<Voltage, LinearVelocity> right_Kp { 0 };
     Divided<Voltage, Length> right_Ki { 0 };

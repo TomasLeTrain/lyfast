@@ -313,7 +313,7 @@ using HigherPrecision =
                      typename Q1::floatType,
                      typename Q2::floatType>;
 
-// returns type with higher precision.
+// returns type with desired float type.
 template<isQuantity Q1, typename floatType>
 using ConvertFloatType = Named<Quantity<typename Q1::mass,
                                         typename Q1::length,

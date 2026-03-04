@@ -1,29 +1,30 @@
 #include "lyfast/sysid/system_identification.hpp"
+#include "Eigen/Dense"
 #include "blazing/drivetrains/differential.hpp"
 #include "blazing/utils.hpp"
+#include "lyfast/controllers/vel_controller.hpp"
 #include "pros/abstract_motor.hpp"
 #include "pros/motor_group.hpp"
 #include "units/Angle.hpp"
 #include "units/Vector2D.hpp"
 #include "units/units.hpp"
-#include "lyfast/controllers/vel_controller.hpp"
 #include <cmath>
 #include <vector>
-#include "Eigen/Dense"
 
 namespace blazing {
 namespace lyfast {
 
 // gathers velocity data from robot by moving voltage_commands
-std::vector<MotorSysidData> MotorGroupSysid::generateData(
+template<typename T>
+MotorGroupSysid<T>::VectorDataT MotorGroupSysid<T>::generateData(
   std::vector<MotorSysidVoltageCommands> voltage_commands,
   pros::MotorGroup* motor_group,
-  Length wheel_diameter,
   AngularVelocity final_rpm,
+  std::function<T(AngularVelocity)> conversionFunc,
   Time delta_time) {
 
     uint32_t int_delta_time = std::lround(to_msec(delta_time));
-    std::vector<MotorSysidData> data;
+    VectorDataT data;
 
     for (auto [voltage, target_time, record] : voltage_commands) {
         motor_group->move_voltage(12 * to_mvolt(voltage));
@@ -34,9 +35,8 @@ std::vector<MotorSysidData> MotorGroupSysid::generateData(
         while (!timeoutDone(target_time, start_time)) {
             // amount of time to measure the steady state
             if (record) {
-                auto velocity = blazing::get_group_velocity(motor_group,
-                                                            wheel_diameter,
-                                                            final_rpm);
+                T velocity = conversionFunc(
+                  blazing::get_group_velocity(motor_group, final_rpm));
 
                 data.emplace_back(velocity, voltage);
             }
@@ -49,15 +49,16 @@ std::vector<MotorSysidData> MotorGroupSysid::generateData(
 
 // uses linear least squares to find kv and ks gains that best fit data
 // for best results only use steady state velocity data
-std::pair<KvUnits, KsUnits>
-MotorGroupSysid::fit_kv_ks_data(std::vector<MotorSysidData> data) {
+template<typename T>
+std::pair<KvUnits<T>, KsUnits>
+MotorGroupSysid<T>::fit_kv_ks_data(const VectorDataT& data) {
     // of form < velocity, sgn(velocity) >
     Eigen::MatrixXd A = Eigen::MatrixXd::Zero(data.size(), 2);
     // of form < Voltage >
     Eigen::VectorXd b = Eigen::VectorXd::Zero(data.size());
 
     for (size_t i = 0; i < data.size(); i++) {
-        auto& curr = data[i];
+        DataT& curr = data[i];
 
         A(i, 0) = curr.velocity.internal();
         A(i, 1) = units::sgn(curr.velocity);
@@ -68,47 +69,48 @@ MotorGroupSysid::fit_kv_ks_data(std::vector<MotorSysidData> data) {
     Eigen::VectorXd solution =
       A.bdcSvd<Eigen::ComputeThinU | Eigen::ComputeThinV>().solve(b);
 
-    KvUnits kv { solution(0) };
+    KvUnits<T> kv { solution(0) };
     KsUnits ks { solution(1) };
     return { kv, ks };
 }
 
 // calculates ka/kp/ki from T and K constants and lambda factor
-auto MotorGroupSysid::calculate_ka_kp_ki_from_TK(
-  Time T,
+template<typename T>
+auto MotorGroupSysid<T>::calculate_ka_kp_ki_from_TK(
+  Time _T,
   Divided<LinearVelocity, Voltage> K,
   double lambda_factor)
   -> std::tuple<
     // Ka
-    KaUnits,
+    KaUnits<T>,
     // Kp
     Divided<Voltage, LinearVelocity>,
     // Ki
     Divided<Voltage, Length>> {
 
-    KaUnits Ka = T / K;
+    KaUnits<T> Ka = _T / K;
 
-    Time lambda = lambda_factor * T;
+    Time lambda = lambda_factor * _T;
 
-    Divided<Voltage, LinearVelocity> Kp = T / (K * lambda);
-    Divided<Voltage, Length> Ki = Kp / T;
+    Divided<Voltage, LinearVelocity> Kp = _T / (K * lambda);
+    Divided<Voltage, Length> Ki = Kp / _T;
 
     return { Ka, Kp, Ki };
 }
 
 // fits various values data using model:
 // accel = voltage * h - velocity * g
-auto MotorGroupSysid::fit_ka_kp_ki_data_first_model(
-  std::vector<MotorSysidData> data,
-  Time delta_time,
-  double lambda_factor)
+template<typename T>
+auto MotorGroupSysid<T>::fit_ka_kp_ki_data_first_model(const VectorDataT& data,
+                                                       Time delta_time,
+                                                       double lambda_factor)
   -> std::tuple<
     // T
     Time,
     // K
     Divided<LinearVelocity, Voltage>,
     // Ka
-    KaUnits,
+    KaUnits<T>,
     // Kp
     Divided<Voltage, LinearVelocity>,
     // Ki
@@ -119,10 +121,10 @@ auto MotorGroupSysid::fit_ka_kp_ki_data_first_model(
     Eigen::VectorXd b = Eigen::VectorXd::Zero(data.size() - 1);
 
     for (size_t i = 1; i < data.size(); i++) {
-        auto& last = data[i - 1];
-        auto& curr = data[i];
+        DataT& last = data[i - 1];
+        DataT& curr = data[i];
 
-        auto accel = (curr.velocity - last.velocity) / delta_time;
+        AccelUnit accel = (curr.velocity - last.velocity) / delta_time;
 
         A(i - 1, 0) = curr.voltage.internal();
         A(i - 1, 1) = -curr.velocity.internal();
@@ -136,28 +138,28 @@ auto MotorGroupSysid::fit_ka_kp_ki_data_first_model(
     Divided<LinearAcceleration, Voltage> h { solution(0) };
     Frequency g { solution(1) };
 
-    Time T = 1 / g;
+    Time _T = 1 / g;
     Divided<LinearVelocity, Voltage> K = h / g;
 
-    auto [Ka, Kp, Ki] = calculate_ka_kp_ki_from_TK(T, K, lambda_factor);
+    auto [Ka, Kp, Ki] = calculate_ka_kp_ki_from_TK(_T, K, lambda_factor);
 
-    return { T, K, Ka, Kp, Ki };
+    return { _T, K, Ka, Kp, Ki };
 }
 
 // fits data using different model:
 // velocity_next = a1 * velocity + a2 * voltage
 //
-auto MotorGroupSysid::fit_ka_kp_ki_data_second_model(
-  std::vector<MotorSysidData> data,
-  Time delta_time,
-  double lambda_factor)
+template<typename T>
+auto MotorGroupSysid<T>::fit_ka_kp_ki_data_second_model(const VectorDataT& data,
+                                                        Time delta_time,
+                                                        double lambda_factor)
   -> std::tuple<
     // T
     Time,
     // K
     Divided<LinearVelocity, Voltage>,
     // Ka
-    KaUnits,
+    KaUnits<T>,
     // Kp
     Divided<Voltage, LinearVelocity>,
     // Ki
@@ -168,8 +170,8 @@ auto MotorGroupSysid::fit_ka_kp_ki_data_second_model(
     Eigen::VectorXd b = Eigen::VectorXd::Zero(data.size() - 1);
 
     for (size_t i = 1; i < data.size(); i++) {
-        auto& prev = data[i - 1];
-        auto& next = data[i];
+        DataT& prev = data[i - 1];
+        DataT& next = data[i];
 
         A(i - 1, 0) = prev.velocity.internal();
         A(i - 1, 1) = prev.voltage.internal();
@@ -183,27 +185,27 @@ auto MotorGroupSysid::fit_ka_kp_ki_data_second_model(
     Number a1 { solution(0) };
     Divided<LinearVelocity, Voltage> a2 { solution(1) };
 
-    Time T = -delta_time / std::log(a1);
+    Time _T = -delta_time / std::log(a1);
     Divided<LinearVelocity, Voltage> K = -a2 / (a1 - 1);
 
-    auto [Ka, Kp, Ki] = calculate_ka_kp_ki_from_TK(T, K, lambda_factor);
+    auto [Ka, Kp, Ki] = calculate_ka_kp_ki_from_TK(_T, K, lambda_factor);
 
-    return { T, K, Ka, Kp, Ki };
+    return { _T, K, Ka, Kp, Ki };
 }
 
 // averages results from both models. This seems to produce really good
 // results as both deviate in opposite directions
-auto MotorGroupSysid::fit_ka_kp_ki_data_both_models(
-  std::vector<MotorSysidData> data,
-  Time delta_time,
-  double lambda_factor)
+template<typename T>
+auto MotorGroupSysid<T>::fit_ka_kp_ki_data_both_models(const VectorDataT& data,
+                                                       Time delta_time,
+                                                       double lambda_factor)
   -> std::tuple<
     // T
     Time,
     // K
     Divided<LinearVelocity, Voltage>,
     // Ka
-    KaUnits,
+    KaUnits<T>,
     // Kp
     Divided<Voltage, LinearVelocity>,
     // Ki
@@ -224,37 +226,39 @@ auto MotorGroupSysid::fit_ka_kp_ki_data_both_models(
 
 // fits data specifically only for ka with model:
 // accel * ka = voltage - velocity * kv - sgn(velocity) * ks
-KaUnits MotorGroupSysid::fit_ka_data(std::vector<MotorSysidData> data,
-                                     Time delta_time,
-                                     KvUnits kv,
-                                     KsUnits ks) {
+template<typename T>
+KaUnits<T> MotorGroupSysid<T>::fit_ka_data(const VectorDataT& data,
+                                           Time delta_time,
+                                           KvUnits<T> kv,
+                                           KsUnits ks) {
     // of form < accel >
     Eigen::MatrixXd A = Eigen::MatrixXd::Zero(data.size() - 1, 1);
     // of form < voltage - velocity * kv - sgn(velocity) * ks >
     Eigen::VectorXd b = Eigen::VectorXd::Zero(data.size() - 1);
 
     for (size_t i = 1; i < data.size(); i++) {
-        auto& curr = data[i];
-        auto& last = data[i - 1];
+        DataT& curr = data[i];
+        DataT& last = data[i - 1];
 
-        auto accel = (curr.velocity - last.velocity) / delta_time;
+        AccelUnit accel = (curr.velocity - last.velocity) / delta_time;
+        Voltage accel_voltage =
+          (curr.voltage - curr.velocity * kv - units::sgn(curr.velocity) * ks);
 
         A(i - 1, 0) = accel.internal();
-
-        b(i - 1) =
-          (curr.voltage - curr.velocity * kv - units::sgn(curr.velocity) * ks)
-            .internal();
+        b(i - 1) = accel_voltage.internal();
     }
 
     Eigen::VectorXd solution =
       A.bdcSvd<Eigen::ComputeThinU | Eigen::ComputeThinV>().solve(b);
 
-    KaUnits ka { solution(0) };
+    KaUnits<T> ka { solution(0) };
     return { ka };
 }
 
 // print data in desmos-friendly format
-void MotorGroupSysid::print_data_as_latex(std::vector<MotorSysidData>& data) {
+
+template<typename T>
+void print_data_as_latex(const std::vector<MotorSysidData<T>>& data) {
     std::cout << "\\left[";
     for (int i = 0; i < data.size(); i++) {
         std::cout << "\\left(" << data[i].voltage.internal() << ","
@@ -264,6 +268,11 @@ void MotorGroupSysid::print_data_as_latex(std::vector<MotorSysidData>& data) {
     }
     std::cout << "\\right]" << std::endl;
 }
+
+template struct MotorSysidData<LinearVelocity>;
+template struct MotorSysidData<AngularVelocity>;
+template class MotorGroupSysid<LinearVelocity>;
+template class MotorGroupSysid<AngularVelocity>;
 
 // differential sysid methods
 
@@ -374,8 +383,10 @@ DifferentialSysidData DifferentialSysid::calculate_kv_ks(
                                                    delta_time,
                                                    steady_state_time);
 
-    auto [left_kv, left_ks] = MotorGroupSysid::fit_kv_ks_data(data.left);
-    auto [right_kv, right_ks] = MotorGroupSysid::fit_kv_ks_data(data.right);
+    auto [left_kv, left_ks] =
+      MotorGroupSysidLinearVelocity::fit_kv_ks_data(data.left);
+    auto [right_kv, right_ks] =
+      MotorGroupSysidLinearVelocity::fit_kv_ks_data(data.right);
 
     std::cout << "left: " << std::endl;
     std::cout << "kv: " << left_kv << ", ks: " << left_ks << std::endl;
@@ -401,9 +412,9 @@ DifferentialSysidData DifferentialSysid::calculate_kv_ks(
 DifferentialSysidData DifferentialSysid::calculate_ka(
   std::vector<DifferentialSysIdVoltageCommands> voltage_commands,
   DifferentialDrivetrain& drivetrain,
-  KvUnits left_kv,
+  KvUnits<LinearVelocity> left_kv,
   KsUnits left_ks,
-  KvUnits right_kv,
+  KvUnits<LinearVelocity> right_kv,
   KsUnits right_ks,
   Time delta_time) {
 
@@ -412,10 +423,14 @@ DifferentialSysidData DifferentialSysid::calculate_ka(
 
     // figure out kv and ks from this data
 
-    auto left_ka =
-      MotorGroupSysid::fit_ka_data(data.left, delta_time, left_kv, left_ks);
-    auto right_ka =
-      MotorGroupSysid::fit_ka_data(data.right, delta_time, right_kv, right_ks);
+    auto left_ka = MotorGroupSysidLinearVelocity::fit_ka_data(data.left,
+                                                              delta_time,
+                                                              left_kv,
+                                                              left_ks);
+    auto right_ka = MotorGroupSysidLinearVelocity::fit_ka_data(data.right,
+                                                               delta_time,
+                                                               right_kv,
+                                                               right_ks);
 
     std::cout << "left: " << std::endl;
     std::cout << "ka: " << left_ka << std::endl;
@@ -430,10 +445,10 @@ void DifferentialSysid::printData(DifferentialSysidData data, Time delta_time) {
     std::cout << "delta time of " << to_msec(delta_time) << " msec\n";
 
     std::cout << "left motor data (voltage, velocity):\n";
-    MotorGroupSysid::print_data_as_latex(data.left);
+    print_data_as_latex(data.left);
 
     std::cout << "right motor data(voltage, velocity):\n ";
-    MotorGroupSysid::print_data_as_latex(data.right);
+    print_data_as_latex(data.right);
 }
 
 DifferentialSysidData DifferentialSysid::calculate_ka_kp_ki_fopdt(
@@ -448,13 +463,15 @@ DifferentialSysidData DifferentialSysid::calculate_ka_kp_ki_fopdt(
       delta_time);
 
     auto [left_T, left_K, left_ka, left_kp, left_ki] =
-      MotorGroupSysid::fit_ka_kp_ki_data_both_models(data.left,
-                                                     delta_time,
-                                                     lambda_factor);
+      MotorGroupSysidLinearVelocity::fit_ka_kp_ki_data_both_models(
+        data.left,
+        delta_time,
+        lambda_factor);
     auto [right_T, right_K, right_ka, right_kp, right_ki] =
-      MotorGroupSysid::fit_ka_kp_ki_data_both_models(data.right,
-                                                     delta_time,
-                                                     lambda_factor);
+      MotorGroupSysidLinearVelocity::fit_ka_kp_ki_data_both_models(
+        data.right,
+        delta_time,
+        lambda_factor);
 
     std::cout << "left: " << std::endl;
     std::cout << "T: " << left_T << ", K: " << left_K

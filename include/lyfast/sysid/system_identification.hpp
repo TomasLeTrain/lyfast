@@ -7,6 +7,7 @@
 #include "pros/rtos.h"
 #include "units/Angle.hpp"
 #include "units/units.hpp"
+#include <functional>
 #include <numeric>
 #include <print>
 #include <ranges>
@@ -15,8 +16,9 @@
 namespace blazing {
 namespace lyfast {
 
+template<typename T>
 struct MotorSysidData {
-    FLinearVelocity velocity;
+    ConvertFloatType<T, float> velocity;
     FVoltage voltage;
 };
 
@@ -28,8 +30,8 @@ struct MotorSysidVoltageCommands {
 };
 
 struct DifferentialSysidData {
-    std::vector<MotorSysidData> left;
-    std::vector<MotorSysidData> right;
+    std::vector<MotorSysidData<LinearVelocity>> left;
+    std::vector<MotorSysidData<LinearVelocity>> right;
 };
 
 struct OLS_data {
@@ -47,28 +49,34 @@ struct DifferentialSysIdVoltageCommands {
     bool record = true;
 };
 
+template<typename VelUnit>
 class MotorGroupSysid {
   public:
+    using AccelUnit = Divided<VelUnit, Time>;
+    using DataT = MotorSysidData<VelUnit>;
+    using VectorDataT = std::vector<DataT>;
+
     // gathers velocity data from robot by moving voltage_commands
-    static std::vector<MotorSysidData>
+    static VectorDataT
     generateData(std::vector<MotorSysidVoltageCommands> voltage_commands,
                  pros::MotorGroup* motor_group,
-                 Length wheel_diameter,
                  AngularVelocity final_rpm,
+                 std::function<VelUnit(AngularVelocity)>
+                   conversion_func, // converts drivetrain rpm to vel unit
                  Time delta_time);
 
     // uses linear least squares to find kv and ks gains that best fit data
     // for best results only use steady state velocity data
-    static std::pair<KvUnits, KsUnits>
-    fit_kv_ks_data(std::vector<MotorSysidData> data);
+    static std::pair<KvUnits<VelUnit>, KsUnits>
+    fit_kv_ks_data(const VectorDataT& data);
 
     // calculates ka/kp/ki from T and K constants and lambda factor
-    static auto calculate_ka_kp_ki_from_TK(Time T,
+    static auto calculate_ka_kp_ki_from_TK(Time dt,
                                            Divided<LinearVelocity, Voltage> K,
                                            double lambda_factor)
       -> std::tuple<
         // Ka
-        KaUnits,
+        KaUnits<VelUnit>,
         // Kp
         Divided<Voltage, LinearVelocity>,
         // Ki
@@ -76,7 +84,7 @@ class MotorGroupSysid {
 
     // fits various values data using model:
     // accel = voltage * h - velocity * g
-    static auto fit_ka_kp_ki_data_first_model(std::vector<MotorSysidData> data,
+    static auto fit_ka_kp_ki_data_first_model(const VectorDataT& data,
                                               Time delta_time,
                                               double lambda_factor)
       -> std::tuple<
@@ -85,7 +93,7 @@ class MotorGroupSysid {
         // K
         Divided<LinearVelocity, Voltage>,
         // Ka
-        KaUnits,
+        KaUnits<VelUnit>,
         // Kp
         Divided<Voltage, LinearVelocity>,
         // Ki
@@ -94,7 +102,7 @@ class MotorGroupSysid {
     // fits data using different model:
     // velocity_next = a1 * velocity + a2 * voltage
     //
-    static auto fit_ka_kp_ki_data_second_model(std::vector<MotorSysidData> data,
+    static auto fit_ka_kp_ki_data_second_model(const VectorDataT& data,
                                                Time delta_time,
                                                double lambda_factor)
       -> std::tuple<
@@ -103,7 +111,7 @@ class MotorGroupSysid {
         // K
         Divided<LinearVelocity, Voltage>,
         // Ka
-        KaUnits,
+        KaUnits<VelUnit>,
         // Kp
         Divided<Voltage, LinearVelocity>,
         // Ki
@@ -111,7 +119,7 @@ class MotorGroupSysid {
 
     // averages results from both models. This seems to produce really good
     // results as both deviate in opposite directions
-    static auto fit_ka_kp_ki_data_both_models(std::vector<MotorSysidData> data,
+    static auto fit_ka_kp_ki_data_both_models(const VectorDataT& data,
                                               Time delta_time,
                                               double lambda_factor)
       -> std::tuple<
@@ -120,19 +128,32 @@ class MotorGroupSysid {
         // K
         Divided<LinearVelocity, Voltage>,
         // Ka
-        KaUnits,
+        KaUnits<VelUnit>,
         // Kp
         Divided<Voltage, LinearVelocity>,
         // Ki
         Divided<Voltage, Length>>;
 
-    static KaUnits fit_ka_data(std::vector<MotorSysidData> data,
-                               Time delta_time,
-                               KvUnits kv,
-                               KsUnits ks);
-    // print data in desmos-friendly format
-    static void print_data_as_latex(std::vector<MotorSysidData>& data);
+    static KaUnits<VelUnit> fit_ka_data(const VectorDataT& data,
+                                        Time delta_time,
+                                        KvUnits<VelUnit> kv,
+                                        KsUnits ks);
 };
+
+// print data in desmos-friendly format
+template<typename T>
+void print_data_as_latex(const std::vector<MotorSysidData<T>>& data);
+
+// explicit instantiations
+extern template struct MotorSysidData<LinearVelocity>;
+extern template struct MotorSysidData<AngularVelocity>;
+using MotorSysidDataLinearVelocity = MotorSysidData<LinearVelocity>;
+using MotorSysidDataAngularVelocity = MotorSysidData<AngularVelocity>;
+
+extern template class MotorGroupSysid<LinearVelocity>;
+extern template class MotorGroupSysid<AngularVelocity>;
+using MotorGroupSysidLinearVelocity = MotorGroupSysid<LinearVelocity>;
+using MotorGroupSysidAngularVelocity = MotorGroupSysid<AngularVelocity>;
 
 class DifferentialSysid {
   public:
@@ -158,9 +179,9 @@ class DifferentialSysid {
     static DifferentialSysidData
     calculate_ka(std::vector<DifferentialSysIdVoltageCommands> voltage_commands,
                  DifferentialDrivetrain& drivetrain,
-                 KvUnits left_kv,
+                 KvUnits<LinearVelocity> left_kv,
                  KsUnits left_ks,
-                 KvUnits right_kv,
+                 KvUnits<LinearVelocity> right_kv,
                  KsUnits right_ks,
                  Time delta_time);
 

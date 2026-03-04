@@ -167,6 +167,42 @@ std::array<T, size> desaturate(std::array<T, size> saturated, T max) {
     return saturated;
 }
 
+// gets the average angular velocity of the motor group
+inline AngularVelocity get_group_velocity(pros::MotorGroup* motors,
+                                          AngularVelocity final_rpm) {
+    AngularVelocity average_rpm = 0_rpm;
+
+    for (std::int8_t motor_i = 0; motor_i < motors->size(); motor_i++) {
+        auto zero_indexed_port = abs(motors->get_port(motor_i)) - 1;
+        bool installed = pros::DeviceType::motor ==
+                         (pros::DeviceType)pros::c::registry_get_plugged_type(
+                           zero_indexed_port);
+        if (!installed) continue;
+
+        double velocity = motors->get_actual_velocity(motor_i);
+        pros::MotorGears encoder_units = motors->get_gearing(motor_i);
+        AngularVelocity start_rpm;
+
+        if (encoder_units == pros::MotorGears::blue)
+            start_rpm = 600_rpm;
+        else if (encoder_units == pros::MotorGears::green)
+            start_rpm = 200_rpm;
+        else if (encoder_units == pros::MotorGears::red)
+            start_rpm = 100_rpm;
+        else
+            // if encoder units are not set then it defaults to 200?
+            start_rpm = 200_rpm;
+
+        AngularVelocity actual_rpm = (velocity * rpm) * final_rpm / start_rpm;
+
+        average_rpm += actual_rpm;
+    }
+
+    average_rpm /= motors->size();
+
+    return average_rpm;
+};
+
 // gets the average linear velocity of the motor group
 LinearVelocity get_group_velocity(pros::MotorGroup* motors,
                                   Length wheel_diameter,

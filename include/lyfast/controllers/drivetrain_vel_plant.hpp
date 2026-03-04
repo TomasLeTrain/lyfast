@@ -15,8 +15,8 @@ inline AngularVelocity gearingToVelocity(pros::MotorGears gearing) {
         return 200_rpm;
     else if (gearing == pros::MotorGears::rpm_100)
         return 100_rpm;
-    // invalid
-    return -1_rpm;
+    // if encoder units are not set then it defaults to 200?
+    return 200_rpm;
 }
 
 class MotorGroupKalmanFilter {
@@ -53,14 +53,6 @@ class MotorGroupKalmanFilter {
         CovarianceUnit measurement_covariance_offset = units::square(5_rpm);
     };
 
-    // stores per-motor state
-    // struct MotorState {
-    //     std::uint32_t last_timestamp;
-    //     std::int32_t last_position;
-    // };
-
-    // std::map<std::uint8_t, MotorState> motor_states;
-
   private:
     pros::MotorGroup* motor_group;
 
@@ -78,37 +70,6 @@ class MotorGroupKalmanFilter {
           (motor_reported_velocity / gearingToVelocity(gearing)) *
           m_constants.final_gearing_rpm;
         // TODO: perform basic filtering on the reported velocity?
-
-        // std::uint32_t curr_timestamp;
-        // std::int32_t raw_position =
-        //   motor_group->get_raw_position(&curr_timestamp, idx);
-        //
-        // // TODO: perform filtering on tick based velocity due to possible
-        // // timings?
-        //
-        // if (motor_states.contains(idx)) {
-        //     // we do have previous state for this motor
-        //     auto& motor_state = motor_states[idx];
-        //
-        //     Time position_delta_time =
-        //       from_msec((curr_timestamp - motor_state.last_timestamp));
-        //     Number position_delta = raw_position - motor_state.last_position;
-        //
-        //     Frequency tick_velocity = position_delta / position_delta_time;
-        //
-        //     // TODO: what now?
-        //     float ratio = 3600_rpm / constants.final_gearing_rpm;
-        //
-        //     Divided<Number, Angle> vel_to_ticks = (50 / rot) * ratio;
-        //
-        //     // TODO: state_estimate here should be the prior
-        //     // unit is ticks / sec
-        //     Frequency innovation =
-        //       tick_velocity - vel_to_ticks * state_estimate.velocity;
-        //     // TODO: update covariance
-        // }
-
-        // float covariance
 
         AngularVelocity innovation =
           geared_motor_reported_velocity - m_state_estimate.velocity;
@@ -128,10 +89,6 @@ class MotorGroupKalmanFilter {
 
         // update covariance from measurement
         m_covariance = (1 - gain) * m_covariance;
-
-        // update timestamp
-        // motor_states[idx].last_timestamp = curr_timestamp;
-        // motor_states[idx].last_position = raw_position;
     }
 
     // update input (voltage) based on motor data
