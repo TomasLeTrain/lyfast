@@ -163,13 +163,14 @@ class SimpleVelocityController {
             target * m_params.Kv +
               // ka
               target_accel * m_params.Ka +
-              // ks
-              units::sgn(target) * m_params.Ks +
               // kp
               m_params.Kp * error +
               // ki
               m_params.Ki * current_integral,
         };
+
+        // base ks off of the desired voltage
+        result += units::sgn(result) * m_params.Ks;
 
         if (
           // currently saturating
@@ -228,11 +229,11 @@ class DifferentialVelocityController {
 
     LinearVelocity m_max_velocity;
     Length m_track_width;
+    double m_vel_alpha = 1.0;
+    bool m_prioritize_angular = false;
     std::reference_wrapper<DifferentialDrivetrain> drivetrain;
 
     std::optional<LeftRightSpeeds> last_velocities = std::nullopt;
-    double m_vel_alpha = 1.0;
-    bool m_prioritize_angular = false;
 
   public:
     LeftRightVoltages update(LeftRightSpeeds measurement,

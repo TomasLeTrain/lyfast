@@ -406,7 +406,7 @@ int Trajectory::indexByClosestPoint(geometry::Point point,
 }
 
 int Trajectory::sanitizeIndex(int index) {
-    return std::clamp(index, 0, getNumPoints());
+    return std::clamp(index, 0, int(getNumPoints()));
 }
 
 FDifferentialSpeeds Trajectory::differentialVelocitiesByIndex(int index) {

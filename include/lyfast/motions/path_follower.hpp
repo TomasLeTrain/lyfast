@@ -23,6 +23,12 @@ struct PathFollowState {
     Length start_distance;
 };
 
+enum PathFollowParameterizationType {
+    time_based,
+    distance_based,
+    closest_point_based
+};
+
 // generic motion for path following supporting various feedback control laws
 template<typename ControllersType,
          typename DrivetrainType,
@@ -57,13 +63,8 @@ class PathFollow : public Motion<ControllersType,
     std::optional<Time> m_timeout = std::nullopt;
     Length close_threshold = 4_in;
 
-    enum parameterizationType {
-        time_based,
-        distance_based,
-        closest_point_based
-    };
-
-    parameterizationType m_parameterization_type = closest_point_based;
+    PathFollowParameterizationType m_parameterization_type =
+      closest_point_based;
     // look ahead one iteration at a time
     std::variant<Length, Time> m_lookahead = 20_msec;
 
@@ -137,8 +138,8 @@ class PathFollow : public Motion<ControllersType,
         const mp::MotionPoint& reference_motion_point =
           target_trajectory->getPoint(reference_idx);
 
-        units::Pose reference_pose = { reference_motion_point.point,
-                                       reference_motion_point.heading };
+        // units::Pose reference_pose = { reference_motion_point.point,
+        //                                reference_motion_point.heading };
 
         DifferentialSpeeds reference_speeds = {
             reference_motion_point.vel,
@@ -259,16 +260,17 @@ class PathFollow : public Motion<ControllersType,
                   << new_speeds.linear_velocity.internal() << " "
                   << new_speeds.angular_velocity.internal() << " "
                   << left_vel.internal() << " " << right_vel.internal() << " "
-                  << normal_left_voltage.internal() << " "
-                  << normal_right_voltage.internal() << " "
+                  << saturated_voltages.at(0).internal() << " "
+                  << saturated_voltages.at(1).internal() << " "
                   << actual_volt_left.internal() << " "
                   << actual_volt_right.internal() << " "
                   << position.x.convert(in) << " " //
                   << position.y.convert(in) << " " //
                   << heading.convert(deg) << " "
-                  << reference_motion_point.point.x.convert(in) << " "
-                  << reference_motion_point.point.y.convert(in) << " "
-                  << reference_motion_point.heading.convert(deg) << std::endl;
+                  << path_pose_reference.pose.x.convert(in) << " "
+                  << path_pose_reference.pose.y.convert(in) << " "
+                  << path_pose_reference.pose.orientation.convert(deg)
+                  << std::endl;
 
         this->drivetrain.moveTank(normal_left_voltage, normal_right_voltage);
 
@@ -303,7 +305,7 @@ class PathFollow : public Motion<ControllersType,
     }
 
     motionChangerMsg PathFollow&
-    lookahead(parameterizationType parameterization_type) {
+    parameterization(PathFollowParameterizationType parameterization_type) {
         this->m_parameterization_type = parameterization_type;
         return *this;
     }

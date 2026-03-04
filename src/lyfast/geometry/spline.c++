@@ -118,7 +118,7 @@ Spline::Spline(std::vector<std::shared_ptr<Curve>> curves)
     Length distance = 0_m;
 
     // sets the distances to each curve
-    for (auto&& curve : m_curves) {
+    for (std::shared_ptr<Curve>& curve : m_curves) {
         distance += curve->total_distance;
         distance_to_curve.emplace_back(distance);
     }

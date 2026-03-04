@@ -104,9 +104,9 @@ class RamsetteController {
     }
 };
 
-// seems pretty bad since it assumes linear veloctiy and angular veloctiy independence
-// (modeled after cars which do have this property)
-// however in practice it might be decent, maybe one day should test
+// seems pretty bad since it assumes linear veloctiy and angular veloctiy
+// independence (modeled after cars which do have this property) however in
+// practice it might be decent, maybe one day should test
 class StanleyController {
   public:
     // larger values lead to more aggressive angle correction
@@ -142,6 +142,16 @@ class StanleyController {
         DifferentialSpeeds new_speeds = { new_linear_velocity,
                                           new_angular_velocity };
         return new_speeds;
+    }
+};
+
+// simple controller which passes through the reference unchanged
+class NoPathFeedbackController {
+  public:
+    DifferentialSpeeds update(PathPoseFeedbackT state,
+                              PathPoseFeedbackT reference,
+                              Time duration) {
+        return reference.velocities;
     }
 };
 
