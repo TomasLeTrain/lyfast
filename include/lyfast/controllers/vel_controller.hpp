@@ -183,6 +183,10 @@ class FeedforwardVelocityController {
         return m_params;
     }
 
+    void reset() {
+        last_speed = std::nullopt;
+    }
+
     void setParams(FeedforwardVelocityControllerParams<VelUnit> new_params) {
         m_params = new_params;
     }
@@ -266,6 +270,11 @@ class PIDVelocityController {
         return result;
     }
 
+    void reset() {
+        integral = 0_in;
+        last_error = std::nullopt;
+    }
+
     PIDVelocityControllerParams<VelUnit> getParams() {
         return m_params;
     }
@@ -276,6 +285,42 @@ class PIDVelocityController {
 
     PIDVelocityController(PIDVelocityControllerParams<VelUnit> params)
         : m_params(params) {}
+};
+
+template<typename VelUnit>
+class SimpleVelocityController {
+    FeedforwardVelocityController<VelUnit> m_feedforward;
+
+    // single pid for both possibilities?
+    PIDVelocityController<VelUnit> m_pid;
+
+  public:
+    Voltage update(VelUnit measurement, VelUnit target, Time duration) {
+        Voltage u_feedforward = m_feedforward.updateKvKa(target, duration);
+
+        Voltage u_feedback =
+          m_pid.unclampedUpdate(measurement, target, duration);
+
+        Voltage result = u_feedforward + u_feedback;
+
+        // apply ks after adding both feedback and feedforward pid
+        result = m_feedforward.applyKs(result);
+
+        // apply final pid step
+        result = m_pid.compensateForSaturation(result);
+
+        return result;
+    }
+
+    void reset() {
+        m_feedforward.reset();
+        m_pid.reset();
+    }
+
+    SimpleVelocityController(FeedforwardVelocityController<VelUnit> feedforward,
+                             PIDVelocityController<VelUnit> pid)
+        : m_feedforward(feedforward),
+          m_pid(pid) {}
 };
 
 class DrivetrainSideVelocityController {
@@ -308,6 +353,12 @@ class DrivetrainSideVelocityController {
         result = m_pid.compensateForSaturation(result);
 
         return result;
+    }
+
+    void reset() {
+        m_linear.reset();
+        m_angular.reset();
+        m_pid.reset();
     }
 
     DrivetrainSideVelocityController(
@@ -392,6 +443,12 @@ class DifferentialVelocityController {
         last_velocities = velocities;
 
         return update(velocities, target, duration);
+    }
+
+    void reset() {
+        last_velocities = std::nullopt;
+        m_left_controller.reset();
+        m_right_controller.reset();
     }
 
     // return the left and right controllers

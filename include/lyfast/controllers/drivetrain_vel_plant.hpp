@@ -1,11 +1,16 @@
 #pragma once
 
+#include "blazing/utils.hpp"
+#include "lyfast/controllers/vel_controller.hpp"
 #include "pros/abstract_motor.hpp"
 #include "pros/motor_group.hpp"
 #include "pros/motors.hpp"
 #include "units/Angle.hpp"
 #include "units/units.hpp"
 #include <map>
+
+namespace blazing {
+namespace lyfast {
 
 // returns -1 if gearing is invalid
 inline AngularVelocity gearingToVelocity(pros::MotorGears gearing) {
@@ -168,6 +173,120 @@ class MotorGroupKalmanFilter {
     }
 };
 
-class MotorGroupVelocityPlant {
-    MotorGroupKalmanFilter filter;
+class AngularMotorGroupVelocityPlant {
+    MotorGroupKalmanFilter m_filter;
+    SimpleVelocityController<AngularVelocity> m_controller;
+
+    void reset() {
+        MotorGroupKalmanFilter::State state { .velocity = 0_radps };
+        // TODO: determine default?
+        MotorGroupKalmanFilter::CovarianceUnit covariance { units::square(
+          600_rpm) };
+
+        m_filter.setPredictedState(state, covariance);
+    }
+
+    void updateFilter(Time duration) {
+        m_filter.predict(duration);
+    }
+
+    AngularVelocity getEstimatedSpeed() {
+        return m_filter.getPredictedState().velocity;
+    }
+
+    Voltage controllerUpdate(AngularVelocity target, Time duration) {
+        return m_controller.update(getEstimatedSpeed(), target, duration);
+    }
+
+    AngularMotorGroupVelocityPlant(
+      MotorGroupKalmanFilter filter,
+      SimpleVelocityController<AngularVelocity> controller,
+      Length wheel_diameter)
+        : m_filter(filter),
+          m_controller(controller) {}
 };
+
+class LinearMotorGroupVelocityPlant {
+    MotorGroupKalmanFilter m_filter;
+    SimpleVelocityController<LinearVelocity> m_controller;
+
+    Length m_wheel_diameter;
+
+    void reset() {
+        MotorGroupKalmanFilter::State state { .velocity = 0_radps };
+        // TODO: determine default?
+        MotorGroupKalmanFilter::CovarianceUnit covariance { units::square(
+          600_rpm) };
+
+        m_filter.setPredictedState(state, covariance);
+    }
+
+    void updateFilter(Time duration) {
+        m_filter.predict(duration);
+    }
+
+    LinearVelocity getEstimatedSpeed() {
+        return toLinear(m_filter.getPredictedState().velocity,
+                        m_wheel_diameter);
+    }
+
+    Voltage controllerUpdate(LinearVelocity target, Time duration) {
+        return m_controller.update(getEstimatedSpeed(), target, duration);
+    }
+
+    LinearMotorGroupVelocityPlant(
+      MotorGroupKalmanFilter filter,
+      SimpleVelocityController<LinearVelocity> controller,
+      Length wheel_diameter)
+        : m_filter(filter),
+          m_controller(controller),
+          m_wheel_diameter(wheel_diameter) {}
+};
+
+class DrivetrainVelocityPlant {
+    MotorGroupKalmanFilter m_left_filter;
+    MotorGroupKalmanFilter m_right_filter;
+    DifferentialVelocityController m_controller;
+
+    Length m_wheel_diameter;
+
+    void reset() {
+        MotorGroupKalmanFilter::State state { .velocity = 0_radps };
+        // TODO: determine default?
+        MotorGroupKalmanFilter::CovarianceUnit covariance { units::square(
+          600_rpm) };
+
+        m_left_filter.setPredictedState(state, covariance);
+        m_right_filter.setPredictedState(state, covariance);
+    }
+
+    void updateFilter(Time duration) {
+        m_left_filter.predict(duration);
+        m_right_filter.predict(duration);
+    }
+
+    LeftRightSpeeds getEstimatedSpeeds() {
+        return {
+            toLinear(m_left_filter.getPredictedState().velocity,
+                     m_wheel_diameter),
+            toLinear(m_right_filter.getPredictedState().velocity,
+                     m_wheel_diameter),
+        };
+    }
+
+    LeftRightVoltages controllerUpdate(DifferentialSpeeds target,
+                                       Time duration) {
+        return m_controller.update(getEstimatedSpeeds(), target, duration);
+    }
+
+    DrivetrainVelocityPlant(MotorGroupKalmanFilter left_filter,
+                            MotorGroupKalmanFilter right_filter,
+                            DifferentialVelocityController controller,
+                            Length wheel_diameter)
+        : m_left_filter(left_filter),
+          m_right_filter(right_filter),
+          m_controller(controller),
+          m_wheel_diameter(wheel_diameter) {}
+};
+} // namespace lyfast
+} // namespace blazing
