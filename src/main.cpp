@@ -4,7 +4,9 @@
 #include "blazing/controllers/slew.hpp"
 #include "blazing/utils.hpp"
 #include "lyfast/api.hpp"
+#include "lyfast/controllers/drivetrain_vel_plant.hpp"
 #include "lyfast/controllers/path_pose_feedback.hpp"
+#include "lyfast/controllers/vel_controller.hpp"
 #include "lyfast/motions/path_follower.hpp"
 #include "pros/apix.h"
 #include "pros/imu.h"
@@ -1127,6 +1129,12 @@ void path_follow_test() {
         // .parameterization(blazing::lyfast::time_based)
         .timeout(5_sec) |
       run;
+}
+
+void motorPlantTest() {
+    lyfast::MotorGroupKalmanFilter filter;
+    lyfast::SimpleVelocityController<AngularVelocity> controller;
+    lyfast::AngularMotorGroupVelocityPlant plant(filter, controller, 3.25_in);
 }
 
 void opcontrol() {

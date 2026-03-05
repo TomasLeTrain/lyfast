@@ -200,8 +200,7 @@ class AngularMotorGroupVelocityPlant {
 
     AngularMotorGroupVelocityPlant(
       MotorGroupKalmanFilter filter,
-      SimpleVelocityController<AngularVelocity> controller,
-      Length wheel_diameter)
+      SimpleVelocityController<AngularVelocity> controller)
         : m_filter(filter),
           m_controller(controller) {}
 };
