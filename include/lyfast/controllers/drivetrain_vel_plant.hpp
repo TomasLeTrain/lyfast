@@ -50,11 +50,11 @@ class MotorGroupKalmanFilter {
         // ks constant of the motor
         Voltage Ks;
 
-        CovarianceUnit process_covariance = units::square(10_rpm);
+        CovarianceUnit process_covariance = units::square(5_rpm);
 
         // cov = factor * measurement^2
         // covariance increases on larger velocities
-        float measurement_covariance_factor = 0.01;
+        float measurement_covariance_factor = units::square(0.4);
         // minimum covariance
         CovarianceUnit measurement_covariance_offset = units::square(5_rpm);
     };
@@ -75,26 +75,39 @@ class MotorGroupKalmanFilter {
         AngularVelocity geared_motor_reported_velocity =
           (motor_reported_velocity / gearingToVelocity(gearing)) *
           m_constants.final_gearing_rpm;
+
+        std::cout << "motor vel: " << geared_motor_reported_velocity.convert(radps)
+                  << std::endl;
+
         // TODO: perform basic filtering on the reported velocity?
 
         AngularVelocity innovation =
           geared_motor_reported_velocity - m_state_estimate.velocity;
+        std::cout << "innovation: " << innovation.internal() << std::endl;
 
         CovarianceUnit measurement_covariance =
           m_constants.measurement_covariance_factor *
             units::square(geared_motor_reported_velocity) +
           m_constants.measurement_covariance_offset;
+        std::cout << "meas cov: " << measurement_covariance.internal()
+                  << std::endl;
 
         CovarianceUnit innovation_covariance =
           m_covariance + measurement_covariance;
+        std::cout << "innovation cov: " << innovation_covariance.internal()
+                  << std::endl;
 
         float gain = m_covariance / innovation_covariance;
+        std::cout << "gain: " << gain << std::endl;
 
         m_state_estimate.velocity =
           m_state_estimate.velocity + gain * innovation;
+        std::cout << "new vel: " << m_state_estimate.velocity << std::endl;
 
         // update covariance from measurement
         m_covariance = (1 - gain) * m_covariance;
+        std::cout << "new cov: " << m_covariance << std::endl;
+        std::cout << "ENDED" << std::endl;
     }
 
     // update input (voltage) based on motor data
@@ -102,22 +115,24 @@ class MotorGroupKalmanFilter {
         m_input.voltage = 0_volt;
         int motor_count = 0;
         for (auto voltage : motor_group->get_voltage_all()) {
-            m_input.voltage += Voltage(voltage) / 12.0;
+            m_input.voltage += from_mvolt(voltage) / 12.0;
             motor_count++;
         }
         m_input.voltage /= static_cast<float>(motor_count);
+        std::cout << "input updated to " << m_input.voltage << std::endl;
     }
 
   public:
     // take measurements from the motor(s) and correct model based on them
     void correct() {
         // apply correction for each motor
-        for (auto motor : motor_group->get_port_all()) {
-            correctSingleMotor(motor);
+        std::cout << "correcting" << std::endl;
+        for (int i = 0; i < motor_group->size(); i++) {
+            correctSingleMotor(i);
         }
     }
 
-    // predict x_k+1 from x_k
+    // predict x_k+1 from x_k and u_k
     void predict(Time dt) {
         Voltage V_eff;
         if (m_input.voltage < m_constants.Ks) {
@@ -128,6 +143,8 @@ class MotorGroupKalmanFilter {
             V_eff =
               m_input.voltage - m_constants.Ks * units::sgn(m_input.voltage);
         }
+        std::cout << "START" << std::endl;
+        std::cout << "V_eff " << V_eff << std::endl;
 
         // V = kv * v + ka * a + ks * sgn(V)
         // [V - sgn(v) * ks] = kv * v + ka * a
@@ -138,25 +155,31 @@ class MotorGroupKalmanFilter {
         //
         // a = (V_eff - kv * v) / ka
         // a = V_eff * 1/ka - (kv/ka) * v
+        // v = v + a * t
+        // v = v + (V_eff * 1/ka - (kv/ka) * v) * dt
+        // v = v(1 - (kv/ka) * dt) + V_eff * (1/ka * dt)
+        //
+        // A = 1 - (kv/ka) * dt
+        // B = 1/ka * dt
+        //
+        // v = A * v + B * V_eff
 
-        auto A = -(m_constants.Kv / m_constants.Ka) * dt;
+        double A = 1 - (m_constants.Kv / m_constants.Ka) * dt;
         auto B = (1.0 / m_constants.Ka) * dt;
+        std::cout << "A/B " << A << " " << B << std::endl;
 
-        // same as accel * dt
-        AngularVelocity velocity_delta =
-          (B * V_eff + A * m_state_estimate.velocity);
-
-        // assumes constant acceleration:
-        // v = v + a * dt
         AngularVelocity new_predicted_v =
-          // state_estimate.velocity + state_estimate.acceleration * dt;
-          m_state_estimate.velocity + velocity_delta;
+          m_state_estimate.velocity * A + B * V_eff;
+
+        std::cout << "new predicted v " << new_predicted_v << std::endl;
 
         m_state_estimate = { .velocity = new_predicted_v };
 
         m_covariance = A * A * m_covariance + m_constants.process_covariance;
+        std::cout << "new predict covairance " << m_covariance << std::endl;
 
         // update input after prediction
+        std::cout << "updating input " << std::endl;
         updateInput();
     }
 
@@ -180,6 +203,7 @@ class MotorGroupKalmanFilter {
         : motor_group(motors),
           m_constants(constants),
           m_state_estimate(initial_state_estimate),
+          m_input({ .voltage = 0_volt }),
           m_covariance(initial_covariance) {}
 };
 

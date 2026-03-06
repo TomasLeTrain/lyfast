@@ -1058,6 +1058,13 @@ void motorPlantTest() {
     auto Kv = 0.0394825 * volt / radps;
     auto Ks = 0.0186283 * volt;
     auto Ka = 0.00132675 * volt / radps2;
+
+    // slighly different since the filter uses measured voltage instead of
+    // desired voltage. constants for desired voltage are better for control?
+    auto kalman_Kv = 0.03902 * volt / radps;
+    auto kalman_Ks = 0.0186283 * volt;
+    auto kalman_Ka = 0.000876 * volt / radps2;
+
     //
     FeedforwardVelocityControllerParams<AngularVelocity> feedforward_params {
         .Kv = Kv,
@@ -1067,11 +1074,11 @@ void motorPlantTest() {
 
     MotorGroupKalmanFilter::Constants filter_constants {
         .final_gearing_rpm = 200_rpm,
-        .Kv = Kv,
-        .Ka = Ka,
-        .Ks = Ks,
+        .Kv = kalman_Kv,
+        .Ka = kalman_Ka,
+        .Ks = kalman_Ks,
         .process_covariance = units::square(5_rpm),
-        .measurement_covariance_factor = 0.01,
+        .measurement_covariance_factor = 0.4 * 0.4,
         .measurement_covariance_offset = units::square(5_rpm),
     };
 
@@ -1267,7 +1274,7 @@ void motorPlantTest() {
     //     { 0.05_volt,  25_msec  },
     // };
 
-	// accel stuff
+    // accel stuff
     // AngularVelocity final_rpm = 200_rpm;
     //
     // auto conversion_func = [](AngularVelocity original) -> AngularVelocity {
@@ -1295,13 +1302,54 @@ void motorPlantTest() {
     //
     // std::cout << "trying Ka_method2: " << std::endl;
     // auto [T, K, Ka_method2, Kp, Ki] =
-    //   AngularMotorGroupUtils::fit_ka_kp_ki_data_both_models(data, 10_msec, 0.5);
+    //   AngularMotorGroupUtils::fit_ka_kp_ki_data_both_models(data, 10_msec,
+    //   0.5);
     //
     // std::cout << "Ka_method2: " << Ka_method2.convert(volt / radps2)
     //           << std::endl;
 
-    // while(true){
-    // }
+    std::vector<VoltageCommand> test_commands = {
+        { 0.1_volt,  400_msec },
+        { 0.3_volt,  500_msec },
+        { 0.2_volt,  100_msec },
+        { -0.5_volt, 600_msec },
+        { 1.0_volt,  600_msec },
+    };
+
+    uint32_t int_delta_time = 10;
+
+    std::vector<lyfast::sysid::AngularSysidEntry> raw_data, filtered_data;
+
+    for (auto [voltage, duration, record] : test_commands) {
+        test_motor.move_voltage(12 * to_mvolt(voltage));
+
+        auto start_time = blazing::now();
+        uint32_t prev_time = pros::millis();
+
+        while (!timeoutDone(duration, start_time)) {
+
+            // predict and correct the filter
+            filter.predict(10_msec);
+            filter.correct();
+
+            Voltage filter_voltage = filter.getInput().voltage;
+            AngularVelocity filter_velocity =
+              filter.getPredictedState().velocity;
+
+            Voltage desired_voltage = voltage;
+            AngularVelocity raw_vel = test_motor.get_actual_velocity() * rpm;
+            raw_data.emplace_back(raw_vel, desired_voltage);
+            filtered_data.emplace_back(filter_velocity, filter_voltage);
+
+            pros::c::task_delay_until(&prev_time, int_delta_time);
+        }
+    }
+
+    std::cout << "raw data: " << std::endl;
+    AngularMotorGroupUtils::print_data_as_latex(raw_data);
+
+    std::cout << "filtered data: " << std::endl;
+    AngularMotorGroupUtils::print_data_as_latex(filtered_data);
 }
 
 void opcontrol() {
