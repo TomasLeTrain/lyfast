@@ -15,33 +15,36 @@
 
 namespace blazing {
 namespace lyfast {
+namespace sysid {
 
 template<typename T>
-struct MotorSysidData {
+// holds a velocity and an associated voltage
+struct SysidEntry {
     ConvertFloatType<T, float> velocity;
     FVoltage voltage;
 };
 
-struct MotorSysidVoltageCommands {
+// explicit instantiations
+extern template struct SysidEntry<LinearVelocity>;
+extern template struct SysidEntry<AngularVelocity>;
+
+using LinearSysidEntry = SysidEntry<LinearVelocity>;
+using AngularSysidEntry = SysidEntry<AngularVelocity>;
+
+// struct of arrays holding data for left and right
+struct DifferentialData {
+    std::vector<LinearSysidEntry> left;
+    std::vector<LinearSysidEntry> right;
+};
+
+struct VoltageCommand {
     FVoltage voltage;
 
     FTime time;
     bool record = true;
 };
 
-struct DifferentialSysidData {
-    std::vector<MotorSysidData<LinearVelocity>> left;
-    std::vector<MotorSysidData<LinearVelocity>> right;
-};
-
-struct OLS_data {
-    FLinearVelocity left_velocity;
-    FLinearVelocity right_velocity;
-    FVoltage left_voltage;
-    FVoltage right_voltage;
-};
-
-struct DifferentialSysIdVoltageCommands {
+struct DifferentialVoltageCommand {
     FVoltage left_voltage;
     FVoltage right_voltage;
 
@@ -50,15 +53,26 @@ struct DifferentialSysIdVoltageCommands {
 };
 
 template<typename VelUnit>
-class MotorGroupSysid {
+class MotorGroupUtils {
   public:
     using AccelUnit = Divided<VelUnit, Time>;
-    using DataT = MotorSysidData<VelUnit>;
+    using DataT = SysidEntry<VelUnit>;
     using VectorDataT = std::vector<DataT>;
+    using ka_ki_kp_dataT = std::tuple<
+      // T
+      Time,
+      // K
+      Divided<VelUnit, Voltage>,
+      // Ka
+      KaUnits<VelUnit>,
+      // Kp
+      KpUnits<VelUnit>,
+      // Ki
+      KiUnits<VelUnit>>;
 
     // gathers velocity data from robot by moving voltage_commands
     static VectorDataT
-    generateData(std::vector<MotorSysidVoltageCommands> voltage_commands,
+    generateData(std::vector<VoltageCommand> voltage_commands,
                  pros::MotorGroup* motor_group,
                  AngularVelocity final_rpm,
                  std::function<VelUnit(AngularVelocity)>
@@ -72,68 +86,38 @@ class MotorGroupSysid {
 
     // calculates ka/kp/ki from T and K constants and lambda factor
     static auto calculate_ka_kp_ki_from_TK(Time dt,
-                                           Divided<LinearVelocity, Voltage> K,
+                                           Divided<VelUnit, Voltage> K,
                                            double lambda_factor)
       -> std::tuple<
         // Ka
         KaUnits<VelUnit>,
         // Kp
-        Divided<Voltage, LinearVelocity>,
+        KpUnits<VelUnit>,
         // Ki
-        Divided<Voltage, Length>>;
+        KiUnits<VelUnit>>;
 
     // fits various values data using model:
     // accel = voltage * h - velocity * g
-    static auto fit_ka_kp_ki_data_first_model(const VectorDataT& data,
-                                              Time delta_time,
-                                              double lambda_factor)
-      -> std::tuple<
-        // T
-        Time,
-        // K
-        Divided<LinearVelocity, Voltage>,
-        // Ka
-        KaUnits<VelUnit>,
-        // Kp
-        Divided<Voltage, LinearVelocity>,
-        // Ki
-        Divided<Voltage, Length>>;
+    static ka_ki_kp_dataT fit_ka_kp_ki_data_first_model(const VectorDataT& data,
+                                                        Time delta_time,
+                                                        double lambda_factor);
 
     // fits data using different model:
     // velocity_next = a1 * velocity + a2 * voltage
     //
-    static auto fit_ka_kp_ki_data_second_model(const VectorDataT& data,
-                                               Time delta_time,
-                                               double lambda_factor)
-      -> std::tuple<
-        // T
-        Time,
-        // K
-        Divided<LinearVelocity, Voltage>,
-        // Ka
-        KaUnits<VelUnit>,
-        // Kp
-        Divided<Voltage, LinearVelocity>,
-        // Ki
-        Divided<Voltage, Length>>;
+    static ka_ki_kp_dataT
+    fit_ka_kp_ki_data_second_model(const VectorDataT& data,
+                                   Time delta_time,
+                                   double lambda_factor);
 
     // averages results from both models. This seems to produce really good
     // results as both deviate in opposite directions
-    static auto fit_ka_kp_ki_data_both_models(const VectorDataT& data,
-                                              Time delta_time,
-                                              double lambda_factor)
-      -> std::tuple<
-        // T
-        Time,
-        // K
-        Divided<LinearVelocity, Voltage>,
-        // Ka
-        KaUnits<VelUnit>,
-        // Kp
-        Divided<Voltage, LinearVelocity>,
-        // Ki
-        Divided<Voltage, Length>>;
+    static ka_ki_kp_dataT fit_ka_kp_ki_data_both_models(const VectorDataT& data,
+                                                        Time delta_time,
+                                                        double lambda_factor);
 
+    // fits data specifically only for ka with model:
+    // accel * ka = voltage - velocity * kv - sgn(velocity) * ks
     static KaUnits<VelUnit> fit_ka_data(const VectorDataT& data,
                                         Time delta_time,
                                         KvUnits<VelUnit> kv,
@@ -142,42 +126,37 @@ class MotorGroupSysid {
 
 // print data in desmos-friendly format
 template<typename T>
-void print_data_as_latex(const std::vector<MotorSysidData<T>>& data);
+void print_data_as_latex(const std::vector<SysidEntry<T>>& data);
 
-// explicit instantiations
-extern template struct MotorSysidData<LinearVelocity>;
-extern template struct MotorSysidData<AngularVelocity>;
-using MotorSysidDataLinearVelocity = MotorSysidData<LinearVelocity>;
-using MotorSysidDataAngularVelocity = MotorSysidData<AngularVelocity>;
+// more explicit instantiations
+extern template class MotorGroupUtils<LinearVelocity>;
+extern template class MotorGroupUtils<AngularVelocity>;
+using LinearMotorGroupUtils = MotorGroupUtils<LinearVelocity>;
+using AngularMotorGroupUtils = MotorGroupUtils<AngularVelocity>;
 
-extern template class MotorGroupSysid<LinearVelocity>;
-extern template class MotorGroupSysid<AngularVelocity>;
-using MotorGroupSysidLinearVelocity = MotorGroupSysid<LinearVelocity>;
-using MotorGroupSysidAngularVelocity = MotorGroupSysid<AngularVelocity>;
-
-class DifferentialSysid {
+class DifferentialUtils {
   public:
     // gathers velocity data from robot by moving voltage_commands
     // does not collect actual voltage data, but rather commanded voltage
-    static DifferentialSysidData
-    createData(std::vector<DifferentialSysIdVoltageCommands> voltage_commands,
+    static DifferentialData
+    createData(std::vector<DifferentialVoltageCommand> voltage_commands,
                DifferentialDrivetrain& drivetrain,
                Time delta_time);
 
-    static DifferentialSysidData gather_kv_ks_data(
-      std::vector<DifferentialSysIdVoltageCommands> voltage_commands,
-      DifferentialDrivetrain& drivetrain,
-      Time delta_time,
-      Time steady_state_time);
+    static DifferentialData
+    gather_kv_ks_data(std::vector<DifferentialVoltageCommand> voltage_commands,
+                      DifferentialDrivetrain& drivetrain,
+                      Time delta_time,
+                      Time steady_state_time);
 
-    static DifferentialSysidData calculate_kv_ks(
-      std::vector<DifferentialSysIdVoltageCommands> voltage_commands,
-      DifferentialDrivetrain& drivetrain,
-      Time delta_time = 10_msec,
-      Time steady_state_time = 200_msec);
+    static DifferentialData
+    calculate_kv_ks(std::vector<DifferentialVoltageCommand> voltage_commands,
+                    DifferentialDrivetrain& drivetrain,
+                    Time delta_time = 10_msec,
+                    Time steady_state_time = 200_msec);
 
-    static DifferentialSysidData
-    calculate_ka(std::vector<DifferentialSysIdVoltageCommands> voltage_commands,
+    static DifferentialData
+    calculate_ka(std::vector<DifferentialVoltageCommand> voltage_commands,
                  DifferentialDrivetrain& drivetrain,
                  KvUnits<LinearVelocity> left_kv,
                  KsUnits left_ks,
@@ -185,15 +164,14 @@ class DifferentialSysid {
                  KsUnits right_ks,
                  Time delta_time);
 
-    static void printData(DifferentialSysidData data, Time delta_time);
+    static void printData(DifferentialData data, Time delta_time);
 
-    // NOTE: uses first model right now, can change later if other model is
-    // verified to work
-    static DifferentialSysidData
-    calculate_ka_kp_ki_fopdt(DifferentialSysIdVoltageCommands voltage_command,
+    static DifferentialData
+    calculate_ka_kp_ki_fopdt(DifferentialVoltageCommand voltage_command,
                              DifferentialDrivetrain& drivetrain,
                              Time delta_time,
                              double lambda_factor);
 };
+} // namespace sysid
 } // namespace lyfast
 } // namespace blazing

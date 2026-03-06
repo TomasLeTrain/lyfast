@@ -13,6 +13,7 @@ namespace blazing {
 namespace lyfast {
 
 // returns -1 if gearing is invalid
+// TODO: move to blazing utils?
 inline AngularVelocity gearingToVelocity(pros::MotorGears gearing) {
     if (gearing == pros::MotorGears::rpm_600)
         return 600_rpm;
@@ -177,6 +178,7 @@ class AngularMotorGroupVelocityPlant {
     MotorGroupKalmanFilter m_filter;
     SimpleVelocityController<AngularVelocity> m_controller;
 
+  public:
     void reset() {
         MotorGroupKalmanFilter::State state { .velocity = 0_radps };
         // TODO: determine default?
@@ -211,6 +213,7 @@ class LinearMotorGroupVelocityPlant {
 
     Length m_wheel_diameter;
 
+  public:
     void reset() {
         MotorGroupKalmanFilter::State state { .velocity = 0_radps };
         // TODO: determine default?
@@ -249,6 +252,7 @@ class DrivetrainVelocityPlant {
 
     Length m_wheel_diameter;
 
+  public:
     void reset() {
         MotorGroupKalmanFilter::State state { .velocity = 0_radps };
         // TODO: determine default?

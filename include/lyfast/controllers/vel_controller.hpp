@@ -24,12 +24,25 @@ using KvUnits = Divided<Voltage, VelUnit>;
 template<typename VelUnit>
 using KaUnits = Divided<Voltage, Divided<VelUnit, Time>>;
 
+// both kv and kp are same units
+template<typename VelUnit>
+using KpUnits = Divided<Voltage, VelUnit>;
+template<typename VelUnit>
+using KiUnits = Divided<Voltage, Multiplied<VelUnit, Time>>;
+
 using FKsUnits = FVoltage;
 template<typename VelUnit>
 using FKvUnits = ConvertFloatType<KvUnits<VelUnit>, float>;
 template<typename VelUnit>
 using FKaUnits = ConvertFloatType<KaUnits<VelUnit>, float>;
 
+// both kv and kp are same units
+template<typename VelUnit>
+using FKpUnits = ConvertFloatType<KpUnits<VelUnit>, float>;
+template<typename VelUnit>
+using FKiUnits = ConvertFloatType<KiUnits<VelUnit>, float>;
+
+// TODO: put into c++ file
 inline DifferentialSpeeds
 desaturatePrioritizeAngularDiffSpeeds(DifferentialSpeeds target,
                                       Length track_width,
@@ -198,6 +211,7 @@ class FeedforwardVelocityController {
 
 template<typename VelUnit>
 class PIDVelocityController {
+  private:
     PIDVelocityControllerParams<VelUnit> m_params;
 
     Multiplied<VelUnit, Time> integral = 0_in;
@@ -482,6 +496,50 @@ class DifferentialVelocityController {
           m_prioritize_angular(prioritize_angular),
           drivetrain(drivetrain) {}
 };
+
+// explicit declarations
+// feedforward
+extern template struct FeedforwardVelocityControllerParams<LinearVelocity>;
+extern template struct FeedforwardVelocityControllerParams<AngularVelocity>;
+
+extern template class FeedforwardVelocityController<LinearVelocity>;
+extern template class FeedforwardVelocityController<AngularVelocity>;
+
+// PID
+extern template struct PIDVelocityControllerParams<LinearVelocity>;
+extern template struct PIDVelocityControllerParams<AngularVelocity>;
+
+extern template class PIDVelocityController<LinearVelocity>;
+extern template class PIDVelocityController<AngularVelocity>;
+
+// simple vel controller
+extern template class SimpleVelocityController<LinearVelocity>;
+extern template class SimpleVelocityController<AngularVelocity>;
+
+// using declarations to make it easier to work with
+using LinearFeedforwardVelocityControllerParams =
+  FeedforwardVelocityControllerParams<LinearVelocity>;
+using AngularFeedforwardVelocityControllerParams =
+  FeedforwardVelocityControllerParams<AngularVelocity>;
+
+using LinearFeedforwardVelocityController =
+  FeedforwardVelocityController<LinearVelocity>;
+using AngularFeedforwardVelocityController =
+  FeedforwardVelocityController<AngularVelocity>;
+
+// PID
+using LinearPIDVelocityControllerParams =
+  PIDVelocityControllerParams<LinearVelocity>;
+using AngularPIDVelocityControllerParams =
+  PIDVelocityControllerParams<AngularVelocity>;
+
+using LinearPIDVelocityController = PIDVelocityController<LinearVelocity>;
+using AngularPIDVelocityController = PIDVelocityController<AngularVelocity>;
+
+// simple vel controller
+using LinearSimpleVelocityController = SimpleVelocityController<LinearVelocity>;
+using AngularSimpleVelocityController =
+  SimpleVelocityController<AngularVelocity>;
 
 template<typename Controller>
     requires Feedforward<Controller, DifferentialSpeeds, LeftRightVoltages>
