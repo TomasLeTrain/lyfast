@@ -28,6 +28,7 @@ MotorGroupUtils<T>::VectorDataT MotorGroupUtils<T>::generateData(
   pros::MotorGroup* motor_group,
   AngularVelocity final_rpm,
   std::function<T(AngularVelocity)> conversionFunc,
+  std::optional<Time> steady_state_time,
   Time delta_time) {
 
     uint32_t int_delta_time = std::lround(to_msec(delta_time));
@@ -40,8 +41,14 @@ MotorGroupUtils<T>::VectorDataT MotorGroupUtils<T>::generateData(
         uint32_t prev_time = pros::millis();
 
         while (!timeoutDone(target_time, start_time)) {
-            // amount of time to measure the steady state
-            if (record) {
+            // time at which we start to record data
+            FTime threshold_time = 0_Fsec;
+
+            if (steady_state_time)
+                threshold_time =
+                  units::max(0_Fsec, target_time - steady_state_time.value());
+
+            if (timeoutDone(threshold_time, start_time) && record) {
                 T velocity = conversionFunc(
                   blazing::get_group_velocity(motor_group, final_rpm));
 
@@ -60,9 +67,9 @@ template<typename T>
 std::pair<KvUnits<T>, KsUnits>
 MotorGroupUtils<T>::fit_kv_ks_data(const VectorDataT& data) {
     // of form < velocity, sgn(velocity) >
-    Eigen::MatrixXd A = Eigen::MatrixXd::Zero(data.size(), 2);
+    Eigen::MatrixXf A = Eigen::MatrixXf::Zero(data.size(), 2);
     // of form < Voltage >
-    Eigen::VectorXd b = Eigen::VectorXd::Zero(data.size());
+    Eigen::VectorXf b = Eigen::VectorXf::Zero(data.size());
 
     for (size_t i = 0; i < data.size(); i++) {
         const DataT& curr = data[i];
@@ -73,7 +80,7 @@ MotorGroupUtils<T>::fit_kv_ks_data(const VectorDataT& data) {
         b(i) = curr.voltage.internal();
     }
 
-    Eigen::VectorXd solution =
+    Eigen::VectorXf solution =
       A.bdcSvd<Eigen::ComputeThinU | Eigen::ComputeThinV>().solve(b);
 
     KvUnits<T> kv { solution(0) };
@@ -112,23 +119,23 @@ MotorGroupUtils<T>::fit_ka_kp_ki_data_first_model(const VectorDataT& data,
                                                   Time delta_time,
                                                   double lambda_factor) {
     // of form < voltage, -velocity >
-    Eigen::MatrixXd A = Eigen::MatrixXd::Zero(data.size() - 1, 2);
+    Eigen::MatrixXf A = Eigen::MatrixXf::Zero(data.size() - 1, 2);
     // of form < accel >
-    Eigen::VectorXd b = Eigen::VectorXd::Zero(data.size() - 1);
+    Eigen::VectorXf b = Eigen::VectorXf::Zero(data.size() - 1);
 
-    for (size_t i = 1; i < data.size(); i++) {
-        const DataT& last = data[i - 1];
+    for (size_t i = 0; i < data.size() - 1; i++) {
         const DataT& curr = data[i];
+        const DataT& next = data[i + 1];
 
-        AccelUnit accel = (curr.velocity - last.velocity) / delta_time;
+        AccelUnit accel = (next.velocity - curr.velocity) / delta_time;
 
-        A(i - 1, 0) = curr.voltage.internal();
-        A(i - 1, 1) = -curr.velocity.internal();
+        A(i, 0) = curr.voltage.internal();
+        A(i, 1) = -curr.velocity.internal();
 
-        b(i - 1) = accel.internal();
+        b(i) = accel.internal();
     }
 
-    Eigen::VectorXd solution =
+    Eigen::VectorXf solution =
       A.bdcSvd<Eigen::ComputeThinU | Eigen::ComputeThinV>().solve(b);
 
     Divided<AccelUnit, Voltage> h { solution(0) };
@@ -151,21 +158,21 @@ MotorGroupUtils<T>::fit_ka_kp_ki_data_second_model(const VectorDataT& data,
                                                    Time delta_time,
                                                    double lambda_factor) {
     // of form < velocity, voltage >
-    Eigen::MatrixXd A = Eigen::MatrixXd::Zero(data.size() - 1, 2);
+    Eigen::MatrixXf A = Eigen::MatrixXf::Zero(data.size() - 1, 2);
     // of form < next velocity >
-    Eigen::VectorXd b = Eigen::VectorXd::Zero(data.size() - 1);
+    Eigen::VectorXf b = Eigen::VectorXf::Zero(data.size() - 1);
 
-    for (size_t i = 1; i < data.size(); i++) {
-        const DataT& prev = data[i - 1];
-        const DataT& next = data[i];
+    for (size_t i = 0; i < data.size() - 1; i++) {
+        const DataT& curr = data[i];
+        const DataT& next = data[i + 1];
 
-        A(i - 1, 0) = prev.velocity.internal();
-        A(i - 1, 1) = prev.voltage.internal();
+        A(i, 0) = curr.velocity.internal();
+        A(i, 1) = curr.voltage.internal();
 
-        b(i - 1) = next.velocity.internal();
+        b(i) = next.velocity.internal();
     }
 
-    Eigen::VectorXd solution =
+    Eigen::VectorXf solution =
       A.bdcSvd<Eigen::ComputeThinU | Eigen::ComputeThinV>().solve(b);
 
     Number a1 { solution(0) };
@@ -208,37 +215,36 @@ KaUnits<T> MotorGroupUtils<T>::fit_ka_data(const VectorDataT& data,
                                            KvUnits<T> kv,
                                            KsUnits ks) {
     // of form < accel >
-    Eigen::MatrixXd A = Eigen::MatrixXd::Zero(data.size() - 1, 1);
+    Eigen::MatrixXf A = Eigen::MatrixXf::Zero(data.size() - 1, 1);
     // of form < voltage - velocity * kv - sgn(velocity) * ks >
-    Eigen::VectorXd b = Eigen::VectorXd::Zero(data.size() - 1);
+    Eigen::VectorXf b = Eigen::VectorXf::Zero(data.size() - 1);
 
-    for (size_t i = 1; i < data.size(); i++) {
+    for (size_t i = 0; i < data.size() - 1; i++) {
         const DataT& curr = data[i];
-        const DataT& last = data[i - 1];
+        const DataT& next = data[i + 1];
 
-        AccelUnit accel = (curr.velocity - last.velocity) / delta_time;
+        AccelUnit accel = (next.velocity - curr.velocity) / delta_time;
         Voltage accel_voltage =
           (curr.voltage - curr.velocity * kv - units::sgn(curr.velocity) * ks);
 
-        A(i - 1, 0) = accel.internal();
-        b(i - 1) = accel_voltage.internal();
+        A(i, 0) = accel.internal();
+        b(i) = accel_voltage.internal();
     }
 
-    Eigen::VectorXd solution =
+    Eigen::VectorXf solution =
       A.bdcSvd<Eigen::ComputeThinU | Eigen::ComputeThinV>().solve(b);
 
     KaUnits<T> ka { solution(0) };
     return { ka };
 }
 
-// print data in desmos-friendly format
-
+// print data in desmos-friendly format - prints in VelUnit units
 template<typename T>
-void print_data_as_latex(const std::vector<SysidEntry<T>>& data) {
+void MotorGroupUtils<T>::print_data_as_latex(const VectorDataT& data) {
     std::cout << "\\left[";
-    for (int i = 0; i < data.size(); i++) {
+    for (size_t i = 0; i < data.size(); i++) {
         std::cout << "\\left(" << data[i].voltage.internal() << ","
-                  << data[i].velocity.convert(mps) << "\\right)";
+                  << data[i].velocity.convert(T { 1 }) << "\\right)";
         // doesn't print comma for last point
         if (i < data.size() - 1) std::cout << ",";
     }
@@ -415,10 +421,10 @@ void DifferentialUtils::printData(DifferentialData data, Time delta_time) {
     std::cout << "delta time of " << to_msec(delta_time) << " msec\n";
 
     std::cout << "left motor data (voltage, velocity):\n";
-    print_data_as_latex(data.left);
+    LinearMotorGroupUtils::print_data_as_latex(data.left);
 
     std::cout << "right motor data(voltage, velocity):\n ";
-    print_data_as_latex(data.right);
+    LinearMotorGroupUtils::print_data_as_latex(data.right);
 }
 
 DifferentialData DifferentialUtils::calculate_ka_kp_ki_fopdt(

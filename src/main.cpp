@@ -240,7 +240,27 @@ DrivetrainSideVelocityController left_vel_controller {
 
 } // namespace
 
-lyfast::DrivetrainSideVelocityController right_vel_controller {};
+lyfast::DrivetrainSideVelocityController right_vel_controller {
+    // linear
+    FeedforwardVelocityController<LinearVelocity> { {
+      .Kv = 1 * volt / mps,
+      .Ka = 1 * volt / mps2,
+      .Ks = 1 * volt,
+    } },
+
+    // angular
+    FeedforwardVelocityController<LinearVelocity> { {
+      .Kv = 1 * volt / mps,
+      .Ka = 1 * volt / mps2,
+      .Ks = 1 * volt,
+    } },
+
+    // feedback
+    PIDVelocityController<LinearVelocity> { { .Kp = 1 * volt / mps,
+                                              .Ki = 1 * volt / m,
+                                              .max_output = 1 * volt,
+                                              .tbh_factor = 0.0 } },
+};
 
 lyfast::DifferentialVelocityController vel_controller {
     left_vel_controller, right_vel_controller, 76_inps, track_width, 1.0, false,
@@ -303,41 +323,41 @@ lyfast::DifferentialVelocityController vel_controller {
 //     track_width
 // };
 
-PID<Length, LinearVelocity> linear_vel_pid(0.5,
-                                           0.0,
-                                           3.6,
-                                           7,
-                                           // std::nullopt,
-                                           127, // max
-                                           std::nullopt, // derivative alpha
-                                           50_msec,
-                                           1_in,
-                                           1_inps);
+// PID<Length, LinearVelocity> linear_vel_pid(0.5,
+//                                            0.0,
+//                                            3.6,
+//                                            7,
+//                                            // std::nullopt,
+//                                            127, // max
+//                                            std::nullopt, // derivative alpha
+//                                            50_msec,
+//                                            1_in,
+//                                            1_inps);
 
-CascadedControllers<decltype(linear_vel_pid),
-                    decltype(vel_controller),
-                    Length,
-                    LinearVelocity,
-                    Voltage>
-  linear_control(linear_vel_pid, vel_controller);
+// CascadedControllers<decltype(linear_vel_pid),
+//                     decltype(vel_controller),
+//                     Length,
+//                     LinearVelocity,
+//                     Voltage>
+//   linear_control(linear_vel_pid, vel_controller);
 
-PID<Angle, AngularVelocity> angular_vel_pid(4.5,
-                                            0.0,
-                                            3.6,
-                                            7,
-                                            // std::nullopt,
-                                            127, // max
-                                            std::nullopt, // derivative alpha
-                                            50_msec,
-                                            1_stDeg,
-                                            1_degps);
+// PID<Angle, AngularVelocity> angular_vel_pid(4.5,
+//                                             0.0,
+//                                             3.6,
+//                                             7,
+//                                             // std::nullopt,
+//                                             127, // max
+//                                             std::nullopt, // derivative alpha
+//                                             50_msec,
+//                                             1_stDeg,
+//                                             1_degps);
 
-CascadedControllers<decltype(angular_vel_pid),
-                    decltype(vel_controller),
-                    Angle,
-                    AngularVelocity,
-                    Voltage>
-  angular_control(angular_vel_pid, vel_controller);
+// CascadedControllers<decltype(angular_vel_pid),
+//                     decltype(vel_controller),
+//                     Angle,
+//                     AngularVelocity,
+//                     Voltage>
+//   angular_control(angular_vel_pid, vel_controller);
 
 FLength track_radius = track_width * 0.5;
 
@@ -368,11 +388,11 @@ lyfast::PathPoseFeedbackController<decltype(lqr_controller)>
 
 Controllers controllers(
   // pid controllers
-  // PIDLinearController(linear_pid),
-  // PIDAngularController(angular_pid),
+  PIDLinearController(linear_pid),
+  PIDAngularController(angular_pid),
 
-  LinearFeedbackController<decltype(linear_control)>(linear_control),
-  AngularFeedbackController<decltype(angular_control)>(angular_control),
+  // LinearFeedbackController<decltype(linear_control)>(linear_control),
+  // AngularFeedbackController<decltype(angular_control)>(angular_control),
 
   lyfast::VelocityFeedforward<lyfast::DifferentialVelocityController>(
     vel_controller),
@@ -391,7 +411,7 @@ Controllers controllers(
   LinearVoltageClampController(),
   AngularVoltageClampController());
 
-MotionBuilder mb(chassis, controllers);
+// MotionBuilder mb(chassis, controllers);
 MotionBuilder vel_mb(chassis, controllers);
 
 ChainedExecutor chain(100_msec);
@@ -1032,10 +1052,37 @@ void path_follow_test() {
       run;
 }
 
-pros::MotorGroup test_motor({ 5 }, pros::MotorGears::green);
+pros::MotorGroup test_motor({ 13 }, pros::MotorGears::green);
 
 void motorPlantTest() {
-    // lyfast::MotorGroupKalmanFilter filter;
+    auto Kv = 0.0394825 * volt / radps;
+    auto Ks = 0.0186283 * volt;
+    auto Ka = 0.00132675 * volt / radps2;
+    //
+    FeedforwardVelocityControllerParams<AngularVelocity> feedforward_params {
+        .Kv = Kv,
+        .Ka = Ka,
+        .Ks = Ks,
+    };
+
+    MotorGroupKalmanFilter::Constants filter_constants {
+        .final_gearing_rpm = 200_rpm,
+        .Kv = Kv,
+        .Ka = Ka,
+        .Ks = Ks,
+        .process_covariance = units::square(5_rpm),
+        .measurement_covariance_factor = 0.01,
+        .measurement_covariance_offset = units::square(5_rpm),
+    };
+
+    MotorGroupKalmanFilter::State initial_state { .velocity = 0_radps };
+
+    //
+    //
+    lyfast::MotorGroupKalmanFilter filter { &test_motor,
+                                            filter_constants,
+                                            initial_state,
+                                            units::square(0_rpm) };
     // lyfast::FeedforwardVelocityController<AngularVelocity> feedforward {
     //     lyfast::FeedforwardVelocityControllerParams<AngularVelocity> {
     //                                                                   .Kv = 1
@@ -1068,19 +1115,190 @@ void motorPlantTest() {
     //                                                                };
     // lyfast::AngularMotorGroupVelocityPlant plant(filter, controller);
 
-    std::vector<lyfast::sysid::VoltageCommand> commands;
+    using namespace lyfast::sysid;
+    //
+    // std::vector<VoltageCommand> kv_ks_commands = {
+    //     // linear movements
+    //     { -0.05_volt, 600_msec },
+    //     { 0.05_volt,  600_msec },
+    //     { -0.1_volt,  800_msec },
+    //     { 0.1_volt,   800_msec },
+    //     { -0.2_volt,  800_msec },
+    //     { 0.2_volt,   800_msec },
+    //     { -0.3_volt,  800_msec },
+    //     { 0.3_volt,   800_msec },
+    //     { -0.4_volt,  800_msec },
+    //     { 0.4_volt,   800_msec },
+    //     { -0.5_volt,  800_msec },
+    //     { 0.5_volt,   800_msec },
+    //     { -0.6_volt,  800_msec },
+    //     { 0.6_volt,   800_msec },
+    //     { -0.7_volt,  800_msec },
+    //     { 0.7_volt,   800_msec },
+    //     { -0.8_volt,  800_msec },
+    //     { 0.8_volt,   800_msec },
+    //     { -0.9_volt,  800_msec },
+    //     { 0.9_volt,   800_msec },
+    //     { -1.0_volt,  800_msec },
+    //     { 1.0_volt,   800_msec },
+    // };
+    //
+    // AngularVelocity final_rpm = 200_rpm;
+    //
+    // auto conversion_func = [](AngularVelocity original) -> AngularVelocity {
+    //     return original;
+    // };
+    //
+    // auto data =
+    //   AngularMotorGroupUtils::generateData(kv_ks_commands,
+    //                                        &test_motor,
+    //                                        final_rpm,
+    //                                        conversion_func,
+    //                                        180_msec, // takes 20 samples?
+    //                                        10_msec);
+    //
+    // std::cout << "Data: " << std::endl;
+    // AngularMotorGroupUtils::print_data_as_latex(data);
+    //
+    // auto [Kv, Ks] = AngularMotorGroupUtils::fit_kv_ks_data(data);
+    //
+    // std::cout << "Kv/Ks: " << Kv.convert(volt / radps) << " "
+    //           << Ks.convert(volt) << std::endl;
 
-    AngularVelocity final_rpm = 200_rpm;
+    // std::vector<VoltageCommand> ka_commands = {
+    //     // bunch of harsh accelerations
+    //     { -0.05_volt, 200_msec },
+    //     { 0.05_volt,  200_msec },
+    //     { -0.2_volt,  200_msec },
+    //     { 0.2_volt,   200_msec },
+    //     { -0.1_volt,  200_msec },
+    //     { 0.1_volt,   200_msec },
+    //     { -0.3_volt,  200_msec },
+    //     { 0.3_volt,   200_msec },
+    //     { -0.5_volt,  200_msec },
+    //     { 0.5_volt,   200_msec },
+    //     { -0.4_volt,  200_msec },
+    //     { 0.4_volt,   200_msec },
+    //     { -0.6_volt,  200_msec },
+    //     { 0.6_volt,   200_msec },
+    //     { -0.8_volt,  200_msec },
+    //     { 0.8_volt,   200_msec },
+    //     { -0.7_volt,  200_msec },
+    //     { 0.7_volt,   200_msec },
+    //     { -0.9_volt,  200_msec },
+    //     { 0.9_volt,   200_msec },
+    //     { -1.0_volt,  200_msec },
+    //     { 1.0_volt,   200_msec },
+    //
+    //     // gradual up and down
+    //     // { -0.05_volt, 100_msec },
+    //     { -0.10_volt, 50_msec  },
+    //     // { -0.15_volt, 100_msec },
+    //     { -0.20_volt, 50_msec  },
+    //     // { -0.25_volt, 100_msec },
+    //     { -0.30_volt, 50_msec  },
+    //     // { -0.35_volt, 100_msec },
+    //     { -0.40_volt, 50_msec  },
+    //     // { -0.45_volt, 100_msec },
+    //     { -0.50_volt, 50_msec  },
+    //     // { -0.55_volt, 100_msec },
+    //     { -0.60_volt, 50_msec  },
+    //     // { -0.65_volt, 100_msec },
+    //     { -0.70_volt, 50_msec  },
+    //     // { -0.75_volt, 100_msec },
+    //     { -0.80_volt, 60_msec  },
+    //     // { -0.85_volt, 100_msec },
+    //     { -0.90_volt, 60_msec  },
+    //     // { -0.95_volt, 100_msec },
+    //     { -1.00_volt, 60_msec  },
+    //     { -1.00_volt,
+    //      100_msec              }, // more gradual up and downs in other
+    //      direction
+    //     { -0.90_volt, 50_msec  },
+    //     { -0.80_volt, 50_msec  },
+    //     { -0.70_volt, 50_msec  },
+    //     { -0.60_volt, 50_msec  },
+    //     { -0.50_volt, 50_msec  },
+    //     { -0.40_volt, 50_msec  },
+    //     { -0.30_volt, 50_msec  },
+    //     { -0.20_volt, 50_msec  },
+    //     { -0.10_volt, 50_msec  },
+    //     { -0.05_volt, 50_msec  },
+    //
+    //     { 0.05_volt,  25_msec  },
+    //     { 0.10_volt,  25_msec  },
+    //     { 0.15_volt,  25_msec  },
+    //     { 0.20_volt,  25_msec  },
+    //     { 0.25_volt,  25_msec  },
+    //     { 0.30_volt,  25_msec  },
+    //     { 0.35_volt,  25_msec  },
+    //     { 0.40_volt,  25_msec  },
+    //     { 0.45_volt,  25_msec  },
+    //     { 0.50_volt,  25_msec  },
+    //     { 0.55_volt,  25_msec  },
+    //     { 0.60_volt,  25_msec  },
+    //     { 0.65_volt,  25_msec  },
+    //     { 0.70_volt,  25_msec  },
+    //     { 0.75_volt,  25_msec  },
+    //     { 0.80_volt,  25_msec  },
+    //     { 0.85_volt,  25_msec  },
+    //     { 0.90_volt,  25_msec  },
+    //     { 0.95_volt,  25_msec  },
+    //     { 1.00_volt,  25_msec  },
+    //     { 1.00_volt,  25_msec  },
+    //     { 0.95_volt,  25_msec  },
+    //     { 0.90_volt,  25_msec  },
+    //     { 0.85_volt,  25_msec  },
+    //     { 0.80_volt,  25_msec  },
+    //     { 0.75_volt,  25_msec  },
+    //     { 0.70_volt,  25_msec  },
+    //     { 0.65_volt,  25_msec  },
+    //     { 0.60_volt,  25_msec  },
+    //     { 0.55_volt,  25_msec  },
+    //     { 0.50_volt,  25_msec  },
+    //     { 0.45_volt,  25_msec  },
+    //     { 0.40_volt,  25_msec  },
+    //     { 0.35_volt,  25_msec  },
+    //     { 0.30_volt,  25_msec  },
+    //     { 0.25_volt,  25_msec  },
+    //     { 0.20_volt,  25_msec  },
+    //     { 0.15_volt,  25_msec  },
+    //     { 0.10_volt,  25_msec  },
+    //     { 0.05_volt,  25_msec  },
+    // };
 
-    auto conversion_func = [](AngularVelocity original) -> AngularVelocity {
-        return original;
-    };
-
-    lyfast::sysid::AngularMotorGroupUtils::generateData(commands,
-                                                        &test_motor,
-                                                        final_rpm,
-                                                        conversion_func,
-                                                        10_msec);
+	// accel stuff
+    // AngularVelocity final_rpm = 200_rpm;
+    //
+    // auto conversion_func = [](AngularVelocity original) -> AngularVelocity {
+    //     return original;
+    // };
+    //
+    // auto data = AngularMotorGroupUtils::generateData(ka_commands,
+    //                                                  &test_motor,
+    //                                                  final_rpm,
+    //                                                  conversion_func,
+    //                                                  std::nullopt,
+    //                                                  10_msec);
+    //
+    // std::cout << "got data!" << std::endl;
+    //
+    // std::cout << "ka Data: " << std::endl;
+    // AngularMotorGroupUtils::print_data_as_latex(data);
+    //
+    // std::cout << "trying Ka_method1: " << std::endl;
+    //
+    // auto Ka_method1 =
+    //   AngularMotorGroupUtils::fit_ka_data(data, 10_msec, Kv, Ks);
+    // std::cout << "Ka_method1: " << Ka_method1.convert(volt / radps2)
+    //           << std::endl;
+    //
+    // std::cout << "trying Ka_method2: " << std::endl;
+    // auto [T, K, Ka_method2, Kp, Ki] =
+    //   AngularMotorGroupUtils::fit_ka_kp_ki_data_both_models(data, 10_msec, 0.5);
+    //
+    // std::cout << "Ka_method2: " << Ka_method2.convert(volt / radps2)
+    //           << std::endl;
 
     // while(true){
     // }
@@ -1134,7 +1352,8 @@ void opcontrol() {
     //   }
 
     pros::delay(2000);
-    path_follow_test();
+    motorPlantTest();
+    // path_follow_test();
 
     // pros::delay(2000);
     // linear_ka_kp_ki_tuner();

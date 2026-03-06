@@ -161,7 +161,7 @@ class FeedforwardVelocityController {
 
   public:
     Voltage updateKvKa(VelUnit target, Time duration) {
-        LinearAcceleration target_accel =
+        Divided<VelUnit, Time> target_accel =
           (target -
            // combines measurement and last_speeds
            last_speed.value_or(VelUnit(0))) /
@@ -214,11 +214,11 @@ class PIDVelocityController {
   private:
     PIDVelocityControllerParams<VelUnit> m_params;
 
-    Multiplied<VelUnit, Time> integral = 0_in;
+    Multiplied<VelUnit, Time> integral { 0 };
     std::optional<VelUnit> last_error = std::nullopt;
 
     // local variables, membesr so they can be accessed between multiple methods
-    Multiplied<VelUnit, Time> current_integral = 0_in;
+    Multiplied<VelUnit, Time> current_integral { 0 };
     VelUnit error;
 
   public:
@@ -285,7 +285,7 @@ class PIDVelocityController {
     }
 
     void reset() {
-        integral = 0_in;
+        integral = Multiplied<VelUnit, Time> { 0 };
         last_error = std::nullopt;
     }
 

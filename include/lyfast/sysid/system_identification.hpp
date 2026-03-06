@@ -71,13 +71,16 @@ class MotorGroupUtils {
       KiUnits<VelUnit>>;
 
     // gathers velocity data from robot by moving voltage_commands
-    static VectorDataT
-    generateData(std::vector<VoltageCommand> voltage_commands,
-                 pros::MotorGroup* motor_group,
-                 AngularVelocity final_rpm,
-                 std::function<VelUnit(AngularVelocity)>
-                   conversion_func, // converts drivetrain rpm to vel unit
-                 Time delta_time);
+    static VectorDataT generateData(
+      std::vector<VoltageCommand> voltage_commands,
+      pros::MotorGroup* motor_group,
+      AngularVelocity final_rpm,
+      std::function<VelUnit(AngularVelocity)>
+        conversion_func, // converts drivetrain rpm to vel unit
+      std::optional<Time>
+        steady_state_time, // if specified it only captures data at the end of
+                           // the voltage command for steady_state_time time
+      Time delta_time);
 
     // uses linear least squares to find kv and ks gains that best fit data
     // for best results only use steady state velocity data
@@ -122,11 +125,10 @@ class MotorGroupUtils {
                                         Time delta_time,
                                         KvUnits<VelUnit> kv,
                                         KsUnits ks);
-};
 
-// print data in desmos-friendly format
-template<typename T>
-void print_data_as_latex(const std::vector<SysidEntry<T>>& data);
+    // print data in desmos-friendly format - prints in VelUnit units
+    static void print_data_as_latex(const VectorDataT& data);
+};
 
 // more explicit instantiations
 extern template class MotorGroupUtils<LinearVelocity>;

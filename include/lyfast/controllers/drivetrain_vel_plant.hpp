@@ -172,6 +172,15 @@ class MotorGroupKalmanFilter {
         m_state_estimate = new_state;
         m_covariance = covariance;
     }
+
+    MotorGroupKalmanFilter(pros::MotorGroup* motors,
+                           Constants constants,
+                           State initial_state_estimate,
+                           CovarianceUnit initial_covariance)
+        : motor_group(motors),
+          m_constants(constants),
+          m_state_estimate(initial_state_estimate),
+          m_covariance(initial_covariance) {}
 };
 
 class AngularMotorGroupVelocityPlant {
@@ -214,13 +223,17 @@ class LinearMotorGroupVelocityPlant {
     Length m_wheel_diameter;
 
   public:
-    void reset() {
+    void resetFilter() {
         MotorGroupKalmanFilter::State state { .velocity = 0_radps };
         // TODO: determine default?
         MotorGroupKalmanFilter::CovarianceUnit covariance { units::square(
           600_rpm) };
 
         m_filter.setPredictedState(state, covariance);
+    }
+
+    void resetController() {
+        m_controller.reset();
     }
 
     void updateFilter(Time duration) {
@@ -253,7 +266,7 @@ class DrivetrainVelocityPlant {
     Length m_wheel_diameter;
 
   public:
-    void reset() {
+    void resetFilter() {
         MotorGroupKalmanFilter::State state { .velocity = 0_radps };
         // TODO: determine default?
         MotorGroupKalmanFilter::CovarianceUnit covariance { units::square(
@@ -261,6 +274,10 @@ class DrivetrainVelocityPlant {
 
         m_left_filter.setPredictedState(state, covariance);
         m_right_filter.setPredictedState(state, covariance);
+    }
+
+    void resetController() {
+        m_controller.reset();
     }
 
     void updateFilter(Time duration) {

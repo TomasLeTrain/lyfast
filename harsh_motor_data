@@ -1,0 +1,37 @@
+
+[tomas@nixbtw:~/projects/Robotics/current/libs/lyfast]$ t
+Not sending analytics for this command.
+
+Established terminal connection
+
+
+
+         _+=+_
+      .-`  .  `-.          8888888b.  8888888b.   .d88888b.   .d8888b.
+   _+`     "     `+_       888   Y88b 888   Y88b d88P" "Y88b d88P  Y88b
+  \\\sssssssssssss///      888    888 888    888 888     888 Y88b.
+     .ss\  *  /ss.         888   d88P 888   d88P 888     888  "Y888b.
+ .+bm  .s  *  s.  md+.     8888888P"  8888888P"  888     888     "Y88b.
+.hMMMMs .  *  . sMMMMh.    888        888 T88b   888     888       "888
+ `\hMMMb \ | / dMMMh:      888        888  T88b  Y88b. .d88P Y88b  d88P
+   -SNMNo  -  oNMNs-       888        888   T88b  "Y88888P"   "Y8888P"
+     `+dMh\./dMd/
+        `:yNy:`                      Powered by PROS for VEX V5
+           "                Copyright (c) Purdue University ACM SIGBots
+Version:        4.2.1     Platform:  V1.1.5 (b18)     Uptime:    0.000 s
+Compiled:   Jan  1 1980 00:00:00     Directory:
+
+
+got data!
+ka Data:
+\left[\left(-0.05,0\right),\left(-0.05,0\right),\left(0.05,-0.432842\right),\left(0.05,-0.432842\right),\left(-0.2,0\right),\left(-0.2,-0.230383\right),\left(0.2,-3.0648\right),\left(0.2,-3.0648\right),\left(-0.1,2.4644\right),\left(-0.1,2.26893\right),\left(0.1,0\right),\left(0.1,0\right),\left(-0.3,0.356047\right),\left(-0.3,-0.788889\right),\left(0.3,-4.96372\right),\left(0.3,-3.07876\right),\left(-0.5,4.13294\right),\left(-0.5,3.84671\right),\left(0.5,-7.27453\right),\left(0.5,-4.53786\right),\left(-0.4,5.20806\right),\left(-0.4,3.5116\right),\left(0.4,-4.07011\right),\left(0.4,-3.42085\right),\left(-0.6,5.29184\right),\left(-0.6,3.67217\right),\left(0.6,-3.42085\right),\left(0.6,-1.09607\right),\left(-0.8,2.45044\right),\left(-0.8,2.45044\right),\left(0.8,-3.50462\right),\left(0.8,-1.31249\right),\left(-0.7,1.97571\right),\left(-0.7,1.87099\right),\left(0.7,-3.50462\right),\left(0.7,-0.977384\right),\left(-0.9,2.07345\right),\left(-0.9,2.07345\right),\left(0.9,-3.88161\right),\left(0.9,-1.06814\right),\left(-1,1.85703\right),\left(-1,1.10305\right),\left(1,-4.7473\right),\left(1,-4.7473\right),\left(-0.05,1.9059\right),\left(-0.1,2.17119\right),\left(-0.15,-0.349066\right),\left(-0.2,-2.38761\right),\left(-0.25,-3.735\right),\left(-0.3,-5.09636\right),\left(-0.35,-6.20639\right),\left(-0.4,-7.58171\right),\left(-0.45,-8.96401\right),\left(-0.5,-9.79479\right),\left(-0.55,-11.2399\right),\left(-0.6,-12.6152\right),\left(-0.65,-13.9975\right),\left(-0.7,-14.9679\right),\left(-0.75,-16.2735\right),\left(-0.8,-18.0816\right),\left(-0.85,-18.9962\right),\left(-0.9,-20.2249\right),\left(-0.95,-20.7834\right),\left(-1,-21.2581\right),\left(-1,-23.555\right),\left(-0.95,-24.0018\right),\left(-0.9,-23.5969\right),\left(-0.85,-22.9266\right),\left(-0.8,-22.3961\right),\left(-0.75,-21.2651\right),\left(-0.7,-20.1132\right),\left(-0.65,-18.8496\right),\left(-0.6,-17.5161\right),\left(-0.55,-16.2874\right),\left(-0.5,-15.1913\right),\left(-0.45,-13.467\right),\left(-0.4,-12.4756\right),\left(-0.35,-10.9746\right),\left(-0.3,-10.0042\right),\left(-0.25,-8.39154\right),\left(-0.2,-7.70039\right),\left(-0.15,-6.11563\right),\left(-0.1,-4.81711\right),\left(-0.05,-3.56745\right),\left(0.05,-2.34572\right),\left(0.1,-2.17817\right),\left(0.15,0\right),\left(0.2,2.12232\right),\left(0.25,3.51858\right),\left(0.3,4.90787\right),\left(0.35,6.22733\right),\left(0.4,7.51888\right),\left(0.45,8.67778\right),\left(0.5,10.1229\right),\left(0.55,11.2399\right),\left(0.6,12.8735\right),\left(0.65,13.7741\right),\left(0.7,14.933\right),\left(0.75,16.6993\right),\left(0.8,18.1584\right),\left(0.85,18.5982\right),\left(0.9,20.4971\right),\left(0.95,20.8253\right),\left(1,21.6979\right),\left(1,23.5759\right),\left(0.95,23.1221\right),\left(0.9,23.0174\right),\left(0.85,23.5061\right),\left(0.8,22.4868\right),\left(0.75,21.3558\right),\left(0.7,20.567\right),\left(0.65,19.2475\right),\left(0.6,17.8722\right),\left(0.55,16.9437\right),\left(0.5,15.8895\right),\left(0.45,13.9487\right),\left(0.4,12.4198\right),\left(0.35,11.6099\right),\left(0.3,10.2276\right),\left(0.25,8.6708\right),\left(0.2,7.4351\right),\left(0.15,6.31809\right),\left(0.1,4.91485\right),\left(0.05,3.44877\right)\right]
+trying Ka_method1:
+Ka_method1: -0.000597798
+trying Ka_method2:
+Ka_method2: -0.000941238
+WARNING - pros.serial.terminal.terminal:stop - Stopping terminal - pros-cli version:3.5.6
+
+[tomas@nixbtw:~/projects/Robotics/current/libs/lyfast]$ nvim .
+
+[tomas@nixbtw:~/projects/Robotics/current/libs/lyfast]$
+
