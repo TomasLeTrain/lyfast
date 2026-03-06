@@ -69,15 +69,15 @@ class MotorGroupKalmanFilter {
 
     void correctSingleMotor(std::uint8_t idx) {
         AngularVelocity motor_reported_velocity =
-          AngularVelocity(motor_group->get_actual_velocity(idx));
+          motor_group->get_actual_velocity(idx) * rpm;
         pros::MotorGears gearing = motor_group->get_gearing(idx);
 
         AngularVelocity geared_motor_reported_velocity =
           (motor_reported_velocity / gearingToVelocity(gearing)) *
           m_constants.final_gearing_rpm;
 
-        std::cout << "motor vel: " << geared_motor_reported_velocity.convert(radps)
-                  << std::endl;
+        std::cout << "motor vel: "
+                  << geared_motor_reported_velocity.convert(radps) << std::endl;
 
         // TODO: perform basic filtering on the reported velocity?
 
@@ -135,7 +135,7 @@ class MotorGroupKalmanFilter {
     // predict x_k+1 from x_k and u_k
     void predict(Time dt) {
         Voltage V_eff;
-        if (m_input.voltage < m_constants.Ks) {
+        if (units::abs(m_input.voltage) < m_constants.Ks) {
             // voltage low enough that it cannot overcome friction, resulting in
             // no movement
             V_eff = 0_volt;

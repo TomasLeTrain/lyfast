@@ -1,0 +1,3628 @@
+
+[tomas@nixbtw:~/projects/Robotics/current/libs/lyfast]$ t
+Not sending analytics for this command.
+
+Established terminal connection
+
+
+
+         _+=+_
+      .-`  .  `-.          8888888b.  8888888b.   .d88888b.   .d8888b.
+   _+`     "     `+_       888   Y88b 888   Y88b d88P" "Y88b d88P  Y88b
+  \\\sssssssssssss///      888    888 888    888 888     888 Y88b.
+     .ss\  *  /ss.         888   d88P 888   d88P 888     888  "Y888b.
+ .+bm  .s  *  s.  md+.     8888888P"  8888888P"  888     888     "Y88b.
+.hMMMMs .  *  . sMMMMh.    888        888 T88b   888     888       "888
+ `\hMMMb \ | / dMMMh:      888        888  T88b  Y88b. .d88P Y88b  d88P
+   -SNMNo  -  oNMNs-       888        888   T88b  "Y88888P"   "Y8888P"
+     `+dMh\./dMd/
+        `:yNy:`                      Powered by PROS for VEX V5
+           "                Copyright (c) Purdue University ACM SIGBots
+Version:        4.2.1     Platform:  V1.1.5 (b18)     Uptime:    0.000 s
+Compiled:   Jan  1 1980 00:00:00     Directory:
+
+
+START
+V_eff 0 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 0 radps
+new predict covairance 0.274156_s^-2_rad^2
+updating input
+input updated to 0 volt
+correcting
+motor vel: 0
+innovation: 0
+meas cov: 0.274156
+innovation cov: 0.548311
+gain: 0.5
+new vel: 0 radps
+new cov: 0.137078_s^-2_rad^2
+ENDED
+START
+V_eff 0 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 0 radps
+new predict covairance 0.316313_s^-2_rad^2
+updating input
+input updated to 0.04725 volt
+correcting
+motor vel: 0
+innovation: 0
+meas cov: 0.274156
+innovation cov: 0.590469
+gain: 0.535698
+new vel: 0 radps
+new cov: 0.146865_s^-2_rad^2
+ENDED
+START
+V_eff 0.0286217 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 0.326732 radps
+new predict covairance 0.319323_s^-2_rad^2
+updating input
+input updated to 0.0836667 volt
+correcting
+motor vel: 0.383972
+innovation: 0.0572407
+meas cov: 0.297745
+innovation cov: 0.617068
+gain: 0.517484
+new vel: 0.356353 radps
+new cov: 0.154078_s^-2_rad^2
+ENDED
+START
+V_eff 0.0650384 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 0.940068 radps
+new predict covairance 0.321542_s^-2_rad^2
+updating input
+input updated to 0.0908333 volt
+correcting
+motor vel: 0.572468
+innovation: -0.3676
+meas cov: 0.326591
+innovation cov: 0.648132
+gain: 0.496105
+new vel: 0.7577 radps
+new cov: 0.162023_s^-2_rad^2
+ENDED
+START
+V_eff 0.072205 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 1.24445 radps
+new predict covairance 0.323985_s^-2_rad^2
+updating input
+input updated to 0.0955 volt
+correcting
+motor vel: 0.747001
+innovation: -0.497452
+meas cov: 0.363437
+innovation cov: 0.687422
+gain: 0.471304
+new vel: 1.01 radps
+new cov: 0.17129_s^-2_rad^2
+ENDED
+START
+V_eff 0.0768717 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 1.43764 radps
+new predict covairance 0.326835_s^-2_rad^2
+updating input
+input updated to 0.097 volt
+correcting
+motor vel: 1.19381
+innovation: -0.243839
+meas cov: 0.502183
+innovation cov: 0.829018
+gain: 0.394243
+new vel: 1.34151 radps
+new cov: 0.197982_s^-2_rad^2
+ENDED
+START
+V_eff 0.0783717 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 1.63861 radps
+new predict covairance 0.335044_s^-2_rad^2
+updating input
+input updated to 0.0980833 volt
+correcting
+motor vel: 1.41721
+innovation: -0.221404
+meas cov: 0.595512
+innovation cov: 0.930556
+gain: 0.360047
+new vel: 1.5589 radps
+new cov: 0.214412_s^-2_rad^2
+ENDED
+START
+V_eff 0.079455 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 1.77153 radps
+new predict covairance 0.340097_s^-2_rad^2
+updating input
+input updated to 0.0980833 volt
+correcting
+motor vel: 1.5708
+innovation: -0.200735
+meas cov: 0.66894
+innovation cov: 1.00904
+gain: 0.337051
+new vel: 1.70387 radps
+new cov: 0.225467_s^-2_rad^2
+ENDED
+START
+V_eff 0.079455 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 1.85193 radps
+new predict covairance 0.343497_s^-2_rad^2
+updating input
+input updated to 0.0995833 volt
+correcting
+motor vel: 1.75929
+innovation: -0.0926398
+meas cov: 0.769373
+innovation cov: 1.11287
+gain: 0.308658
+new vel: 1.82334 radps
+new cov: 0.237473_s^-2_rad^2
+ENDED
+START
+V_eff 0.080955 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 1.93531 radps
+new predict covairance 0.347189_s^-2_rad^2
+updating input
+input updated to 0.0985833 volt
+correcting
+motor vel: 1.80118
+innovation: -0.134126
+meas cov: 0.793235
+innovation cov: 1.14042
+gain: 0.304439
+new vel: 1.89447 radps
+new cov: 0.241491_s^-2_rad^2
+ENDED
+START
+V_eff 0.079955 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 1.96334 radps
+new predict covairance 0.348425_s^-2_rad^2
+updating input
+input updated to 0.0995833 volt
+correcting
+motor vel: 1.81514
+innovation: -0.148197
+meas cov: 0.801314
+innovation cov: 1.14974
+gain: 0.303047
+new vel: 1.91843 radps
+new cov: 0.242836_s^-2_rad^2
+ENDED
+START
+V_eff 0.080955 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 1.98804 radps
+new predict covairance 0.348838_s^-2_rad^2
+updating input
+input updated to 0.0985833 volt
+correcting
+motor vel: 1.7942
+innovation: -0.193841
+meas cov: 0.789219
+innovation cov: 1.13806
+gain: 0.306521
+new vel: 1.92862 radps
+new cov: 0.241912_s^-2_rad^2
+ENDED
+START
+V_eff 0.079955 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 1.98228 radps
+new predict covairance 0.348554_s^-2_rad^2
+updating input
+input updated to 0.0990833 volt
+correcting
+motor vel: 1.83609
+innovation: -0.146192
+meas cov: 0.81355
+innovation cov: 1.1621
+gain: 0.299934
+new vel: 1.93843 radps
+new cov: 0.244011_s^-2_rad^2
+ENDED
+START
+V_eff 0.080455 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 1.99342 radps
+new predict covairance 0.3492_s^-2_rad^2
+updating input
+input updated to 0.0990833 volt
+correcting
+motor vel: 1.85703
+innovation: -0.136394
+meas cov: 0.825926
+innovation cov: 1.17513
+gain: 0.29716
+new vel: 1.95289 radps
+new cov: 0.245432_s^-2_rad^2
+ENDED
+START
+V_eff 0.080455 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 2.00145 radps
+new predict covairance 0.349637_s^-2_rad^2
+updating input
+input updated to 0.100083 volt
+correcting
+motor vel: 1.87797
+innovation: -0.123471
+meas cov: 0.838442
+innovation cov: 1.18808
+gain: 0.294288
+new vel: 1.96511 radps
+new cov: 0.246743_s^-2_rad^2
+ENDED
+START
+V_eff 0.081455 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 2.01964 radps
+new predict covairance 0.35004_s^-2_rad^2
+updating input
+input updated to 0.0990833 volt
+correcting
+motor vel: 1.89892
+innovation: -0.120717
+meas cov: 0.851098
+innovation cov: 1.20114
+gain: 0.291424
+new vel: 1.98446 radps
+new cov: 0.24803_s^-2_rad^2
+ENDED
+START
+V_eff 0.080455 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 2.01895 radps
+new predict covairance 0.350436_s^-2_rad^2
+updating input
+input updated to 0.0995833 volt
+correcting
+motor vel: 1.88496
+innovation: -0.133993
+meas cov: 0.842645
+innovation cov: 1.19308
+gain: 0.293723
+new vel: 1.97959 radps
+new cov: 0.247505_s^-2_rad^2
+ENDED
+START
+V_eff 0.080955 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 2.02196 radps
+new predict covairance 0.350274_s^-2_rad^2
+updating input
+input updated to 0.100083 volt
+correcting
+motor vel: 1.84307
+innovation: -0.178891
+meas cov: 0.817659
+innovation cov: 1.16793
+gain: 0.299909
+new vel: 1.96831 radps
+new cov: 0.245224_s^-2_rad^2
+ENDED
+START
+V_eff 0.081455 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 2.02141 radps
+new predict covairance 0.349573_s^-2_rad^2
+updating input
+input updated to 0.0995833 volt
+correcting
+motor vel: 1.87099
+innovation: -0.150416
+meas cov: 0.834254
+innovation cov: 1.18383
+gain: 0.29529
+new vel: 1.97699 radps
+new cov: 0.246347_s^-2_rad^2
+ENDED
+START
+V_eff 0.080955 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 2.02052 radps
+new predict covairance 0.349918_s^-2_rad^2
+updating input
+input updated to 0.100083 volt
+correcting
+motor vel: 1.91288
+innovation: -0.107637
+meas cov: 0.859614
+innovation cov: 1.20953
+gain: 0.289301
+new vel: 1.98938 radps
+new cov: 0.248687_s^-2_rad^2
+ENDED
+START
+V_eff 0.081455 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 2.03309 radps
+new predict covairance 0.350638_s^-2_rad^2
+updating input
+input updated to 0.0985833 volt
+correcting
+motor vel: 1.94779
+innovation: -0.0853064
+meas cov: 0.881176
+innovation cov: 1.23181
+gain: 0.284652
+new vel: 2.00881 radps
+new cov: 0.250828_s^-2_rad^2
+ENDED
+START
+V_eff 0.079955 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 2.02675 radps
+new predict covairance 0.351296_s^-2_rad^2
+updating input
+input updated to 0.0990833 volt
+correcting
+motor vel: 1.94081
+innovation: -0.0859414
+meas cov: 0.876832
+innovation cov: 1.22813
+gain: 0.286042
+new vel: 2.00216 radps
+new cov: 0.250811_s^-2_rad^2
+ENDED
+START
+V_eff 0.080455 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 2.02877 radps
+new predict covairance 0.351291_s^-2_rad^2
+updating input
+input updated to 0.0985833 volt
+correcting
+motor vel: 1.91986
+innovation: -0.108907
+meas cov: 0.863895
+innovation cov: 1.21519
+gain: 0.289084
+new vel: 1.99729 radps
+new cov: 0.249738_s^-2_rad^2
+ENDED
+START
+V_eff 0.079955 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 2.02036 radps
+new predict covairance 0.350961_s^-2_rad^2
+updating input
+input updated to 0.0990833 volt
+correcting
+motor vel: 1.94779
+innovation: -0.0725686
+meas cov: 0.881176
+innovation cov: 1.23214
+gain: 0.284839
+new vel: 1.99969 radps
+new cov: 0.250994_s^-2_rad^2
+ENDED
+START
+V_eff 0.080455 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 2.02739 radps
+new predict covairance 0.351347_s^-2_rad^2
+updating input
+input updated to 0.0990833 volt
+correcting
+motor vel: 1.96175
+innovation: -0.0656445
+meas cov: 0.88991
+innovation cov: 1.24126
+gain: 0.283058
+new vel: 2.00881 radps
+new cov: 0.251896_s^-2_rad^2
+ENDED
+START
+V_eff 0.080455 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 2.03246 radps
+new predict covairance 0.351625_s^-2_rad^2
+updating input
+input updated to 0.0995833 volt
+correcting
+motor vel: 2.01062
+innovation: -0.0218372
+meas cov: 0.92097
+innovation cov: 1.27259
+gain: 0.276305
+new vel: 2.02642 radps
+new cov: 0.254469_s^-2_rad^2
+ENDED
+START
+V_eff 0.080955 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 2.04793 radps
+new predict covairance 0.352416_s^-2_rad^2
+updating input
+input updated to 0.0995833 volt
+correcting
+motor vel: 1.98968
+innovation: -0.0582545
+meas cov: 0.907565
+innovation cov: 1.25998
+gain: 0.279699
+new vel: 2.03164 radps
+new cov: 0.253845_s^-2_rad^2
+ENDED
+START
+V_eff 0.080955 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 2.05082 radps
+new predict covairance 0.352224_s^-2_rad^2
+updating input
+input updated to 0.0995833 volt
+correcting
+motor vel: 1.97571
+innovation: -0.0751082
+meas cov: 0.898706
+innovation cov: 1.25093
+gain: 0.28157
+new vel: 2.02967 radps
+new cov: 0.253049_s^-2_rad^2
+ENDED
+START
+V_eff 0.080955 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 2.04973 radps
+new predict covairance 0.351979_s^-2_rad^2
+updating input
+input updated to 0.0990833 volt
+correcting
+motor vel: 1.93382
+innovation: -0.115907
+meas cov: 0.872504
+innovation cov: 1.22448
+gain: 0.287451
+new vel: 2.01641 radps
+new cov: 0.250802_s^-2_rad^2
+ENDED
+START
+V_eff 0.080455 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 2.03667 radps
+new predict covairance 0.351288_s^-2_rad^2
+updating input
+input updated to 0.0990833 volt
+correcting
+motor vel: 1.96175
+innovation: -0.0749217
+meas cov: 0.88991
+innovation cov: 1.2412
+gain: 0.283024
+new vel: 2.01547 radps
+new cov: 0.251865_s^-2_rad^2
+ENDED
+START
+V_eff 0.080455 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 2.03615 radps
+new predict covairance 0.351615_s^-2_rad^2
+updating input
+input updated to 0.0995833 volt
+correcting
+motor vel: 1.98968
+innovation: -0.0464711
+meas cov: 0.907565
+innovation cov: 1.25918
+gain: 0.279241
+new vel: 2.02317 radps
+new cov: 0.25343_s^-2_rad^2
+ENDED
+START
+V_eff 0.080955 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 2.04613 radps
+new predict covairance 0.352096_s^-2_rad^2
+updating input
+input updated to 0.0995833 volt
+correcting
+motor vel: 1.98269
+innovation: -0.0634318
+meas cov: 0.903128
+innovation cov: 1.25522
+gain: 0.280505
+new vel: 2.02833 radps
+new cov: 0.253332_s^-2_rad^2
+ENDED
+START
+V_eff 0.080955 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 2.04899 radps
+new predict covairance 0.352066_s^-2_rad^2
+updating input
+input updated to 0.0995833 volt
+correcting
+motor vel: 1.95477
+innovation: -0.0942203
+meas cov: 0.885535
+innovation cov: 1.2376
+gain: 0.284475
+new vel: 2.02219 radps
+new cov: 0.251912_s^-2_rad^2
+ENDED
+START
+V_eff 0.080955 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 2.04558 radps
+new predict covairance 0.35163_s^-2_rad^2
+updating input
+input updated to 0.0995833 volt
+correcting
+motor vel: 1.94081
+innovation: -0.104774
+meas cov: 0.876832
+innovation cov: 1.22846
+gain: 0.286236
+new vel: 2.01559 radps
+new cov: 0.250981_s^-2_rad^2
+ENDED
+START
+V_eff 0.080955 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 2.04192 radps
+new predict covairance 0.351343_s^-2_rad^2
+updating input
+input updated to 0.0995833 volt
+correcting
+motor vel: 1.94081
+innovation: -0.101116
+meas cov: 0.876832
+innovation cov: 1.22818
+gain: 0.286069
+new vel: 2.013 radps
+new cov: 0.250835_s^-2_rad^2
+ENDED
+START
+V_eff 0.080955 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 2.04048 radps
+new predict covairance 0.351298_s^-2_rad^2
+updating input
+input updated to 0.100083 volt
+correcting
+motor vel: 1.97571
+innovation: -0.0647711
+meas cov: 0.898706
+innovation cov: 1.25
+gain: 0.281038
+new vel: 2.02228 radps
+new cov: 0.25257_s^-2_rad^2
+ENDED
+START
+V_eff 0.081455 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 2.05134 radps
+new predict covairance 0.351832_s^-2_rad^2
+updating input
+input updated to 0.0990833 volt
+correcting
+motor vel: 1.97571
+innovation: -0.0756278
+meas cov: 0.898706
+innovation cov: 1.25054
+gain: 0.281345
+new vel: 2.03006 radps
+new cov: 0.252846_s^-2_rad^2
+ENDED
+START
+V_eff 0.080455 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 2.04424 radps
+new predict covairance 0.351917_s^-2_rad^2
+updating input
+input updated to 0.0995833 volt
+correcting
+motor vel: 1.96175
+innovation: -0.0824908
+meas cov: 0.88991
+innovation cov: 1.24183
+gain: 0.283386
+new vel: 2.02086 radps
+new cov: 0.252188_s^-2_rad^2
+ENDED
+START
+V_eff 0.080955 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 2.04485 radps
+new predict covairance 0.351715_s^-2_rad^2
+updating input
+input updated to 0.100083 volt
+correcting
+motor vel: 1.96175
+innovation: -0.0830971
+meas cov: 0.88991
+innovation cov: 1.24162
+gain: 0.28327
+new vel: 2.02131 radps
+new cov: 0.252084_s^-2_rad^2
+ENDED
+START
+V_eff 0.081455 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 2.0508 radps
+new predict covairance 0.351683_s^-2_rad^2
+updating input
+input updated to 0.100083 volt
+correcting
+motor vel: 1.97571
+innovation: -0.0750885
+meas cov: 0.898706
+innovation cov: 1.25039
+gain: 0.281259
+new vel: 2.02968 radps
+new cov: 0.252769_s^-2_rad^2
+ENDED
+START
+V_eff 0.081455 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 2.05545 radps
+new predict covairance 0.351893_s^-2_rad^2
+updating input
+input updated to 0.100083 volt
+correcting
+motor vel: 2.0176
+innovation: -0.0378444
+meas cov: 0.92547
+innovation cov: 1.27736
+gain: 0.275484
+new vel: 2.04502 radps
+new cov: 0.254952_s^-2_rad^2
+ENDED
+START
+V_eff 0.081455 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 2.06395 radps
+new predict covairance 0.352565_s^-2_rad^2
+updating input
+input updated to 0.0990833 volt
+correcting
+motor vel: 2.03156
+innovation: -0.0323874
+meas cov: 0.934516
+innovation cov: 1.28708
+gain: 0.273926
+new vel: 2.05508 radps
+new cov: 0.255988_s^-2_rad^2
+ENDED
+START
+V_eff 0.080455 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 2.05811 radps
+new predict covairance 0.352883_s^-2_rad^2
+updating input
+input updated to 0.177583 volt
+correcting
+motor vel: 2.03854
+innovation: -0.0195692
+meas cov: 0.939062
+innovation cov: 1.29195
+gain: 0.273141
+new vel: 2.05277 radps
+new cov: 0.256496_s^-2_rad^2
+ENDED
+START
+V_eff 0.158955 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 2.95295 radps
+new predict covairance 0.35304_s^-2_rad^2
+updating input
+input updated to 0.255667 volt
+correcting
+motor vel: 3.68614
+innovation: 0.733184
+meas cov: 2.44817
+innovation cov: 2.80121
+gain: 0.126031
+new vel: 3.04536 radps
+new cov: 0.308546_s^-2_rad^2
+ENDED
+START
+V_eff 0.237038 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 4.39477 radps
+new predict covairance 0.369047_s^-2_rad^2
+updating input
+input updated to 0.27925 volt
+correcting
+motor vel: 5.01259
+innovation: 0.617817
+meas cov: 4.29432
+innovation cov: 4.66336
+gain: 0.0791375
+new vel: 4.44366 radps
+new cov: 0.339841_s^-2_rad^2
+ENDED
+START
+V_eff 0.260622 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 5.43944 radps
+new predict covairance 0.378672_s^-2_rad^2
+updating input
+input updated to 0.286917 volt
+correcting
+motor vel: 5.55713
+innovation: 0.117691
+meas cov: 5.21522
+innovation cov: 5.5939
+gain: 0.0676938
+new vel: 5.4474 radps
+new cov: 0.353038_s^-2_rad^2
+ENDED
+START
+V_eff 0.268288 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 6.0836 radps
+new predict covairance 0.38273_s^-2_rad^2
+updating input
+input updated to 0.293083 volt
+correcting
+motor vel: 6.03186
+innovation: -0.0517413
+meas cov: 6.09549
+innovation cov: 6.47822
+gain: 0.0590796
+new vel: 6.08054 radps
+new cov: 0.360119_s^-2_rad^2
+ENDED
+START
+V_eff 0.274455 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 6.50511 radps
+new predict covairance 0.384908_s^-2_rad^2
+updating input
+input updated to 0.295167 volt
+correcting
+motor vel: 6.39489
+innovation: -0.110225
+meas cov: 6.81729
+innovation cov: 7.20219
+gain: 0.0534431
+new vel: 6.49922 radps
+new cov: 0.364337_s^-2_rad^2
+ENDED
+START
+V_eff 0.276538 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 6.76108 radps
+new predict covairance 0.386205_s^-2_rad^2
+updating input
+input updated to 0.296667 volt
+correcting
+motor vel: 6.53451
+innovation: -0.226566
+meas cov: 7.10613
+innovation cov: 7.49234
+gain: 0.0515467
+new vel: 6.7494 radps
+new cov: 0.366298_s^-2_rad^2
+ENDED
+START
+V_eff 0.278038 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 6.91694 radps
+new predict covairance 0.386808_s^-2_rad^2
+updating input
+input updated to 0.29775 volt
+correcting
+motor vel: 6.7998
+innovation: -0.11714
+meas cov: 7.67213
+innovation cov: 8.05893
+gain: 0.0479974
+new vel: 6.91132 radps
+new cov: 0.368242_s^-2_rad^2
+ENDED
+START
+V_eff 0.279122 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 7.01911 radps
+new predict covairance 0.387406_s^-2_rad^2
+updating input
+input updated to 0.29825 volt
+correcting
+motor vel: 6.77188
+innovation: -0.247228
+meas cov: 7.61149
+innovation cov: 7.99889
+gain: 0.0484325
+new vel: 7.00713 radps
+new cov: 0.368643_s^-2_rad^2
+ENDED
+START
+V_eff 0.279622 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 7.07795 radps
+new predict covairance 0.38753_s^-2_rad^2
+updating input
+input updated to 0.29925 volt
+correcting
+motor vel: 6.75093
+innovation: -0.327014
+meas cov: 7.56617
+innovation cov: 7.9537
+gain: 0.0487232
+new vel: 7.06201 radps
+new cov: 0.368648_s^-2_rad^2
+ENDED
+START
+V_eff 0.280622 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 7.1198 radps
+new predict covairance 0.387531_s^-2_rad^2
+updating input
+input updated to 0.29875 volt
+correcting
+motor vel: 7.21868
+innovation: 0.0988834
+meas cov: 8.61165
+innovation cov: 8.99919
+gain: 0.0430629
+new vel: 7.12406 radps
+new cov: 0.370843_s^-2_rad^2
+ENDED
+START
+V_eff 0.280122 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 7.1485 radps
+new predict covairance 0.388206_s^-2_rad^2
+updating input
+input updated to 0.29975 volt
+correcting
+motor vel: 7.12792
+innovation: -0.0205727
+meas cov: 8.40333
+innovation cov: 8.79153
+gain: 0.0441568
+new vel: 7.14759 radps
+new cov: 0.371064_s^-2_rad^2
+ENDED
+START
+V_eff 0.281122 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 7.17296 radps
+new predict covairance 0.388274_s^-2_rad^2
+updating input
+input updated to 0.29925 volt
+correcting
+motor vel: 7.06509
+innovation: -0.10787
+meas cov: 8.26064
+innovation cov: 8.64892
+gain: 0.0448928
+new vel: 7.16812 radps
+new cov: 0.370843_s^-2_rad^2
+ENDED
+START
+V_eff 0.280622 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 7.17864 radps
+new predict covairance 0.388206_s^-2_rad^2
+updating input
+input updated to 0.300333 volt
+correcting
+motor vel: 7.07207
+innovation: -0.106567
+meas cov: 8.27643
+innovation cov: 8.66464
+gain: 0.0448035
+new vel: 7.17387 radps
+new cov: 0.370813_s^-2_rad^2
+ENDED
+START
+V_eff 0.281705 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 7.1942 radps
+new predict covairance 0.388197_s^-2_rad^2
+updating input
+input updated to 0.300333 volt
+correcting
+motor vel: 7.03717
+innovation: -0.157028
+meas cov: 8.19763
+innovation cov: 8.58583
+gain: 0.0452137
+new vel: 7.1871 radps
+new cov: 0.370645_s^-2_rad^2
+ENDED
+START
+V_eff 0.281705 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 7.20153 radps
+new predict covairance 0.388145_s^-2_rad^2
+updating input
+input updated to 0.300333 volt
+correcting
+motor vel: 7.13491
+innovation: -0.0666251
+meas cov: 8.41926
+innovation cov: 8.8074
+gain: 0.0440703
+new vel: 7.19859 radps
+new cov: 0.37104_s^-2_rad^2
+ENDED
+START
+V_eff 0.281705 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 7.20791 radps
+new predict covairance 0.388267_s^-2_rad^2
+updating input
+input updated to 0.300333 volt
+correcting
+motor vel: 7.3234
+innovation: 0.115493
+meas cov: 8.85531
+innovation cov: 9.24358
+gain: 0.0420039
+new vel: 7.21276 radps
+new cov: 0.371958_s^-2_rad^2
+ENDED
+START
+V_eff 0.281705 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 7.21576 radps
+new predict covairance 0.388549_s^-2_rad^2
+updating input
+input updated to 0.300833 volt
+correcting
+motor vel: 7.29548
+innovation: 0.0797127
+meas cov: 8.78999
+innovation cov: 9.17854
+gain: 0.0423323
+new vel: 7.21914 radps
+new cov: 0.372101_s^-2_rad^2
+ENDED
+START
+V_eff 0.282205 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 7.22501 radps
+new predict covairance 0.388593_s^-2_rad^2
+updating input
+input updated to 0.301333 volt
+correcting
+motor vel: 7.16283
+innovation: -0.0621774
+meas cov: 8.48314
+innovation cov: 8.87173
+gain: 0.0438012
+new vel: 7.22229 radps
+new cov: 0.371572_s^-2_rad^2
+ENDED
+START
+V_eff 0.282705 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 7.23246 radps
+new predict covairance 0.38843_s^-2_rad^2
+updating input
+input updated to 0.301833 volt
+correcting
+motor vel: 7.03019
+innovation: -0.202276
+meas cov: 8.18192
+innovation cov: 8.57035
+gain: 0.0453226
+new vel: 7.22329 radps
+new cov: 0.370826_s^-2_rad^2
+ENDED
+START
+V_eff 0.283205 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 7.23873 radps
+new predict covairance 0.388201_s^-2_rad^2
+updating input
+input updated to 0.300833 volt
+correcting
+motor vel: 7.33038
+innovation: 0.0916539
+meas cov: 8.87168
+innovation cov: 9.25988
+gain: 0.0419229
+new vel: 7.24257 radps
+new cov: 0.371926_s^-2_rad^2
+ENDED
+START
+V_eff 0.282205 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 7.238 radps
+new predict covairance 0.388539_s^-2_rad^2
+updating input
+input updated to 0.300833 volt
+correcting
+motor vel: 7.2117
+innovation: -0.0263035
+meas cov: 8.59554
+innovation cov: 8.98407
+gain: 0.0432476
+new vel: 7.23687 radps
+new cov: 0.371736_s^-2_rad^2
+ENDED
+START
+V_eff 0.282205 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 7.23484 radps
+new predict covairance 0.388481_s^-2_rad^2
+updating input
+input updated to 0.300833 volt
+correcting
+motor vel: 7.16981
+innovation: -0.0650277
+meas cov: 8.49915
+innovation cov: 8.88763
+gain: 0.0437103
+new vel: 7.232 radps
+new cov: 0.3715_s^-2_rad^2
+ENDED
+START
+V_eff 0.282205 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 7.23214 radps
+new predict covairance 0.388408_s^-2_rad^2
+updating input
+input updated to 0.301333 volt
+correcting
+motor vel: 7.35831
+innovation: 0.126168
+meas cov: 8.93731
+innovation cov: 9.32572
+gain: 0.0416492
+new vel: 7.2374 radps
+new cov: 0.372231_s^-2_rad^2
+ENDED
+START
+V_eff 0.282705 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 7.24084 radps
+new predict covairance 0.388633_s^-2_rad^2
+updating input
+input updated to 0.301833 volt
+correcting
+motor vel: 7.28849
+innovation: 0.0476538
+meas cov: 8.7737
+innovation cov: 9.16233
+gain: 0.0424164
+new vel: 7.24286 radps
+new cov: 0.372149_s^-2_rad^2
+ENDED
+START
+V_eff 0.283205 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 7.24958 radps
+new predict covairance 0.388608_s^-2_rad^2
+updating input
+input updated to 0.301833 volt
+correcting
+motor vel: 7.26755
+innovation: 0.01797
+meas cov: 8.72492
+innovation cov: 9.11353
+gain: 0.0426407
+new vel: 7.25035 radps
+new cov: 0.372037_s^-2_rad^2
+ENDED
+START
+V_eff 0.283205 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 7.25373 radps
+new predict covairance 0.388573_s^-2_rad^2
+updating input
+input updated to 0.300833 volt
+correcting
+motor vel: 7.23963
+innovation: -0.014106
+meas cov: 8.6601
+innovation cov: 9.04868
+gain: 0.0429426
+new vel: 7.25313 radps
+new cov: 0.371887_s^-2_rad^2
+ENDED
+START
+V_eff 0.282205 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 7.24386 radps
+new predict covairance 0.388527_s^-2_rad^2
+updating input
+input updated to 0.301833 volt
+correcting
+motor vel: 7.23264
+innovation: -0.0112128
+meas cov: 8.64394
+innovation cov: 9.03247
+gain: 0.0430145
+new vel: 7.24337 radps
+new cov: 0.371815_s^-2_rad^2
+ENDED
+START
+V_eff 0.283205 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 7.24987 radps
+new predict covairance 0.388505_s^-2_rad^2
+updating input
+input updated to 0.300833 volt
+correcting
+motor vel: 7.0232
+innovation: -0.22666
+meas cov: 8.16622
+innovation cov: 8.55473
+gain: 0.0454141
+new vel: 7.23957 radps
+new cov: 0.370861_s^-2_rad^2
+ENDED
+START
+V_eff 0.282205 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 7.23634 radps
+new predict covairance 0.388212_s^-2_rad^2
+updating input
+input updated to 0.300833 volt
+correcting
+motor vel: 7.13491
+innovation: -0.101434
+meas cov: 8.41926
+innovation cov: 8.80747
+gain: 0.0440776
+new vel: 7.23187 radps
+new cov: 0.3711_s^-2_rad^2
+ENDED
+START
+V_eff 0.282205 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 7.23207 radps
+new predict covairance 0.388285_s^-2_rad^2
+updating input
+input updated to 0.300833 volt
+correcting
+motor vel: 7.46303
+innovation: 0.230959
+meas cov: 9.18564
+innovation cov: 9.57393
+gain: 0.0405565
+new vel: 7.24144 radps
+new cov: 0.372538_s^-2_rad^2
+ENDED
+START
+V_eff 0.282205 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 7.23737 radps
+new predict covairance 0.388727_s^-2_rad^2
+updating input
+input updated to 0.301833 volt
+correcting
+motor vel: 7.40718
+innovation: 0.169803
+meas cov: 9.05276
+innovation cov: 9.44149
+gain: 0.0411723
+new vel: 7.24437 radps
+new cov: 0.372723_s^-2_rad^2
+ENDED
+START
+V_eff 0.283205 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 7.25041 radps
+new predict covairance 0.388784_s^-2_rad^2
+updating input
+input updated to 0.301333 volt
+correcting
+motor vel: 7.15585
+innovation: -0.0945646
+meas cov: 8.46715
+innovation cov: 8.85593
+gain: 0.043901
+new vel: 7.24626 radps
+new cov: 0.371716_s^-2_rad^2
+ENDED
+START
+V_eff 0.282705 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 7.24576 radps
+new predict covairance 0.388475_s^-2_rad^2
+updating input
+input updated to 0.300833 volt
+correcting
+motor vel: 7.13491
+innovation: -0.110853
+meas cov: 8.41926
+innovation cov: 8.80773
+gain: 0.0441061
+new vel: 7.24087 radps
+new cov: 0.371341_s^-2_rad^2
+ENDED
+START
+V_eff 0.282205 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 7.23706 radps
+new predict covairance 0.388359_s^-2_rad^2
+updating input
+input updated to 0.301833 volt
+correcting
+motor vel: 7.31642
+innovation: 0.0793599
+meas cov: 8.83896
+innovation cov: 9.22732
+gain: 0.042088
+new vel: 7.2404 radps
+new cov: 0.372014_s^-2_rad^2
+ENDED
+START
+V_eff 0.283205 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 7.24822 radps
+new predict covairance 0.388566_s^-2_rad^2
+updating input
+input updated to 0.301833 volt
+correcting
+motor vel: 7.28849
+innovation: 0.0402794
+meas cov: 8.7737
+innovation cov: 9.16227
+gain: 0.0424094
+new vel: 7.24992 radps
+new cov: 0.372087_s^-2_rad^2
+ENDED
+START
+V_eff 0.283205 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 7.2535 radps
+new predict covairance 0.388589_s^-2_rad^2
+updating input
+input updated to 0.301333 volt
+correcting
+motor vel: 7.34435
+innovation: 0.0908485
+meas cov: 8.90446
+innovation cov: 9.29305
+gain: 0.041815
+new vel: 7.2573 radps
+new cov: 0.37234_s^-2_rad^2
+ENDED
+START
+V_eff 0.282705 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 7.25188 radps
+new predict covairance 0.388666_s^-2_rad^2
+updating input
+input updated to 0.301333 volt
+correcting
+motor vel: 7.37227
+innovation: 0.120393
+meas cov: 8.97022
+innovation cov: 9.35888
+gain: 0.0415292
+new vel: 7.25688 radps
+new cov: 0.372525_s^-2_rad^2
+ENDED
+START
+V_eff 0.282705 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 7.25165 radps
+new predict covairance 0.388724_s^-2_rad^2
+updating input
+input updated to 0.300833 volt
+correcting
+motor vel: 7.2117
+innovation: -0.0399449
+meas cov: 8.59554
+innovation cov: 8.98426
+gain: 0.0432672
+new vel: 7.24992 radps
+new cov: 0.371905_s^-2_rad^2
+ENDED
+START
+V_eff 0.282205 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 7.24208 radps
+new predict covairance 0.388533_s^-2_rad^2
+updating input
+input updated to 0.301833 volt
+correcting
+motor vel: 7.12792
+innovation: -0.114153
+meas cov: 8.40333
+innovation cov: 8.79186
+gain: 0.0441923
+new vel: 7.23703 radps
+new cov: 0.371362_s^-2_rad^2
+ENDED
+START
+V_eff 0.283205 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 7.24635 radps
+new predict covairance 0.388366_s^-2_rad^2
+updating input
+input updated to 0.301333 volt
+correcting
+motor vel: 7.39321
+innovation: 0.146867
+meas cov: 9.0197
+innovation cov: 9.40806
+gain: 0.0412801
+new vel: 7.25241 radps
+new cov: 0.372334_s^-2_rad^2
+ENDED
+START
+V_eff 0.282705 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 7.24917 radps
+new predict covairance 0.388665_s^-2_rad^2
+updating input
+input updated to 0.301333 volt
+correcting
+motor vel: 7.35133
+innovation: 0.102158
+meas cov: 8.92088
+innovation cov: 9.30954
+gain: 0.0417491
+new vel: 7.25343 radps
+new cov: 0.372438_s^-2_rad^2
+ENDED
+START
+V_eff 0.282705 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 7.24974 radps
+new predict covairance 0.388697_s^-2_rad^2
+updating input
+input updated to 0.301333 volt
+correcting
+motor vel: 7.22566
+innovation: -0.0240724
+meas cov: 8.62779
+innovation cov: 9.01649
+gain: 0.0431096
+new vel: 7.2487 radps
+new cov: 0.37194_s^-2_rad^2
+ENDED
+START
+V_eff 0.282705 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 7.24711 radps
+new predict covairance 0.388544_s^-2_rad^2
+updating input
+input updated to 0.301333 volt
+correcting
+motor vel: 7.21868
+innovation: -0.0284274
+meas cov: 8.61165
+innovation cov: 9.0002
+gain: 0.0431706
+new vel: 7.24588 radps
+new cov: 0.37177_s^-2_rad^2
+ENDED
+START
+V_eff 0.282705 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 7.24555 radps
+new predict covairance 0.388491_s^-2_rad^2
+updating input
+input updated to 0.301333 volt
+correcting
+motor vel: 7.49793
+innovation: 0.252387
+meas cov: 9.2692
+innovation cov: 9.65769
+gain: 0.0402261
+new vel: 7.2557 radps
+new cov: 0.372864_s^-2_rad^2
+ENDED
+START
+V_eff 0.282705 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 7.25099 radps
+new predict covairance 0.388828_s^-2_rad^2
+updating input
+input updated to 0.300833 volt
+correcting
+motor vel: 7.29548
+innovation: 0.0444837
+meas cov: 8.78999
+innovation cov: 9.17882
+gain: 0.0423614
+new vel: 7.25288 radps
+new cov: 0.372356_s^-2_rad^2
+ENDED
+START
+V_eff 0.282205 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 7.24372 radps
+new predict covairance 0.388671_s^-2_rad^2
+updating input
+input updated to 0.300833 volt
+correcting
+motor vel: 7.15585
+innovation: -0.0878692
+meas cov: 8.46715
+innovation cov: 8.85582
+gain: 0.0438888
+new vel: 7.23986 radps
+new cov: 0.371613_s^-2_rad^2
+ENDED
+START
+V_eff 0.282205 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 7.2365 radps
+new predict covairance 0.388443_s^-2_rad^2
+updating input
+input updated to 0.301333 volt
+correcting
+motor vel: 7.26057
+innovation: 0.0240678
+meas cov: 8.7087
+innovation cov: 9.09714
+gain: 0.0426995
+new vel: 7.23753 radps
+new cov: 0.371857_s^-2_rad^2
+ENDED
+START
+V_eff 0.282705 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 7.24092 radps
+new predict covairance 0.388518_s^-2_rad^2
+updating input
+input updated to 0.301333 volt
+correcting
+motor vel: 7.29548
+innovation: 0.0545605
+meas cov: 8.78999
+innovation cov: 9.17851
+gain: 0.0423291
+new vel: 7.24323 radps
+new cov: 0.372072_s^-2_rad^2
+ENDED
+START
+V_eff 0.282705 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 7.24407 radps
+new predict covairance 0.388584_s^-2_rad^2
+updating input
+input updated to 0.301333 volt
+correcting
+motor vel: 7.34435
+innovation: 0.100271
+meas cov: 8.90446
+innovation cov: 9.29305
+gain: 0.0418145
+new vel: 7.24827 radps
+new cov: 0.372336_s^-2_rad^2
+ENDED
+START
+V_eff 0.282705 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 7.24687 radps
+new predict covairance 0.388665_s^-2_rad^2
+updating input
+input updated to 0.301333 volt
+correcting
+motor vel: 7.33038
+innovation: 0.0835124
+meas cov: 8.87168
+innovation cov: 9.26034
+gain: 0.0419709
+new vel: 7.25038 radps
+new cov: 0.372353_s^-2_rad^2
+ENDED
+START
+V_eff 0.282705 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 7.24804 radps
+new predict covairance 0.38867_s^-2_rad^2
+updating input
+input updated to 0.264333 volt
+correcting
+motor vel: 7.30246
+innovation: 0.0544179
+meas cov: 8.8063
+innovation cov: 9.19497
+gain: 0.0422699
+new vel: 7.25034 radps
+new cov: 0.372241_s^-2_rad^2
+ENDED
+START
+V_eff 0.245705 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 6.82565 radps
+new predict covairance 0.388636_s^-2_rad^2
+updating input
+input updated to 0.228917 volt
+correcting
+motor vel: 6.47168
+innovation: -0.353965
+meas cov: 6.97538
+innovation cov: 7.36402
+gain: 0.052775
+new vel: 6.80697 radps
+new cov: 0.368126_s^-2_rad^2
+ENDED
+START
+V_eff 0.210288 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 6.17546 radps
+new predict covairance 0.38737_s^-2_rad^2
+updating input
+input updated to 0.218167 volt
+correcting
+motor vel: 6.10865
+innovation: -0.0668125
+meas cov: 6.24466
+innovation cov: 6.63203
+gain: 0.0584091
+new vel: 6.17156 radps
+new cov: 0.364745_s^-2_rad^2
+ENDED
+START
+V_eff 0.199538 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 5.70038 radps
+new predict covairance 0.386331_s^-2_rad^2
+updating input
+input updated to 0.214083 volt
+correcting
+motor vel: 5.92714
+innovation: 0.226763
+meas cov: 5.89511
+innovation cov: 6.28144
+gain: 0.0615035
+new vel: 5.71432 radps
+new cov: 0.36257_s^-2_rad^2
+ENDED
+START
+V_eff 0.195455 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 5.40019 radps
+new predict covairance 0.385662_s^-2_rad^2
+updating input
+input updated to 0.211 volt
+correcting
+motor vel: 5.64789
+innovation: 0.247694
+meas cov: 5.37793
+innovation cov: 5.76359
+gain: 0.0669134
+new vel: 5.41677 radps
+new cov: 0.359856_s^-2_rad^2
+ENDED
+START
+V_eff 0.192372 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 5.19998 radps
+new predict covairance 0.384827_s^-2_rad^2
+updating input
+input updated to 0.209917 volt
+correcting
+motor vel: 5.57109
+innovation: 0.371112
+meas cov: 5.24008
+innovation cov: 5.62491
+gain: 0.0684148
+new vel: 5.22537 radps
+new cov: 0.358499_s^-2_rad^2
+ENDED
+START
+V_eff 0.191288 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 5.08147 radps
+new predict covairance 0.38441_s^-2_rad^2
+updating input
+input updated to 0.208917 volt
+correcting
+motor vel: 5.20806
+innovation: 0.126592
+meas cov: 4.61398
+innovation cov: 4.99839
+gain: 0.0769067
+new vel: 5.09121 radps
+new cov: 0.354846_s^-2_rad^2
+ENDED
+START
+V_eff 0.190288 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 4.99565 radps
+new predict covairance 0.383286_s^-2_rad^2
+updating input
+input updated to 0.207917 volt
+correcting
+motor vel: 5.11731
+innovation: 0.121653
+meas cov: 4.46405
+innovation cov: 4.84733
+gain: 0.0790716
+new vel: 5.00527 radps
+new cov: 0.352979_s^-2_rad^2
+ENDED
+START
+V_eff 0.189288 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 4.93658 radps
+new predict covairance 0.382712_s^-2_rad^2
+updating input
+input updated to 0.207417 volt
+correcting
+motor vel: 4.92183
+innovation: -0.0147522
+meas cov: 4.15006
+innovation cov: 4.53277
+gain: 0.0844323
+new vel: 4.93534 radps
+new cov: 0.350399_s^-2_rad^2
+ENDED
+START
+V_eff 0.188788 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 4.89209 radps
+new predict covairance 0.381919_s^-2_rad^2
+updating input
+input updated to 0.206833 volt
+correcting
+motor vel: 5.02655
+innovation: 0.13446
+meas cov: 4.31675
+innovation cov: 4.69866
+gain: 0.0812824
+new vel: 4.90302 radps
+new cov: 0.350875_s^-2_rad^2
+ENDED
+START
+V_eff 0.188205 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 4.86751 radps
+new predict covairance 0.382065_s^-2_rad^2
+updating input
+input updated to 0.206333 volt
+correcting
+motor vel: 4.87296
+innovation: 0.00545208
+meas cov: 4.07347
+innovation cov: 4.45554
+gain: 0.0857506
+new vel: 4.86797 radps
+new cov: 0.349303_s^-2_rad^2
+ENDED
+START
+V_eff 0.187705 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 4.84237 radps
+new predict covairance 0.381582_s^-2_rad^2
+updating input
+input updated to 0.00358333 volt
+correcting
+motor vel: 4.68446
+innovation: -0.157902
+meas cov: 3.78523
+innovation cov: 4.16681
+gain: 0.0915764
+new vel: 4.82791 radps
+new cov: 0.346638_s^-2_rad^2
+ENDED
+START
+V_eff 0 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 2.67739 radps
+new predict covairance 0.380762_s^-2_rad^2
+updating input
+input updated to -0.266917 volt
+correcting
+motor vel: 4.68446
+innovation: 2.00707
+meas cov: 3.78523
+innovation cov: 4.16599
+gain: 0.0913977
+new vel: 2.86083 radps
+new cov: 0.345961_s^-2_rad^2
+ENDED
+START
+V_eff -0.248288 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v -1.24782 radps
+new predict covairance 0.380554_s^-2_rad^2
+updating input
+input updated to -0.410667 volt
+correcting
+motor vel: -5.47335
+innovation: -4.22553
+meas cov: 5.06737
+innovation cov: 5.44792
+gain: 0.069853
+new vel: -1.54299 radps
+new cov: 0.353971_s^-2_rad^2
+ENDED
+START
+V_eff -0.392038 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v -5.33101 radps
+new predict covairance 0.383017_s^-2_rad^2
+updating input
+input updated to -0.461 volt
+correcting
+motor vel: -8.39154
+innovation: -3.06053
+meas cov: 11.541
+innovation cov: 11.9241
+gain: 0.0321214
+new vel: -5.42932 radps
+new cov: 0.370714_s^-2_rad^2
+ENDED
+START
+V_eff -0.442372 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v -8.06082 radps
+new predict covairance 0.388166_s^-2_rad^2
+updating input
+input updated to -0.474833 volt
+correcting
+motor vel: -9.88554
+innovation: -1.82472
+meas cov: 15.91
+innovation cov: 16.2982
+gain: 0.0238166
+new vel: -8.10428 radps
+new cov: 0.378922_s^-2_rad^2
+ENDED
+START
+V_eff -0.456205 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v -9.70218 radps
+new predict covairance 0.390691_s^-2_rad^2
+updating input
+input updated to -0.4825 volt
+correcting
+motor vel: -10.7512
+innovation: -1.04905
+meas cov: 18.7684
+innovation cov: 19.1591
+gain: 0.0203919
+new vel: -9.72357 radps
+new cov: 0.382724_s^-2_rad^2
+ENDED
+START
+V_eff -0.463872 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v -10.6877 radps
+new predict covairance 0.39186_s^-2_rad^2
+updating input
+input updated to -0.489167 volt
+correcting
+motor vel: -10.9467
+innovation: -0.259001
+meas cov: 19.447
+innovation cov: 19.8389
+gain: 0.0197521
+new vel: -10.6928 radps
+new cov: 0.38412_s^-2_rad^2
+ENDED
+START
+V_eff -0.470538 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v -11.3013 radps
+new predict covairance 0.392289_s^-2_rad^2
+updating input
+input updated to -0.493333 volt
+correcting
+motor vel: -11.1212
+innovation: 0.180081
+meas cov: 20.0633
+innovation cov: 20.4556
+gain: 0.0191776
+new vel: -11.2979 radps
+new cov: 0.384766_s^-2_rad^2
+ENDED
+START
+V_eff -0.474705 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v -11.6844 radps
+new predict covairance 0.392488_s^-2_rad^2
+updating input
+input updated to -0.494833 volt
+correcting
+motor vel: -11.2748
+innovation: 0.409595
+meas cov: 20.6136
+innovation cov: 21.0061
+gain: 0.0186845
+new vel: -11.6768 radps
+new cov: 0.385155_s^-2_rad^2
+ENDED
+START
+V_eff -0.476205 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v -11.9117 radps
+new predict covairance 0.392608_s^-2_rad^2
+updating input
+input updated to -0.495833 volt
+correcting
+motor vel: -11.8054
+innovation: 0.106265
+meas cov: 22.573
+innovation cov: 22.9656
+gain: 0.0170955
+new vel: -11.9099 radps
+new cov: 0.385896_s^-2_rad^2
+ENDED
+START
+V_eff -0.477205 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v -12.0523 radps
+new predict covairance 0.392835_s^-2_rad^2
+updating input
+input updated to -0.496917 volt
+correcting
+motor vel: -11.575
+innovation: 0.477326
+meas cov: 21.7111
+innovation cov: 22.104
+gain: 0.0177722
+new vel: -12.0439 radps
+new cov: 0.385854_s^-2_rad^2
+ENDED
+START
+V_eff -0.478288 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v -12.139 radps
+new predict covairance 0.392823_s^-2_rad^2
+updating input
+input updated to -0.497917 volt
+correcting
+motor vel: -11.8403
+innovation: 0.29872
+meas cov: 22.705
+innovation cov: 23.0979
+gain: 0.0170069
+new vel: -12.134 radps
+new cov: 0.386142_s^-2_rad^2
+ENDED
+START
+V_eff -0.479288 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v -12.2004 radps
+new predict covairance 0.392911_s^-2_rad^2
+updating input
+input updated to -0.498917 volt
+correcting
+motor vel: -12.2033
+innovation: -0.00293298
+meas cov: 24.1016
+innovation cov: 24.4945
+gain: 0.0160408
+new vel: -12.2005 radps
+new cov: 0.386609_s^-2_rad^2
+ENDED
+START
+V_eff -0.480288 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v -12.2487 radps
+new predict covairance 0.393055_s^-2_rad^2
+updating input
+input updated to -0.4995 volt
+correcting
+motor vel: -12.1196
+innovation: 0.129138
+meas cov: 23.7756
+innovation cov: 24.1686
+gain: 0.016263
+new vel: -12.2466 radps
+new cov: 0.386662_s^-2_rad^2
+ENDED
+START
+V_eff -0.480872 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v -12.281 radps
+new predict covairance 0.393071_s^-2_rad^2
+updating input
+input updated to -0.5005 volt
+correcting
+motor vel: -12.0148
+innovation: 0.266109
+meas cov: 23.3712
+innovation cov: 23.7643
+gain: 0.0165404
+new vel: -12.2766 radps
+new cov: 0.38657_s^-2_rad^2
+ENDED
+START
+V_eff -0.481872 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v -12.309 radps
+new predict covairance 0.393043_s^-2_rad^2
+updating input
+input updated to -0.5 volt
+correcting
+motor vel: -11.8962
+innovation: 0.412817
+meas cov: 22.9172
+innovation cov: 23.3102
+gain: 0.0168614
+new vel: -12.302 radps
+new cov: 0.386415_s^-2_rad^2
+ENDED
+START
+V_eff -0.481372 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v -12.3174 radps
+new predict covairance 0.392995_s^-2_rad^2
+updating input
+input updated to -0.5005 volt
+correcting
+motor vel: -12.3011
+innovation: 0.0163148
+meas cov: 24.4848
+innovation cov: 24.8778
+gain: 0.015797
+new vel: -12.3171 radps
+new cov: 0.386787_s^-2_rad^2
+ENDED
+START
+V_eff -0.481872 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v -12.3315 radps
+new predict covairance 0.39311_s^-2_rad^2
+updating input
+input updated to -0.5005 volt
+correcting
+motor vel: -12.4686
+innovation: -0.137145
+meas cov: 25.1488
+innovation cov: 25.542
+gain: 0.0153907
+new vel: -12.3336 radps
+new cov: 0.387059_s^-2_rad^2
+ENDED
+START
+V_eff -0.481872 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v -12.3406 radps
+new predict covairance 0.393193_s^-2_rad^2
+updating input
+input updated to -0.5005 volt
+correcting
+motor vel: -12.4128
+innovation: -0.0721667
+meas cov: 24.9265
+innovation cov: 25.3197
+gain: 0.0155292
+new vel: -12.3417 radps
+new cov: 0.387087_s^-2_rad^2
+ENDED
+START
+V_eff -0.481872 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v -12.3451 radps
+new predict covairance 0.393202_s^-2_rad^2
+updating input
+input updated to -0.501 volt
+correcting
+motor vel: -12.0009
+innovation: 0.344244
+meas cov: 23.3175
+innovation cov: 23.7108
+gain: 0.0165833
+new vel: -12.3394 radps
+new cov: 0.386681_s^-2_rad^2
+ENDED
+START
+V_eff -0.482372 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v -12.3496 radps
+new predict covairance 0.393077_s^-2_rad^2
+updating input
+input updated to -0.501 volt
+correcting
+motor vel: -12.2103
+innovation: 0.139228
+meas cov: 24.1289
+innovation cov: 24.522
+gain: 0.0160296
+new vel: -12.3473 radps
+new cov: 0.386776_s^-2_rad^2
+ENDED
+START
+V_eff -0.482372 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v -12.3539 radps
+new predict covairance 0.393106_s^-2_rad^2
+updating input
+input updated to -0.5015 volt
+correcting
+motor vel: -12.329
+innovation: 0.0249266
+meas cov: 24.5949
+innovation cov: 24.988
+gain: 0.0157318
+new vel: -12.3535 radps
+new cov: 0.386922_s^-2_rad^2
+ENDED
+START
+V_eff -0.482872 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v -12.3631 radps
+new predict covairance 0.393151_s^-2_rad^2
+updating input
+input updated to -0.501 volt
+correcting
+motor vel: -12.2173
+innovation: 0.145785
+meas cov: 24.1562
+innovation cov: 24.5493
+gain: 0.0160147
+new vel: -12.3608 radps
+new cov: 0.386855_s^-2_rad^2
+ENDED
+START
+V_eff -0.482372 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v -12.3614 radps
+new predict covairance 0.39313_s^-2_rad^2
+updating input
+input updated to -0.5005 volt
+correcting
+motor vel: -12.4756
+innovation: -0.11423
+meas cov: 25.1767
+innovation cov: 25.5698
+gain: 0.0153748
+new vel: -12.3631 radps
+new cov: 0.387086_s^-2_rad^2
+ENDED
+START
+V_eff -0.481872 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v -12.357 radps
+new predict covairance 0.393202_s^-2_rad^2
+updating input
+input updated to -0.502 volt
+correcting
+motor vel: -12.329
+innovation: 0.0279922
+meas cov: 24.5949
+innovation cov: 24.9881
+gain: 0.0157356
+new vel: -12.3566 radps
+new cov: 0.387014_s^-2_rad^2
+ENDED
+START
+V_eff -0.483372 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v -12.3705 radps
+new predict covairance 0.393179_s^-2_rad^2
+updating input
+input updated to -0.5015 volt
+correcting
+motor vel: -12.0847
+innovation: 0.285811
+meas cov: 23.6404
+innovation cov: 24.0336
+gain: 0.0163596
+new vel: -12.3658 radps
+new cov: 0.386747_s^-2_rad^2
+ENDED
+START
+V_eff -0.482872 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v -12.3699 radps
+new predict covairance 0.393097_s^-2_rad^2
+updating input
+input updated to -0.501 volt
+correcting
+motor vel: -12.1545
+innovation: 0.215413
+meas cov: 23.9111
+innovation cov: 24.3042
+gain: 0.016174
+new vel: -12.3664 radps
+new cov: 0.386739_s^-2_rad^2
+ENDED
+START
+V_eff -0.482372 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v -12.3645 radps
+new predict covairance 0.393095_s^-2_rad^2
+updating input
+input updated to -0.5015 volt
+correcting
+motor vel: -12.3081
+innovation: 0.0564532
+meas cov: 24.5123
+innovation cov: 24.9054
+gain: 0.0157835
+new vel: -12.3636 radps
+new cov: 0.386891_s^-2_rad^2
+ENDED
+START
+V_eff -0.482872 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v -12.3687 radps
+new predict covairance 0.393141_s^-2_rad^2
+updating input
+input updated to -0.5015 volt
+correcting
+motor vel: -12.5943
+innovation: -0.225614
+meas cov: 25.6528
+innovation cov: 26.0459
+gain: 0.0150942
+new vel: -12.3721 radps
+new cov: 0.387207_s^-2_rad^2
+ENDED
+START
+V_eff -0.482872 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v -12.3734 radps
+new predict covairance 0.393239_s^-2_rad^2
+updating input
+input updated to -0.5015 volt
+correcting
+motor vel: -12.4058
+innovation: -0.0324246
+meas cov: 24.8988
+innovation cov: 25.292
+gain: 0.0155479
+new vel: -12.3739 radps
+new cov: 0.387125_s^-2_rad^2
+ENDED
+START
+V_eff -0.482872 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v -12.3744 radps
+new predict covairance 0.393213_s^-2_rad^2
+updating input
+input updated to -0.501 volt
+correcting
+motor vel: -11.945
+innovation: 0.429336
+meas cov: 23.1036
+innovation cov: 23.4968
+gain: 0.0167348
+new vel: -12.3672 radps
+new cov: 0.386633_s^-2_rad^2
+ENDED
+START
+V_eff -0.482372 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v -12.3649 radps
+new predict covairance 0.393062_s^-2_rad^2
+updating input
+input updated to -0.5015 volt
+correcting
+motor vel: -12.1754
+innovation: 0.189532
+meas cov: 23.9927
+innovation cov: 24.3857
+gain: 0.0161185
+new vel: -12.3619 radps
+new cov: 0.386727_s^-2_rad^2
+ENDED
+START
+V_eff -0.482872 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v -12.3677 radps
+new predict covairance 0.393091_s^-2_rad^2
+updating input
+input updated to -0.502 volt
+correcting
+motor vel: -12.3849
+innovation: -0.0171336
+meas cov: 24.8157
+innovation cov: 25.2088
+gain: 0.0155934
+new vel: -12.368 radps
+new cov: 0.386961_s^-2_rad^2
+ENDED
+START
+V_eff -0.483372 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v -12.3768 radps
+new predict covairance 0.393163_s^-2_rad^2
+updating input
+input updated to -0.501 volt
+correcting
+motor vel: -12.322
+innovation: 0.0547866
+meas cov: 24.5673
+innovation cov: 24.9605
+gain: 0.0157514
+new vel: -12.3759 radps
+new cov: 0.38697_s^-2_rad^2
+ENDED
+START
+V_eff -0.482372 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v -12.3698 radps
+new predict covairance 0.393166_s^-2_rad^2
+updating input
+input updated to -0.501 volt
+correcting
+motor vel: -12.0707
+innovation: 0.299112
+meas cov: 23.5864
+innovation cov: 23.9796
+gain: 0.0163959
+new vel: -12.3649 radps
+new cov: 0.38672_s^-2_rad^2
+ENDED
+START
+V_eff -0.482372 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v -12.3637 radps
+new predict covairance 0.393089_s^-2_rad^2
+updating input
+input updated to -0.5015 volt
+correcting
+motor vel: -12.1475
+innovation: 0.216193
+meas cov: 23.884
+innovation cov: 24.2771
+gain: 0.0161918
+new vel: -12.3602 radps
+new cov: 0.386724_s^-2_rad^2
+ENDED
+START
+V_eff -0.482872 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v -12.3668 radps
+new predict covairance 0.39309_s^-2_rad^2
+updating input
+input updated to -0.5015 volt
+correcting
+motor vel: -12.1475
+innovation: 0.219283
+meas cov: 23.884
+innovation cov: 24.2771
+gain: 0.0161918
+new vel: -12.3632 radps
+new cov: 0.386725_s^-2_rad^2
+ENDED
+START
+V_eff -0.482872 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v -12.3685 radps
+new predict covairance 0.393091_s^-2_rad^2
+updating input
+input updated to -0.502 volt
+correcting
+motor vel: -12.0847
+innovation: 0.2838
+meas cov: 23.6404
+innovation cov: 24.0335
+gain: 0.016356
+new vel: -12.3638 radps
+new cov: 0.386661_s^-2_rad^2
+ENDED
+START
+V_eff -0.483372 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v -12.3745 radps
+new predict covairance 0.393071_s^-2_rad^2
+updating input
+input updated to -0.501 volt
+correcting
+motor vel: -12.4686
+innovation: -0.0941345
+meas cov: 25.1488
+innovation cov: 25.5419
+gain: 0.0153893
+new vel: -12.3759 radps
+new cov: 0.387022_s^-2_rad^2
+ENDED
+START
+V_eff -0.482372 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v -12.3698 radps
+new predict covairance 0.393182_s^-2_rad^2
+updating input
+input updated to -0.501 volt
+correcting
+motor vel: -12.2941
+innovation: 0.0757087
+meas cov: 24.4573
+innovation cov: 24.8505
+gain: 0.0158219
+new vel: -12.3686 radps
+new cov: 0.386961_s^-2_rad^2
+ENDED
+START
+V_eff -0.482372 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v -12.3657 radps
+new predict covairance 0.393163_s^-2_rad^2
+updating input
+input updated to -0.502 volt
+correcting
+motor vel: -12.4477
+innovation: -0.0819488
+meas cov: 25.0653
+innovation cov: 25.4585
+gain: 0.0154433
+new vel: -12.367 radps
+new cov: 0.387091_s^-2_rad^2
+ENDED
+START
+V_eff -0.483372 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v -12.3763 radps
+new predict covairance 0.393203_s^-2_rad^2
+updating input
+input updated to -0.501 volt
+correcting
+motor vel: -12.0777
+innovation: 0.298586
+meas cov: 23.6134
+innovation cov: 24.0066
+gain: 0.016379
+new vel: -12.3714 radps
+new cov: 0.386763_s^-2_rad^2
+ENDED
+START
+V_eff -0.482372 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v -12.3673 radps
+new predict covairance 0.393102_s^-2_rad^2
+updating input
+input updated to -0.502 volt
+correcting
+motor vel: -12.2103
+innovation: 0.156949
+meas cov: 24.1289
+innovation cov: 24.522
+gain: 0.0160306
+new vel: -12.3648 radps
+new cov: 0.3868_s^-2_rad^2
+ENDED
+START
+V_eff -0.483372 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v -12.375 radps
+new predict covairance 0.393114_s^-2_rad^2
+updating input
+input updated to -0.501 volt
+correcting
+motor vel: -12.5664
+innovation: -0.191353
+meas cov: 25.5403
+innovation cov: 25.9335
+gain: 0.0151586
+new vel: -12.3779 radps
+new cov: 0.387155_s^-2_rad^2
+ENDED
+START
+V_eff -0.482372 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v -12.3709 radps
+new predict covairance 0.393223_s^-2_rad^2
+updating input
+input updated to -0.501 volt
+correcting
+motor vel: -12.4547
+innovation: -0.0837679
+meas cov: 25.0932
+innovation cov: 25.4864
+gain: 0.0154287
+new vel: -12.3722 radps
+new cov: 0.387156_s^-2_rad^2
+ENDED
+START
+V_eff -0.482372 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v -12.3677 radps
+new predict covairance 0.393223_s^-2_rad^2
+updating input
+input updated to -0.5015 volt
+correcting
+motor vel: -12.0986
+innovation: 0.269105
+meas cov: 23.6944
+innovation cov: 24.0876
+gain: 0.0163247
+new vel: -12.3633 radps
+new cov: 0.386804_s^-2_rad^2
+ENDED
+START
+V_eff -0.482872 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v -12.3685 radps
+new predict covairance 0.393115_s^-2_rad^2
+updating input
+input updated to -0.502 volt
+correcting
+motor vel: -12.2801
+innovation: 0.0883847
+meas cov: 24.4024
+innovation cov: 24.7956
+gain: 0.0158542
+new vel: -12.3671 radps
+new cov: 0.386882_s^-2_rad^2
+ENDED
+START
+V_eff -0.483372 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v -12.3763 radps
+new predict covairance 0.393139_s^-2_rad^2
+updating input
+input updated to -0.5015 volt
+correcting
+motor vel: -12.3639
+innovation: 0.0124162
+meas cov: 24.7328
+innovation cov: 25.1259
+gain: 0.0156468
+new vel: -12.3761 radps
+new cov: 0.386988_s^-2_rad^2
+ENDED
+START
+V_eff -0.482872 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v -12.3756 radps
+new predict covairance 0.393171_s^-2_rad^2
+updating input
+input updated to -0.5015 volt
+correcting
+motor vel: -12.6432
+innovation: -0.267545
+meas cov: 25.8501
+innovation cov: 26.2433
+gain: 0.0149818
+new vel: -12.3796 radps
+new cov: 0.387281_s^-2_rad^2
+ENDED
+START
+V_eff -0.482872 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v -12.3776 radps
+new predict covairance 0.393261_s^-2_rad^2
+updating input
+input updated to -0.5015 volt
+correcting
+motor vel: -12.3011
+innovation: 0.076477
+meas cov: 24.4848
+innovation cov: 24.8781
+gain: 0.0158076
+new vel: -12.3763 radps
+new cov: 0.387045_s^-2_rad^2
+ENDED
+START
+V_eff -0.482872 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v -12.3757 radps
+new predict covairance 0.393189_s^-2_rad^2
+updating input
+input updated to -0.502 volt
+correcting
+motor vel: -12.1056
+innovation: 0.270135
+meas cov: 23.7215
+innovation cov: 24.1146
+gain: 0.016305
+new vel: -12.3713 radps
+new cov: 0.386778_s^-2_rad^2
+ENDED
+START
+V_eff -0.483372 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v -12.3787 radps
+new predict covairance 0.393107_s^-2_rad^2
+updating input
+input updated to -0.501 volt
+correcting
+motor vel: -12.4128
+innovation: -0.0341159
+meas cov: 24.9265
+innovation cov: 25.3196
+gain: 0.0155258
+new vel: -12.3792 radps
+new cov: 0.387004_s^-2_rad^2
+ENDED
+START
+V_eff -0.482372 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v -12.3716 radps
+new predict covairance 0.393176_s^-2_rad^2
+updating input
+input updated to -0.5015 volt
+correcting
+motor vel: -12.4617
+innovation: -0.0900411
+meas cov: 25.121
+innovation cov: 25.5142
+gain: 0.0154101
+new vel: -12.373 radps
+new cov: 0.387117_s^-2_rad^2
+ENDED
+START
+V_eff -0.482872 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v -12.3739 radps
+new predict covairance 0.393211_s^-2_rad^2
+updating input
+input updated to -0.5015 volt
+correcting
+motor vel: -12.2103
+innovation: 0.163557
+meas cov: 24.1289
+innovation cov: 24.5221
+gain: 0.016035
+new vel: -12.3713 radps
+new cov: 0.386906_s^-2_rad^2
+ENDED
+START
+V_eff -0.482872 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v -12.3729 radps
+new predict covairance 0.393146_s^-2_rad^2
+updating input
+input updated to -0.5015 volt
+correcting
+motor vel: -12.3569
+innovation: 0.0159844
+meas cov: 24.7052
+innovation cov: 25.0983
+gain: 0.0156643
+new vel: -12.3727 radps
+new cov: 0.386988_s^-2_rad^2
+ENDED
+START
+V_eff -0.482872 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v -12.3737 radps
+new predict covairance 0.393171_s^-2_rad^2
+updating input
+input updated to -0.5015 volt
+correcting
+motor vel: -12.4198
+innovation: -0.046067
+meas cov: 24.9542
+innovation cov: 25.3474
+gain: 0.0155113
+new vel: -12.3744 radps
+new cov: 0.387073_s^-2_rad^2
+ENDED
+START
+V_eff -0.482872 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v -12.3747 radps
+new predict covairance 0.393197_s^-2_rad^2
+updating input
+input updated to -0.5015 volt
+correcting
+motor vel: -12.0777
+innovation: 0.296986
+meas cov: 23.6134
+innovation cov: 24.0066
+gain: 0.0163787
+new vel: -12.3698 radps
+new cov: 0.386757_s^-2_rad^2
+ENDED
+START
+V_eff -0.482872 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v -12.3721 radps
+new predict covairance 0.3931_s^-2_rad^2
+updating input
+input updated to -0.5015 volt
+correcting
+motor vel: -12.1894
+innovation: 0.182727
+meas cov: 24.0471
+innovation cov: 24.4402
+gain: 0.0160842
+new vel: -12.3692 radps
+new cov: 0.386778_s^-2_rad^2
+ENDED
+START
+V_eff -0.482872 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v -12.3718 radps
+new predict covairance 0.393107_s^-2_rad^2
+updating input
+input updated to -0.502 volt
+correcting
+motor vel: -12.4058
+innovation: -0.0340437
+meas cov: 24.8988
+innovation cov: 25.2919
+gain: 0.0155428
+new vel: -12.3723 radps
+new cov: 0.386997_s^-2_rad^2
+ENDED
+START
+V_eff -0.483372 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v -12.3792 radps
+new predict covairance 0.393174_s^-2_rad^2
+updating input
+input updated to -0.502 volt
+correcting
+motor vel: -12.3709
+innovation: 0.00829966
+meas cov: 24.7604
+innovation cov: 25.1536
+gain: 0.0156309
+new vel: -12.3791 radps
+new cov: 0.387028_s^-2_rad^2
+ENDED
+START
+V_eff -0.483372 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v -12.383 radps
+new predict covairance 0.393184_s^-2_rad^2
+updating input
+input updated to -0.5015 volt
+correcting
+motor vel: -12.1545
+innovation: 0.228479
+meas cov: 23.9111
+innovation cov: 24.3043
+gain: 0.0161775
+new vel: -12.3793 radps
+new cov: 0.386823_s^-2_rad^2
+ENDED
+START
+V_eff -0.482872 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v -12.3774 radps
+new predict covairance 0.393121_s^-2_rad^2
+updating input
+input updated to -0.306417 volt
+correcting
+motor vel: -11.6448
+innovation: 0.732514
+meas cov: 21.9705
+innovation cov: 22.3636
+gain: 0.0175786
+new vel: -12.3645 radps
+new cov: 0.38621_s^-2_rad^2
+ENDED
+START
+V_eff -0.287788 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v -10.1422 radps
+new predict covairance 0.392932_s^-2_rad^2
+updating input
+input updated to 0.00566667 volt
+correcting
+motor vel: -6.51357
+innovation: 3.62861
+meas cov: 7.06241
+innovation cov: 7.45534
+gain: 0.0527048
+new vel: -9.95093 radps
+new cov: 0.372223_s^-2_rad^2
+ENDED
+START
+V_eff 0 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v -5.51845 radps
+new predict covairance 0.38863_s^-2_rad^2
+updating input
+input updated to 0.2495 volt
+correcting
+motor vel: -4.859
+innovation: 0.659453
+meas cov: 4.05173
+innovation cov: 4.44036
+gain: 0.0875222
+new vel: -5.46073 radps
+new cov: 0.354617_s^-2_rad^2
+ENDED
+START
+V_eff 0.230872 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v -0.392816 radps
+new predict covairance 0.383216_s^-2_rad^2
+updating input
+input updated to 0.47225 volt
+correcting
+motor vel: 4.92881
+innovation: 5.32163
+meas cov: 4.16106
+innovation cov: 4.54428
+gain: 0.0843293
+new vel: 0.0559528 radps
+new cov: 0.350899_s^-2_rad^2
+ENDED
+START
+V_eff 0.453622 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 5.20936 radps
+new predict covairance 0.382073_s^-2_rad^2
+updating input
+input updated to 0.701167 volt
+correcting
+motor vel: 11.0095
+innovation: 5.80018
+meas cov: 19.6677
+innovation cov: 20.0498
+gain: 0.0190562
+new vel: 5.31989 radps
+new cov: 0.374792_s^-2_rad^2
+ENDED
+START
+V_eff 0.682538 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 10.7418 radps
+new predict covairance 0.389421_s^-2_rad^2
+updating input
+input updated to 0.881917 volt
+correcting
+motor vel: 17.4533
+innovation: 6.71153
+meas cov: 49.0129
+innovation cov: 49.4024
+gain: 0.00788263
+new vel: 10.7947 radps
+new cov: 0.386351_s^-2_rad^2
+ENDED
+START
+V_eff 0.863288 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 15.8412 radps
+new predict covairance 0.392975_s^-2_rad^2
+updating input
+input updated to 0.955833 volt
+correcting
+motor vel: 20.3505
+innovation: 4.50929
+meas cov: 66.5373
+innovation cov: 66.9302
+gain: 0.00587142
+new vel: 15.8677 radps
+new cov: 0.390668_s^-2_rad^2
+ENDED
+START
+V_eff 0.937205 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 19.4984 radps
+new predict covairance 0.394303_s^-2_rad^2
+updating input
+input updated to 0.975333 volt
+correcting
+motor vel: 22.0261
+innovation: 2.52766
+meas cov: 77.8977
+innovation cov: 78.292
+gain: 0.00503632
+new vel: 19.5111 radps
+new cov: 0.392317_s^-2_rad^2
+ENDED
+START
+V_eff 0.956705 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 21.7415 radps
+new predict covairance 0.39481_s^-2_rad^2
+updating input
+input updated to 0.9835 volt
+correcting
+motor vel: 23.2338
+innovation: 1.49232
+meas cov: 86.6438
+innovation cov: 87.0386
+gain: 0.00453604
+new vel: 21.7483 radps
+new cov: 0.39302_s^-2_rad^2
+ENDED
+START
+V_eff 0.964872 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 23.0754 radps
+new predict covairance 0.395026_s^-2_rad^2
+updating input
+input updated to 0.988667 volt
+correcting
+motor vel: 22.5008
+innovation: -0.574587
+meas cov: 81.2798
+innovation cov: 81.6748
+gain: 0.00483657
+new vel: 23.0726 radps
+new cov: 0.393116_s^-2_rad^2
+ENDED
+START
+V_eff 0.970038 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 23.8688 radps
+new predict covairance 0.395056_s^-2_rad^2
+updating input
+input updated to 0.986583 volt
+correcting
+motor vel: 23.6527
+innovation: -0.216076
+meas cov: 89.7862
+innovation cov: 90.1813
+gain: 0.00438069
+new vel: 23.8678 radps
+new cov: 0.393325_s^-2_rad^2
+ENDED
+START
+V_eff 0.967955 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 24.286 radps
+new predict covairance 0.39512_s^-2_rad^2
+updating input
+input updated to 0.989167 volt
+correcting
+motor vel: 23.4712
+innovation: -0.81482
+meas cov: 88.4176
+innovation cov: 88.8127
+gain: 0.00444892
+new vel: 24.2824 radps
+new cov: 0.393363_s^-2_rad^2
+ENDED
+START
+V_eff 0.970538 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 24.5454 radps
+new predict covairance 0.395132_s^-2_rad^2
+updating input
+input updated to 0.989667 volt
+correcting
+motor vel: 24.3089
+innovation: -0.236448
+meas cov: 94.8221
+innovation cov: 95.2173
+gain: 0.00414979
+new vel: 24.5444 radps
+new cov: 0.393492_s^-2_rad^2
+ENDED
+START
+V_eff 0.971038 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 24.6964 radps
+new predict covairance 0.395172_s^-2_rad^2
+updating input
+input updated to 0.989167 volt
+correcting
+motor vel: 23.7644
+innovation: -0.932012
+meas cov: 90.6337
+innovation cov: 91.0288
+gain: 0.00434117
+new vel: 24.6924 radps
+new cov: 0.393456_s^-2_rad^2
+ENDED
+START
+V_eff 0.970538 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 24.7728 radps
+new predict covairance 0.395161_s^-2_rad^2
+updating input
+input updated to 0.986583 volt
+correcting
+motor vel: 25.035
+innovation: 0.262244
+meas cov: 100.554
+innovation cov: 100.95
+gain: 0.00391444
+new vel: 24.7738 radps
+new cov: 0.393614_s^-2_rad^2
+ENDED
+START
+V_eff 0.967955 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 24.7884 radps
+new predict covairance 0.395209_s^-2_rad^2
+updating input
+input updated to 0.989667 volt
+correcting
+motor vel: 24.288
+innovation: -0.500417
+meas cov: 94.6593
+innovation cov: 95.0545
+gain: 0.00415771
+new vel: 24.7863 radps
+new cov: 0.393566_s^-2_rad^2
+ENDED
+START
+V_eff 0.971038 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 24.8306 radps
+new predict covairance 0.395194_s^-2_rad^2
+updating input
+input updated to 0.994333 volt
+correcting
+motor vel: 24.0087
+innovation: -0.821829
+meas cov: 92.5014
+innovation cov: 92.8966
+gain: 0.00425413
+new vel: 24.8271 radps
+new cov: 0.393513_s^-2_rad^2
+ENDED
+START
+V_eff 0.975705 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 24.9064 radps
+new predict covairance 0.395178_s^-2_rad^2
+updating input
+input updated to 0.99175 volt
+correcting
+motor vel: 25.0769
+innovation: 0.170444
+meas cov: 100.89
+innovation cov: 101.285
+gain: 0.00390163
+new vel: 24.9071 radps
+new cov: 0.393636_s^-2_rad^2
+ENDED
+START
+V_eff 0.973122 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 24.9213 radps
+new predict covairance 0.395216_s^-2_rad^2
+updating input
+input updated to 0.988667 volt
+correcting
+motor vel: 24.2391
+innovation: -0.682205
+meas cov: 94.2798
+innovation cov: 94.6751
+gain: 0.00417445
+new vel: 24.9185 radps
+new cov: 0.393566_s^-2_rad^2
+ENDED
+START
+V_eff 0.970038 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 24.8924 radps
+new predict covairance 0.395194_s^-2_rad^2
+updating input
+input updated to 0.987667 volt
+correcting
+motor vel: 23.897
+innovation: -0.995402
+meas cov: 91.6452
+innovation cov: 92.0404
+gain: 0.00429371
+new vel: 24.8882 radps
+new cov: 0.393498_s^-2_rad^2
+ENDED
+START
+V_eff 0.969038 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 24.8642 radps
+new predict covairance 0.395173_s^-2_rad^2
+updating input
+input updated to 0.990167 volt
+correcting
+motor vel: 25.1676
+innovation: 0.303425
+meas cov: 101.62
+innovation cov: 102.015
+gain: 0.00387368
+new vel: 24.8654 radps
+new cov: 0.393643_s^-2_rad^2
+ENDED
+START
+V_eff 0.971538 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 24.8801 radps
+new predict covairance 0.395218_s^-2_rad^2
+updating input
+input updated to 0.996333 volt
+correcting
+motor vel: 24.1414
+innovation: -0.738736
+meas cov: 93.5233
+innovation cov: 93.9185
+gain: 0.0042081
+new vel: 24.877 radps
+new cov: 0.393555_s^-2_rad^2
+ENDED
+START
+V_eff 0.977705 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 24.957 radps
+new predict covairance 0.395191_s^-2_rad^2
+updating input
+input updated to 0.99175 volt
+correcting
+motor vel: 24.7488
+innovation: -0.208203
+meas cov: 98.2744
+innovation cov: 98.6696
+gain: 0.0040052
+new vel: 24.9561 radps
+new cov: 0.393608_s^-2_rad^2
+ENDED
+START
+V_eff 0.973122 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 24.9485 radps
+new predict covairance 0.395207_s^-2_rad^2
+updating input
+input updated to 0.988167 volt
+correcting
+motor vel: 24.5673
+innovation: -0.381272
+meas cov: 96.8422
+innovation cov: 97.2374
+gain: 0.00406436
+new vel: 24.947 radps
+new cov: 0.393601_s^-2_rad^2
+ENDED
+START
+V_eff 0.969538 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 24.9025 radps
+new predict covairance 0.395205_s^-2_rad^2
+updating input
+input updated to 0.99225 volt
+correcting
+motor vel: 25.1746
+innovation: 0.272089
+meas cov: 101.676
+innovation cov: 102.071
+gain: 0.00387186
+new vel: 24.9036 radps
+new cov: 0.393675_s^-2_rad^2
+ENDED
+START
+V_eff 0.973622 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 24.9251 radps
+new predict covairance 0.395228_s^-2_rad^2
+updating input
+input updated to 0.995333 volt
+correcting
+motor vel: 24.651
+innovation: -0.274064
+meas cov: 97.5019
+innovation cov: 97.8971
+gain: 0.00403718
+new vel: 24.924 radps
+new cov: 0.393632_s^-2_rad^2
+ENDED
+START
+V_eff 0.976705 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 24.9716 radps
+new predict covairance 0.395215_s^-2_rad^2
+updating input
+input updated to 0.996917 volt
+correcting
+motor vel: 24.0367
+innovation: -0.934928
+meas cov: 92.716
+innovation cov: 93.1112
+gain: 0.00424454
+new vel: 24.9676 radps
+new cov: 0.393537_s^-2_rad^2
+ENDED
+START
+V_eff 0.978288 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 25.0139 radps
+new predict covairance 0.395186_s^-2_rad^2
+updating input
+input updated to 0.99125 volt
+correcting
+motor vel: 25.6563
+innovation: 0.642458
+meas cov: 105.594
+innovation cov: 105.989
+gain: 0.00372855
+new vel: 25.0163 radps
+new cov: 0.393712_s^-2_rad^2
+ENDED
+START
+V_eff 0.972622 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 24.9762 radps
+new predict covairance 0.395239_s^-2_rad^2
+updating input
+input updated to 0.993833 volt
+correcting
+motor vel: 24.4346
+innovation: -0.54156
+meas cov: 95.8022
+innovation cov: 96.1974
+gain: 0.00410863
+new vel: 24.9739 radps
+new cov: 0.393615_s^-2_rad^2
+ENDED
+START
+V_eff 0.975205 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 24.9822 radps
+new predict covairance 0.39521_s^-2_rad^2
+updating input
+input updated to 0.995833 volt
+correcting
+motor vel: 25.3282
+innovation: 0.346035
+meas cov: 102.917
+innovation cov: 103.312
+gain: 0.00382539
+new vel: 24.9835 radps
+new cov: 0.393698_s^-2_rad^2
+ENDED
+START
+V_eff 0.977205 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 25.0103 radps
+new predict covairance 0.395235_s^-2_rad^2
+updating input
+input updated to 0.996333 volt
+correcting
+motor vel: 24.7627
+innovation: -0.247586
+meas cov: 98.385
+innovation cov: 98.7802
+gain: 0.00400115
+new vel: 25.0093 radps
+new cov: 0.393654_s^-2_rad^2
+ENDED
+START
+V_eff 0.977705 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 25.0303 radps
+new predict covairance 0.395221_s^-2_rad^2
+updating input
+input updated to 0.997917 volt
+correcting
+motor vel: 25.0909
+innovation: 0.0605094
+meas cov: 101.002
+innovation cov: 101.398
+gain: 0.00389774
+new vel: 25.0306 radps
+new cov: 0.393681_s^-2_rad^2
+ENDED
+START
+V_eff 0.979288 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 25.0602 radps
+new predict covairance 0.39523_s^-2_rad^2
+updating input
+input updated to 0.997417 volt
+correcting
+motor vel: 24.0576
+innovation: -1.00259
+meas cov: 92.8772
+innovation cov: 93.2724
+gain: 0.00423737
+new vel: 25.056 radps
+new cov: 0.393555_s^-2_rad^2
+ENDED
+START
+V_eff 0.978788 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 25.0686 radps
+new predict covairance 0.395191_s^-2_rad^2
+updating input
+input updated to 0.996333 volt
+correcting
+motor vel: 24.6859
+innovation: -0.382633
+meas cov: 97.7774
+innovation cov: 98.1726
+gain: 0.00402547
+new vel: 25.067 radps
+new cov: 0.3936_s^-2_rad^2
+ENDED
+START
+V_eff 0.977705 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 25.0623 radps
+new predict covairance 0.395205_s^-2_rad^2
+updating input
+input updated to 0.996917 volt
+correcting
+motor vel: 25.0839
+innovation: 0.021528
+meas cov: 100.946
+innovation cov: 101.341
+gain: 0.00389974
+new vel: 25.0624 radps
+new cov: 0.393664_s^-2_rad^2
+ENDED
+START
+V_eff 0.978288 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 25.0665 radps
+new predict covairance 0.395224_s^-2_rad^2
+updating input
+input updated to 0.996917 volt
+correcting
+motor vel: 25.2514
+innovation: 0.184973
+meas cov: 102.296
+innovation cov: 102.691
+gain: 0.00384868
+new vel: 25.0672 radps
+new cov: 0.393703_s^-2_rad^2
+ENDED
+START
+V_eff 0.978288 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 25.0691 radps
+new predict covairance 0.395237_s^-2_rad^2
+updating input
+input updated to 0.99325 volt
+correcting
+motor vel: 24.1414
+innovation: -0.927683
+meas cov: 93.5233
+innovation cov: 93.9185
+gain: 0.00420829
+new vel: 25.0652 radps
+new cov: 0.393573_s^-2_rad^2
+ENDED
+START
+V_eff 0.974622 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 25.0261 radps
+new predict covairance 0.395197_s^-2_rad^2
+updating input
+input updated to 0.99275 volt
+correcting
+motor vel: 24.7767
+innovation: -0.249422
+meas cov: 98.4957
+innovation cov: 98.8909
+gain: 0.00399629
+new vel: 25.0251 radps
+new cov: 0.393617_s^-2_rad^2
+ENDED
+START
+V_eff 0.974122 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 24.9982 radps
+new predict covairance 0.39521_s^-2_rad^2
+updating input
+input updated to 0.993833 volt
+correcting
+motor vel: 24.8395
+innovation: -0.158671
+meas cov: 98.9945
+innovation cov: 99.3897
+gain: 0.00397637
+new vel: 24.9976 radps
+new cov: 0.393639_s^-2_rad^2
+ENDED
+START
+V_eff 0.975205 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 24.9953 radps
+new predict covairance 0.395217_s^-2_rad^2
+updating input
+input updated to 0.989667 volt
+correcting
+motor vel: 24.7418
+innovation: -0.253495
+meas cov: 98.2191
+innovation cov: 98.6143
+gain: 0.0040077
+new vel: 24.9943 radps
+new cov: 0.393633_s^-2_rad^2
+ENDED
+START
+V_eff 0.971038 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 24.9459 radps
+new predict covairance 0.395215_s^-2_rad^2
+updating input
+input updated to 0.99275 volt
+correcting
+motor vel: 24.672
+innovation: -0.273914
+meas cov: 97.6672
+innovation cov: 98.0624
+gain: 0.00403024
+new vel: 24.9448 radps
+new cov: 0.393622_s^-2_rad^2
+ENDED
+START
+V_eff 0.974122 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 24.9536 radps
+new predict covairance 0.395212_s^-2_rad^2
+updating input
+input updated to 0.996333 volt
+correcting
+motor vel: 25.6912
+innovation: 0.737601
+meas cov: 105.881
+innovation cov: 106.276
+gain: 0.00371874
+new vel: 24.9564 radps
+new cov: 0.393742_s^-2_rad^2
+ENDED
+START
+V_eff 0.977705 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 25.001 radps
+new predict covairance 0.395249_s^-2_rad^2
+updating input
+input updated to 0.995833 volt
+correcting
+motor vel: 24.7208
+innovation: -0.280143
+meas cov: 98.0534
+innovation cov: 98.4486
+gain: 0.00401477
+new vel: 24.9999 radps
+new cov: 0.393662_s^-2_rad^2
+ENDED
+START
+V_eff 0.977205 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 25.0194 radps
+new predict covairance 0.395224_s^-2_rad^2
+updating input
+input updated to 0.99325 volt
+correcting
+motor vel: 25.035
+innovation: 0.0156158
+meas cov: 100.554
+innovation cov: 100.95
+gain: 0.00391506
+new vel: 25.0194 radps
+new cov: 0.393677_s^-2_rad^2
+ENDED
+START
+V_eff 0.974622 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 25.0008 radps
+new predict covairance 0.395228_s^-2_rad^2
+updating input
+input updated to 0.99325 volt
+correcting
+motor vel: 25.5656
+innovation: 0.564824
+meas cov: 104.85
+innovation cov: 105.245
+gain: 0.00375531
+new vel: 25.0029 radps
+new cov: 0.393744_s^-2_rad^2
+ENDED
+START
+V_eff 0.974622 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 24.9916 radps
+new predict covairance 0.395249_s^-2_rad^2
+updating input
+input updated to 0.99225 volt
+correcting
+motor vel: 25.0001
+innovation: 0.00852525
+meas cov: 100.275
+innovation cov: 100.67
+gain: 0.00392618
+new vel: 24.9916 radps
+new cov: 0.393697_s^-2_rad^2
+ENDED
+START
+V_eff 0.973622 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 24.9739 radps
+new predict covairance 0.395235_s^-2_rad^2
+updating input
+input updated to 0.993833 volt
+correcting
+motor vel: 25.426
+innovation: 0.452054
+meas cov: 103.711
+innovation cov: 104.106
+gain: 0.00379646
+new vel: 24.9756 radps
+new cov: 0.393734_s^-2_rad^2
+ENDED
+START
+V_eff 0.975205 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 24.9831 radps
+new predict covairance 0.395246_s^-2_rad^2
+updating input
+input updated to 0.99275 volt
+correcting
+motor vel: 24.651
+innovation: -0.332081
+meas cov: 97.5019
+innovation cov: 97.8971
+gain: 0.00403736
+new vel: 24.9818 radps
+new cov: 0.39365_s^-2_rad^2
+ENDED
+START
+V_eff 0.974122 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 24.9742 radps
+new predict covairance 0.39522_s^-2_rad^2
+updating input
+input updated to 0.993833 volt
+correcting
+motor vel: 25.3841
+innovation: 0.409912
+meas cov: 103.37
+innovation cov: 103.766
+gain: 0.00380878
+new vel: 24.9757 radps
+new cov: 0.393715_s^-2_rad^2
+ENDED
+START
+V_eff 0.975205 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 24.9832 radps
+new predict covairance 0.39524_s^-2_rad^2
+updating input
+input updated to 0.997417 volt
+correcting
+motor vel: 24.3369
+innovation: -0.646296
+meas cov: 95.0395
+innovation cov: 95.4347
+gain: 0.00414147
+new vel: 24.9805 radps
+new cov: 0.393603_s^-2_rad^2
+ENDED
+START
+V_eff 0.978788 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 25.0267 radps
+new predict covairance 0.395206_s^-2_rad^2
+updating input
+input updated to 0.997917 volt
+correcting
+motor vel: 24.9373
+innovation: -0.0894546
+meas cov: 99.7729
+innovation cov: 100.168
+gain: 0.00394543
+new vel: 25.0264 radps
+new cov: 0.393647_s^-2_rad^2
+ENDED
+START
+V_eff 0.979288 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 25.0579 radps
+new predict covairance 0.395219_s^-2_rad^2
+updating input
+input updated to 0.99275 volt
+correcting
+motor vel: 24.7278
+innovation: -0.330043
+meas cov: 98.1086
+innovation cov: 98.5038
+gain: 0.00401222
+new vel: 25.0565 radps
+new cov: 0.393634_s^-2_rad^2
+ENDED
+START
+V_eff 0.974122 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 25.0156 radps
+new predict covairance 0.395215_s^-2_rad^2
+updating input
+input updated to 0.993833 volt
+correcting
+motor vel: 24.8605
+innovation: -0.155153
+meas cov: 99.161
+innovation cov: 99.5562
+gain: 0.00396977
+new vel: 25.015 radps
+new cov: 0.393646_s^-2_rad^2
+ENDED
+START
+V_eff 0.975205 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 25.005 radps
+new predict covairance 0.395219_s^-2_rad^2
+updating input
+input updated to 0.996917 volt
+correcting
+motor vel: 24.4765
+innovation: -0.528458
+meas cov: 96.13
+innovation cov: 96.5252
+gain: 0.00409447
+new vel: 25.0028 radps
+new cov: 0.393601_s^-2_rad^2
+ENDED
+START
+V_eff 0.978288 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 25.0334 radps
+new predict covairance 0.395205_s^-2_rad^2
+updating input
+input updated to 0.997417 volt
+correcting
+motor vel: 25.3073
+innovation: 0.273895
+meas cov: 102.747
+innovation cov: 103.143
+gain: 0.00383164
+new vel: 25.0344 radps
+new cov: 0.393691_s^-2_rad^2
+ENDED
+START
+V_eff 0.978788 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 25.0566 radps
+new predict covairance 0.395233_s^-2_rad^2
+updating input
+input updated to 0.994333 volt
+correcting
+motor vel: 25.2793
+innovation: 0.222718
+meas cov: 102.521
+innovation cov: 102.917
+gain: 0.00384032
+new vel: 25.0575 radps
+new cov: 0.393715_s^-2_rad^2
+ENDED
+START
+V_eff 0.975705 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 25.0342 radps
+new predict covairance 0.39524_s^-2_rad^2
+updating input
+input updated to 0.99275 volt
+correcting
+motor vel: 24.7139
+innovation: -0.320358
+meas cov: 97.9982
+innovation cov: 98.3934
+gain: 0.00401694
+new vel: 25.0329 radps
+new cov: 0.393653_s^-2_rad^2
+ENDED
+START
+V_eff 0.974122 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 25.0025 radps
+new predict covairance 0.395221_s^-2_rad^2
+updating input
+input updated to 0.994333 volt
+correcting
+motor vel: 24.0367
+innovation: -0.965855
+meas cov: 92.716
+innovation cov: 93.1112
+gain: 0.00424461
+new vel: 24.9984 radps
+new cov: 0.393543_s^-2_rad^2
+ENDED
+START
+V_eff 0.975705 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 25.0015 radps
+new predict covairance 0.395187_s^-2_rad^2
+updating input
+input updated to 0.990167 volt
+correcting
+motor vel: 25.7611
+innovation: 0.75959
+meas cov: 106.455
+innovation cov: 106.85
+gain: 0.00369851
+new vel: 25.0043 radps
+new cov: 0.393726_s^-2_rad^2
+ENDED
+START
+V_eff 0.971538 volt
+A/B 0.554566 11.4155_kg^-1_m^-2_s^2_A_rad
+new predicted v 24.9571 radps
+new predict covairance 0.395244_s^-2_rad^2
+updating input
+input updated to 0.99325 volt
+correcting
+motor vel: 24.3299
+innovation: -0.627259
+meas cov: 94.9851
+innovation cov: 95.3804
+gain: 0.00414387
+new vel: 24.9545 radps
+new cov: 0.393606_s^-2_rad^2
+ENDED
+raw data:
+\left[\left(0.1,0\right),\left(0.1,0\right),\left(0.1,0.383972\right),\left(0.1,0.572468\right),\left(0.1,0.747001\right),\left(0.1,1.19381\right),\left(0.1,1.41721\right),\left(0.1,1.5708\right),\left(0.1,1.75929\right),\left(0.1,1.80118\right),\left(0.1,1.81514\right),\left(0.1,1.7942\right),\left(0.1,1.83609\right),\left(0.1,1.85703\right),\left(0.1,1.87797\right),\left(0.1,1.89892\right),\left(0.1,1.88496\right),\left(0.1,1.84307\right),\left(0.1,1.87099\right),\left(0.1,1.91288\right),\left(0.1,1.94779\right),\left(0.1,1.94081\right),\left(0.1,1.91986\right),\left(0.1,1.94779\right),\left(0.1,1.96175\right),\left(0.1,2.01062\right),\left(0.1,1.98968\right),\left(0.1,1.97571\right),\left(0.1,1.93382\right),\left(0.1,1.96175\right),\left(0.1,1.98968\right),\left(0.1,1.98269\right),\left(0.1,1.95477\right),\left(0.1,1.94081\right),\left(0.1,1.94081\right),\left(0.1,1.97571\right),\left(0.1,1.97571\right),\left(0.1,1.96175\right),\left(0.1,1.96175\right),\left(0.1,1.97571\right),\left(0.1,2.0176\right),\left(0.3,2.03156\right),\left(0.3,2.03854\right),\left(0.3,3.68614\right),\left(0.3,5.01259\right),\left(0.3,5.55713\right),\left(0.3,6.03186\right),\left(0.3,6.39489\right),\left(0.3,6.53451\right),\left(0.3,6.7998\right),\left(0.3,6.77188\right),\left(0.3,6.75093\right),\left(0.3,7.21868\right),\left(0.3,7.12792\right),\left(0.3,7.06509\right),\left(0.3,7.07207\right),\left(0.3,7.03717\right),\left(0.3,7.13491\right),\left(0.3,7.3234\right),\left(0.3,7.29548\right),\left(0.3,7.16283\right),\left(0.3,7.03019\right),\left(0.3,7.33038\right),\left(0.3,7.2117\right),\left(0.3,7.16981\right),\left(0.3,7.35831\right),\left(0.3,7.2885\right),\left(0.3,7.26755\right),\left(0.3,7.23963\right),\left(0.3,7.23264\right),\left(0.3,7.0232\right),\left(0.3,7.13491\right),\left(0.3,7.46303\right),\left(0.3,7.40718\right),\left(0.3,7.15585\right),\left(0.3,7.13491\right),\left(0.3,7.31642\right),\left(0.3,7.2885\right),\left(0.3,7.34435\right),\left(0.3,7.37227\right),\left(0.3,7.2117\right),\left(0.3,7.12792\right),\left(0.3,7.39321\right),\left(0.3,7.35133\right),\left(0.3,7.22566\right),\left(0.3,7.21868\right),\left(0.3,7.49793\right),\left(0.3,7.29548\right),\left(0.3,7.15585\right),\left(0.3,7.26057\right),\left(0.3,7.29548\right),\left(0.3,7.34435\right),\left(0.2,7.33038\right),\left(0.2,7.30246\right),\left(0.2,6.47168\right),\left(0.2,6.10865\right),\left(0.2,5.92714\right),\left(0.2,5.64789\right),\left(0.2,5.57109\right),\left(0.2,5.20806\right),\left(0.2,5.11731\right),\left(0.2,4.92183\right),\left(0.2,5.02655\right),\left(-0.5,4.87296\right),\left(-0.5,4.68446\right),\left(-0.5,4.68446\right),\left(-0.5,-5.47335\right),\left(-0.5,-8.39154\right),\left(-0.5,-9.88554\right),\left(-0.5,-10.7512\right),\left(-0.5,-10.9467\right),\left(-0.5,-11.1212\right),\left(-0.5,-11.2748\right),\left(-0.5,-11.8054\right),\left(-0.5,-11.575\right),\left(-0.5,-11.8403\right),\left(-0.5,-12.2033\right),\left(-0.5,-12.1196\right),\left(-0.5,-12.0148\right),\left(-0.5,-11.8962\right),\left(-0.5,-12.3011\right),\left(-0.5,-12.4686\right),\left(-0.5,-12.4128\right),\left(-0.5,-12.0009\right),\left(-0.5,-12.2103\right),\left(-0.5,-12.329\right),\left(-0.5,-12.2173\right),\left(-0.5,-12.4756\right),\left(-0.5,-12.329\right),\left(-0.5,-12.0847\right),\left(-0.5,-12.1545\right),\left(-0.5,-12.3081\right),\left(-0.5,-12.5943\right),\left(-0.5,-12.4058\right),\left(-0.5,-11.945\right),\left(-0.5,-12.1754\right),\left(-0.5,-12.3849\right),\left(-0.5,-12.322\right),\left(-0.5,-12.0707\right),\left(-0.5,-12.1475\right),\left(-0.5,-12.1475\right),\left(-0.5,-12.0847\right),\left(-0.5,-12.4686\right),\left(-0.5,-12.2941\right),\left(-0.5,-12.4477\right),\left(-0.5,-12.0777\right),\left(-0.5,-12.2103\right),\left(-0.5,-12.5664\right),\left(-0.5,-12.4547\right),\left(-0.5,-12.0986\right),\left(-0.5,-12.2801\right),\left(-0.5,-12.3639\right),\left(-0.5,-12.6432\right),\left(-0.5,-12.3011\right),\left(-0.5,-12.1056\right),\left(-0.5,-12.4128\right),\left(-0.5,-12.4617\right),\left(-0.5,-12.2103\right),\left(-0.5,-12.3569\right),\left(-0.5,-12.4198\right),\left(-0.5,-12.0777\right),\left(-0.5,-12.1894\right),\left(-0.5,-12.4058\right),\left(-0.5,-12.3709\right),\left(1,-12.1545\right),\left(1,-11.6448\right),\left(1,-6.51357\right),\left(1,-4.859\right),\left(1,4.92881\right),\left(1,11.0095\right),\left(1,17.4533\right),\left(1,20.3505\right),\left(1,22.0261\right),\left(1,23.2338\right),\left(1,22.5008\right),\left(1,23.6527\right),\left(1,23.4712\right),\left(1,24.3089\right),\left(1,23.7644\right),\left(1,25.035\right),\left(1,24.288\right),\left(1,24.0087\right),\left(1,25.0769\right),\left(1,24.2391\right),\left(1,23.897\right),\left(1,25.1676\right),\left(1,24.1414\right),\left(1,24.7488\right),\left(1,24.5673\right),\left(1,25.1746\right),\left(1,24.651\right),\left(1,24.0367\right),\left(1,25.6563\right),\left(1,24.4346\right),\left(1,25.3282\right),\left(1,24.7627\right),\left(1,25.0909\right),\left(1,24.0576\right),\left(1,24.6859\right),\left(1,25.0839\right),\left(1,25.2514\right),\left(1,24.1414\right),\left(1,24.7767\right),\left(1,24.8395\right),\left(1,24.7418\right),\left(1,24.672\right),\left(1,25.6912\right),\left(1,24.7208\right),\left(1,25.035\right),\left(1,25.5656\right),\left(1,25.0001\right),\left(1,25.426\right),\left(1,24.651\right),\left(1,25.3841\right),\left(1,24.3369\right),\left(1,24.9373\right),\left(1,24.7278\right),\left(1,24.8605\right),\left(1,24.4765\right),\left(1,25.3073\right),\left(1,25.2793\right),\left(1,24.7139\right),\left(1,24.0367\right),\left(1,25.7611\right),\left(1,24.3299\right)\right]
+filtered data:
+\left[\left(0,0\right),\left(0.04725,0\right),\left(0.0836667,0.356353\right),\left(0.0908333,0.7577\right),\left(0.0955,1.01\right),\left(0.097,1.34151\right),\left(0.0980833,1.5589\right),\left(0.0980833,1.70387\right),\left(0.0995833,1.82334\right),\left(0.0985833,1.89447\right),\left(0.0995833,1.91843\right),\left(0.0985833,1.92862\right),\left(0.0990833,1.93843\right),\left(0.0990833,1.95289\right),\left(0.100083,1.96511\right),\left(0.0990833,1.98446\right),\left(0.0995833,1.97959\right),\left(0.100083,1.96831\right),\left(0.0995833,1.97699\right),\left(0.100083,1.98938\right),\left(0.0985833,2.00881\right),\left(0.0990833,2.00216\right),\left(0.0985833,1.99729\right),\left(0.0990833,1.99969\right),\left(0.0990833,2.00881\right),\left(0.0995833,2.02642\right),\left(0.0995833,2.03164\right),\left(0.0995833,2.02967\right),\left(0.0990833,2.01641\right),\left(0.0990833,2.01547\right),\left(0.0995833,2.02317\right),\left(0.0995833,2.02833\right),\left(0.0995833,2.02219\right),\left(0.0995833,2.01559\right),\left(0.0995833,2.013\right),\left(0.100083,2.02228\right),\left(0.0990833,2.03006\right),\left(0.0995833,2.02086\right),\left(0.100083,2.02131\right),\left(0.100083,2.02968\right),\left(0.100083,2.04502\right),\left(0.0990833,2.05508\right),\left(0.177583,2.05277\right),\left(0.255667,3.04536\right),\left(0.27925,4.44366\right),\left(0.286917,5.4474\right),\left(0.293083,6.08054\right),\left(0.295167,6.49922\right),\left(0.296667,6.7494\right),\left(0.29775,6.91132\right),\left(0.29825,7.00713\right),\left(0.29925,7.06201\right),\left(0.29875,7.12406\right),\left(0.29975,7.14759\right),\left(0.29925,7.16812\right),\left(0.300333,7.17387\right),\left(0.300333,7.1871\right),\left(0.300333,7.1986\right),\left(0.300333,7.21276\right),\left(0.300833,7.21914\right),\left(0.301333,7.22229\right),\left(0.301833,7.22329\right),\left(0.300833,7.24257\right),\left(0.300833,7.23687\right),\left(0.300833,7.232\right),\left(0.301333,7.2374\right),\left(0.301833,7.24286\right),\left(0.301833,7.25035\right),\left(0.300833,7.25313\right),\left(0.301833,7.24337\right),\left(0.300833,7.23957\right),\left(0.300833,7.23187\right),\left(0.300833,7.24144\right),\left(0.301833,7.24437\right),\left(0.301333,7.24626\right),\left(0.300833,7.24087\right),\left(0.301833,7.2404\right),\left(0.301833,7.24992\right),\left(0.301333,7.2573\right),\left(0.301333,7.25688\right),\left(0.300833,7.24992\right),\left(0.301833,7.23703\right),\left(0.301333,7.25241\right),\left(0.301333,7.25343\right),\left(0.301333,7.2487\right),\left(0.301333,7.24588\right),\left(0.301333,7.2557\right),\left(0.300833,7.25288\right),\left(0.300833,7.23986\right),\left(0.301333,7.23753\right),\left(0.301333,7.24323\right),\left(0.301333,7.24827\right),\left(0.301333,7.25038\right),\left(0.264333,7.25034\right),\left(0.228917,6.80696\right),\left(0.218167,6.17156\right),\left(0.214083,5.71432\right),\left(0.211,5.41677\right),\left(0.209917,5.22537\right),\left(0.208917,5.09121\right),\left(0.207917,5.00527\right),\left(0.207417,4.93534\right),\left(0.206833,4.90302\right),\left(0.206333,4.86797\right),\left(0.00358333,4.82791\right),\left(-0.266917,2.86084\right),\left(-0.410667,-1.54299\right),\left(-0.461,-5.42932\right),\left(-0.474833,-8.10428\right),\left(-0.4825,-9.72357\right),\left(-0.489167,-10.6928\right),\left(-0.493333,-11.2979\right),\left(-0.494833,-11.6768\right),\left(-0.495833,-11.9099\right),\left(-0.496917,-12.0439\right),\left(-0.497917,-12.134\right),\left(-0.498917,-12.2005\right),\left(-0.4995,-12.2466\right),\left(-0.5005,-12.2766\right),\left(-0.5,-12.302\right),\left(-0.5005,-12.3171\right),\left(-0.5005,-12.3336\right),\left(-0.5005,-12.3417\right),\left(-0.501,-12.3394\right),\left(-0.501,-12.3473\right),\left(-0.5015,-12.3535\right),\left(-0.501,-12.3608\right),\left(-0.5005,-12.3631\right),\left(-0.502,-12.3566\right),\left(-0.5015,-12.3658\right),\left(-0.501,-12.3664\right),\left(-0.5015,-12.3636\right),\left(-0.5015,-12.3721\right),\left(-0.5015,-12.3739\right),\left(-0.501,-12.3672\right),\left(-0.5015,-12.3619\right),\left(-0.502,-12.368\right),\left(-0.501,-12.3759\right),\left(-0.501,-12.3649\right),\left(-0.5015,-12.3602\right),\left(-0.5015,-12.3632\right),\left(-0.502,-12.3638\right),\left(-0.501,-12.3759\right),\left(-0.501,-12.3686\right),\left(-0.502,-12.367\right),\left(-0.501,-12.3714\right),\left(-0.502,-12.3648\right),\left(-0.501,-12.3779\right),\left(-0.501,-12.3722\right),\left(-0.5015,-12.3633\right),\left(-0.502,-12.3671\right),\left(-0.5015,-12.3761\right),\left(-0.5015,-12.3796\right),\left(-0.5015,-12.3763\right),\left(-0.502,-12.3713\right),\left(-0.501,-12.3792\right),\left(-0.5015,-12.373\right),\left(-0.5015,-12.3713\right),\left(-0.5015,-12.3727\right),\left(-0.5015,-12.3744\right),\left(-0.5015,-12.3698\right),\left(-0.5015,-12.3692\right),\left(-0.502,-12.3723\right),\left(-0.502,-12.3791\right),\left(-0.5015,-12.3793\right),\left(-0.306417,-12.3645\right),\left(0.00566667,-9.95093\right),\left(0.2495,-5.46073\right),\left(0.47225,0.0559528\right),\left(0.701167,5.31989\right),\left(0.881917,10.7947\right),\left(0.955833,15.8677\right),\left(0.975333,19.5111\right),\left(0.9835,21.7483\right),\left(0.988667,23.0726\right),\left(0.986583,23.8678\right),\left(0.989167,24.2824\right),\left(0.989667,24.5444\right),\left(0.989167,24.6924\right),\left(0.986583,24.7738\right),\left(0.989667,24.7863\right),\left(0.994333,24.8271\right),\left(0.99175,24.9071\right),\left(0.988667,24.9185\right),\left(0.987667,24.8882\right),\left(0.990167,24.8654\right),\left(0.996333,24.877\right),\left(0.99175,24.9561\right),\left(0.988167,24.947\right),\left(0.99225,24.9036\right),\left(0.995333,24.924\right),\left(0.996917,24.9676\right),\left(0.99125,25.0163\right),\left(0.993833,24.9739\right),\left(0.995833,24.9835\right),\left(0.996333,25.0093\right),\left(0.997917,25.0306\right),\left(0.997417,25.056\right),\left(0.996333,25.067\right),\left(0.996917,25.0624\right),\left(0.996917,25.0672\right),\left(0.99325,25.0652\right),\left(0.99275,25.0251\right),\left(0.993833,24.9976\right),\left(0.989667,24.9943\right),\left(0.99275,24.9448\right),\left(0.996333,24.9564\right),\left(0.995833,24.9999\right),\left(0.99325,25.0194\right),\left(0.99325,25.0029\right),\left(0.99225,24.9916\right),\left(0.993833,24.9756\right),\left(0.99275,24.9818\right),\left(0.993833,24.9757\right),\left(0.997417,24.9805\right),\left(0.997917,25.0264\right),\left(0.99275,25.0565\right),\left(0.993833,25.015\right),\left(0.996917,25.0028\right),\left(0.997417,25.0344\right),\left(0.994333,25.0575\right),\left(0.99275,25.0329\right),\left(0.994333,24.9984\right),\left(0.990167,25.0043\right),\left(0.99325,24.9545\right)\right]
