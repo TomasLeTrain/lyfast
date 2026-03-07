@@ -1077,19 +1077,17 @@ void motorPlantTest() {
         .Kv = kalman_Kv,
         .Ka = kalman_Ka,
         .Ks = kalman_Ks,
-        .process_covariance = units::square(5_rpm),
+        .accel_process_covariance = units::square(5_rpm2),
         .measurement_covariance_factor = 0.4 * 0.4,
         .measurement_covariance_offset = units::square(5_rpm),
     };
 
-    MotorGroupKalmanFilter::State initial_state { .velocity = 0_radps };
-
     //
     //
-    lyfast::MotorGroupKalmanFilter filter { &test_motor,
-                                            filter_constants,
-                                            initial_state,
-                                            units::square(0_rpm) };
+    lyfast::MotorGroupKalmanFilter filter {
+        &test_motor,
+        filter_constants,
+    };
     // lyfast::FeedforwardVelocityController<AngularVelocity> feedforward {
     //     lyfast::FeedforwardVelocityControllerParams<AngularVelocity> {
     //                                                                   .Kv = 1
