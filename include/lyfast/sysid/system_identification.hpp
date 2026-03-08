@@ -15,6 +15,7 @@
 
 namespace blazing {
 namespace lyfast {
+
 namespace sysid {
 
 template<typename T>
@@ -127,7 +128,7 @@ class MotorGroupUtils {
                                         KsUnits ks);
 
     // print data in desmos-friendly format - prints in VelUnit units
-    static void print_data_as_latex(const VectorDataT& data);
+    static void printDataAsLatex(const VectorDataT& data);
 };
 
 // more explicit instantiations

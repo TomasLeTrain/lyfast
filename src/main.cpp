@@ -2,6 +2,7 @@
 #include "blazing/api.hpp"
 #include "blazing/controllers/controllers.hpp"
 #include "blazing/controllers/slew.hpp"
+#include "blazing/latex_utils.hpp"
 #include "blazing/utils.hpp"
 #include "lyfast/api.hpp"
 #include "lyfast/controllers/drivetrain_vel_plant.hpp"
@@ -1165,7 +1166,7 @@ void motorPlantTest() {
     //                                        10_msec);
     //
     // std::cout << "Data: " << std::endl;
-    // AngularMotorGroupUtils::print_data_as_latex(data);
+    // AngularMotorGroupUtils::printDataAsLatex(data);
     //
     // auto [Kv, Ks] = AngularMotorGroupUtils::fit_kv_ks_data(data);
     //
@@ -1291,7 +1292,7 @@ void motorPlantTest() {
     // std::cout << "got data!" << std::endl;
     //
     // std::cout << "ka Data: " << std::endl;
-    // AngularMotorGroupUtils::print_data_as_latex(data);
+    // AngularMotorGroupUtils::printDataAsLatex(data);
     //
     // std::cout << "trying Ka_method1: " << std::endl;
     //
@@ -1320,6 +1321,15 @@ void motorPlantTest() {
 
     std::vector<lyfast::sysid::AngularSysidEntry> raw_data, filtered_data;
 
+    std::vector<std::pair<FTorque, FCurrent>> extra_data;
+    std::vector<FPower> power_data;
+    std::vector<FAngularVelocity> tick_based_vel_data;
+
+    uint32_t last_timestamp;
+    int last_position = test_motor.get_raw_position(&last_timestamp);
+
+    pros::delay(15);
+
     for (auto [voltage, duration, record] : test_commands) {
         test_motor.move_voltage(12 * to_mvolt(voltage));
 
@@ -1338,18 +1348,47 @@ void motorPlantTest() {
 
             Voltage desired_voltage = voltage;
             AngularVelocity raw_vel = test_motor.get_actual_velocity() * rpm;
+
+            Torque torque = test_motor.get_torque() * Nm; // calculated
+            Current current = test_motor.get_current_draw() * mamp;
+            Power power = test_motor.get_power() * watt;
+
+            uint32_t curr_timestamp;
+            int curr_position = test_motor.get_raw_position(&curr_timestamp);
+            auto position_delta = curr_position - last_position;
+            Time time_delta = from_msec(curr_timestamp - last_timestamp);
+
+            // 900 ticks / revolution
+            Angle angular_position_delta = position_delta / (900 / rot);
+            AngularVelocity estimated_angular_velocity =
+              angular_position_delta / time_delta;
+
+            last_timestamp = curr_timestamp;
+            last_position = curr_position;
+
             raw_data.emplace_back(raw_vel, desired_voltage);
             filtered_data.emplace_back(filter_velocity, filter_voltage);
+            extra_data.emplace_back(torque, current);
+            power_data.emplace_back(power);
+            tick_based_vel_data.emplace_back(estimated_angular_velocity);
 
             pros::c::task_delay_until(&prev_time, int_delta_time);
         }
     }
 
     std::cout << "raw data: " << std::endl;
-    AngularMotorGroupUtils::print_data_as_latex(raw_data);
+    AngularMotorGroupUtils::printDataAsLatex(raw_data);
 
     std::cout << "filtered data: " << std::endl;
-    AngularMotorGroupUtils::print_data_as_latex(filtered_data);
+    AngularMotorGroupUtils::printDataAsLatex(filtered_data);
+
+    std::cout << "extra data (torque, current): " << std::endl;
+    printPairQuantitiesAsLatex(extra_data);
+
+    std::cout << "power data: " << std::endl;
+    printQuantityVectorAsLatex(power_data);
+    std::cout << "tick based vel data: " << std::endl;
+    printQuantityVectorAsLatex(tick_based_vel_data);
 }
 
 void opcontrol() {

@@ -1,6 +1,7 @@
 #include "lyfast/sysid/system_identification.hpp"
 #include "Eigen/Dense"
 #include "blazing/drivetrains/differential.hpp"
+#include "blazing/latex_utils.hpp"
 #include "blazing/utils.hpp"
 #include "lyfast/controllers/vel_controller.hpp"
 #include "pros/abstract_motor.hpp"
@@ -240,15 +241,11 @@ KaUnits<T> MotorGroupUtils<T>::fit_ka_data(const VectorDataT& data,
 
 // print data in desmos-friendly format - prints in VelUnit units
 template<typename T>
-void MotorGroupUtils<T>::print_data_as_latex(const VectorDataT& data) {
-    std::cout << "\\left[";
-    for (size_t i = 0; i < data.size(); i++) {
-        std::cout << "\\left(" << data[i].voltage.internal() << ","
-                  << data[i].velocity.convert(T { 1 }) << "\\right)";
-        // doesn't print comma for last point
-        if (i < data.size() - 1) std::cout << ",";
-    }
-    std::cout << "\\right]" << std::endl;
+void MotorGroupUtils<T>::printDataAsLatex(const VectorDataT& data) {
+    printPairListAsLatex(data.size(), [&](size_t i) -> std::pair<float, float> {
+        return { data[i].voltage.internal(),
+                 data[i].velocity.convert(T { 1 }) };
+    });
 }
 
 // differential sysid methods
@@ -421,10 +418,10 @@ void DifferentialUtils::printData(DifferentialData data, Time delta_time) {
     std::cout << "delta time of " << to_msec(delta_time) << " msec\n";
 
     std::cout << "left motor data (voltage, velocity):\n";
-    LinearMotorGroupUtils::print_data_as_latex(data.left);
+    LinearMotorGroupUtils::printDataAsLatex(data.left);
 
     std::cout << "right motor data(voltage, velocity):\n ";
-    LinearMotorGroupUtils::print_data_as_latex(data.right);
+    LinearMotorGroupUtils::printDataAsLatex(data.right);
 }
 
 DifferentialData DifferentialUtils::calculate_ka_kp_ki_fopdt(
