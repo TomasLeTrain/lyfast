@@ -1,0 +1,553 @@
+
+[tomas@nixbtw:~/projects/Robotics/current/libs/lyfast]$ mc
+Cleaning project
+muNot sending analytics for this command.
+
+
+t
+Compiled src/lyfast/geometry/line.c++ [OK]
+Compiled src/lyfast/geometry/curve.c++ [OK]
+Compiled src/lyfast/geometry/spline.c++ [OK]
+Compiled src/lyfast/geometry/cubicBezier.c++ [OK]
+Compiled src/lyfast/controllers/vel_controller.c++ [OK]
+Compiled src/lyfast/motion_profiling/mp.c++ [OK]
+Compiled src/main.cpp [WARNINGS]
+In file included from ./include/blazing/api.hpp:19,
+                 from src/main.cpp:2:
+./include/blazing/trackers/arc_odom.hpp: In member function 'void blazing::ArcOdomTracker::update()':
+./include/blazing/trackers/arc_odom.hpp:318:20: warning: variable 'delta_time' set but not used [-Wunused-but-set-variable]
+  318 |         const Time delta_time = deltaTime(last_time);
+      |                    ^~~~~~~~~~
+In file included from src/main.cpp:8:
+./include/lyfast/controllers/drivetrain_vel_plant.hpp: In member function 'void blazing::lyfast::MotorGroupKalmanFilter::correctSingleMotor(uint8_t)':
+./include/lyfast/controllers/drivetrain_vel_plant.hpp:120:25: warning: variable 'motor_measurement' set but not used [-Wunused-but-set-variable]
+  120 |         AngularVelocity motor_measurement =
+      |                         ^~~~~~~~~~~~~~~~~
+In file included from ./include/api.h:68,
+                 from ./include/main.h:37,
+                 from src/main.cpp:1:
+./include/pros/imu.hpp: At global scope:
+./include/pros/imu.hpp:145:30: warning: 'virtual int32_t pros::v5::Imu::reset(bool) const' was hidden [-Woverloaded-virtual=]
+  145 |         virtual std::int32_t reset(bool blocking = false) const;
+      |                              ^~~~~
+src/main.cpp:49:13: note:   by 'int32_t ScaledIMU::reset(bool)'
+   49 |     int32_t reset(bool blocking = false) {
+      |             ^~~~~
+./include/pros/imu.hpp:786:30: warning: 'virtual int32_t pros::v5::Imu::set_rotation(double) const' was hidden [-Woverloaded-virtual=]
+  786 |         virtual std::int32_t set_rotation(const double target) const;
+      |                              ^~~~~~~~~~~~
+src/main.cpp:64:17: note:   by 'virtual int ScaledIMU::set_rotation(double)'
+   64 |     virtual int set_rotation(double new_rotation) {
+      |                 ^~~~~~~~~~~~
+src/main.cpp: In function 'void managerTaskFunction()':
+src/main.cpp:1133:14: warning: unused variable 'lastCenterControllerPressTime' [-Wunused-variable]
+ 1133 |     uint32_t lastCenterControllerPressTime = 0;
+      |              ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+src/main.cpp:1134:14: warning: unused variable 'centerControllerPressStartTime' [-Wunused-variable]
+ 1134 |     uint32_t centerControllerPressStartTime = 0;
+      |              ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+src/main.cpp:1135:10: warning: unused variable 'controllerCenterButtonPressDetected' [-Wunused-variable]
+ 1135 |     bool controllerCenterButtonPressDetected = false;
+      |          ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Compiled src/lyfast/state_space/ltv_unicycle_controller.c++ [OK]
+Compiled src/lyfast/sysid/system_identification.c++ [OK]
+mkdir: cannot create directory ‘./bin’: File exists
+make: [common.mk:213: bin/lyfast.a] Error 1 (ignored)
+Creating bin/lyfast.a  [DONE]
+Creating cold package with blazing,Eigen,float_units,libc,liblvgl,libm,libpros,lyfast [OK]
+Stripping cold package  [DONE]
+Section sizes:
+   text    data     bss   total     hex filename
+2.69MB  5.05KB  57.24MB  59.93MB 3bed0c3 bin/cold.package.elf
+Creating cold package binary for VEX EDR V5 [DONE]
+Adding timestamp [OK]
+Linking hot project with ./bin/cold.package.elf and blazing,Eigen,float_units,libc,liblvgl,libm,libpros,lyfast [OK]
+Section sizes:
+   text    data     bss   total     hex filename
+79.84KB 540.00B  46.01MB  46.09MB 2e15a99 bin/hot.package.elf
+Creating bin/hot.package.bin for VEX EDR V5 [DONE]
+Capturing metadata for PROS Editor...
+
+[tomas@nixbtw:~/projects/Robotics/current/libs/lyfast]$ mu
+Not sending analytics for this command.
+
+make: Nothing to be done for 'quick'.
+Uploading program "lyfast" (lyfast) to V5 slot 1 on /dev/ttyACM0 (compressed)
+Compressing library [####################################] 100%
+Library is already onboard V5
+Uploading slot_1.ini [####################################] 100%
+Compressing binary [####################################] 100%
+Uploading slot_1.bin (hot.package.bin) [####################################] 100%
+Finished uploading "lyfast" (lyfast) to V5
+
+[tomas@nixbtw:~/projects/Robotics/current/libs/lyfast]$ t
+Not sending analytics for this command.
+
+Established terminal connection
+
+
+
+         _+=+_
+      .-`  .  `-.          8888888b.  8888888b.   .d88888b.   .d8888b.
+   _+`     "     `+_       888   Y88b 888   Y88b d88P" "Y88b d88P  Y88b
+  \\\sssssssssssss///      888    888 888    888 888     888 Y88b.
+     .ss\  *  /ss.         888   d88P 888   d88P 888     888  "Y888b.
+ .+bm  .s  *  s.  md+.     8888888P"  8888888P"  888     888     "Y88b.
+.hMMMMs .  *  . sMMMMh.    888        888 T88b   888     888       "888
+ `\hMMMb \ | / dMMMh:      888        888  T88b  Y88b. .d88P Y88b  d88P
+   -SNMNo  -  oNMNs-       888        888   T88b  "Y88888P"   "Y8888P"
+     `+dMh\./dMd/
+        `:yNy:`                      Powered by PROS for VEX V5
+           "                Copyright (c) Purdue University ACM SIGBots
+Version:        4.2.1     Platform:  V1.1.5 (b18)     Uptime:    0.000 s
+Compiled:   Jan  1 1980 00:00:00     Directory:
+
+
+
+started sylib daemon
+voltage over time : -0.00024888
+voltage over time : 5.03333
+spike detected
+voltage over time : 3.74167
+spike detected
+voltage over time : 1.13333
+voltage over time : 0.1
+voltage over time : 0.158333
+voltage over time : 0.15
+voltage over time : 0.1
+voltage over time : 0
+voltage over time : 0.05
+voltage over time : -0.05
+voltage over time : 0.108333
+voltage over time : 0
+voltage over time : -0.0583333
+voltage over time : 0.0583333
+voltage over time : 0.05
+voltage over time : -0.05
+voltage over time : 0
+voltage over time : 0.1
+voltage over time : -0.05
+voltage over time : -0.05
+voltage over time : 0
+voltage over time : 0.05
+voltage over time : 0.05
+voltage over time : -0.208333
+voltage over time : 0.108333
+voltage over time : 0
+voltage over time : 0
+voltage over time : 0
+voltage over time : 0
+voltage over time : 0
+voltage over time : -0.0583333
+voltage over time : 0.108333
+voltage over time : 0
+voltage over time : -0.05
+voltage over time : 0.1
+voltage over time : -0.05
+voltage over time : -0.05
+voltage over time : 0.05
+voltage over time : 0
+voltage over time : -0.05
+voltage over time : 0
+voltage over time : 7.39167
+spike detected
+voltage over time : 8.05833
+spike detected
+voltage over time : 2.40833
+voltage over time : 0.466667
+voltage over time : 0.1
+voltage over time : 0.408333
+voltage over time : 0.108333
+voltage over time : 0.05
+voltage over time : 0.05
+voltage over time : 0.1
+voltage over time : -0.05
+voltage over time : 0
+voltage over time : 0.1
+voltage over time : 0
+voltage over time : 0
+voltage over time : 0
+voltage over time : 0.0583333
+voltage over time : 0.05
+voltage over time : -0.108333
+voltage over time : 0
+voltage over time : 0.0583333
+voltage over time : 0
+voltage over time : 0
+voltage over time : 0
+voltage over time : 0
+voltage over time : 0
+voltage over time : -0.0583333
+voltage over time : -0.05
+voltage over time : 0.05
+voltage over time : 0.0583333
+voltage over time : 0.05
+voltage over time : -0.05
+voltage over time : 0.05
+voltage over time : 0
+voltage over time : -0.108333
+voltage over time : 0.0583333
+voltage over time : 0
+voltage over time : 0
+voltage over time : 0
+voltage over time : 0
+voltage over time : 0.05
+voltage over time : -0.05
+voltage over time : 0
+voltage over time : 0
+voltage over time : 0
+voltage over time : 0.05
+voltage over time : -0.05
+voltage over time : -0.0583333
+voltage over time : 0.108333
+voltage over time : 0
+voltage over time : -0.05
+voltage over time : -3.44167
+voltage over time : -3.95
+spike detected
+voltage over time : -1.28333
+voltage over time : 0
+voltage over time : 0.05
+voltage over time : -0.158333
+voltage over time : -0.1
+voltage over time : -0.1
+voltage over time : 0
+voltage over time : 0.05
+voltage over time : -0.05
+voltage over time : -10.575
+spike detected
+voltage over time : -27.1583
+spike detected
+voltage over time : -19.7083
+spike detected
+voltage over time : -7.65
+spike detected
+voltage over time : -2.875
+voltage over time : -1.23333
+voltage over time : -0.925
+voltage over time : 0.208333
+voltage over time : -0.05
+voltage over time : -0.158333
+v\oltage over time : -0.05
+voltage over time : -0.05
+voltage over time : -0.158333
+voltage over time : 0
+voltage over time : -0.05
+voltage over time : 0
+voltage over time : 0.05
+voltage over time : -0.1
+voltage over time : -0.05
+voltage over time : 0.05
+voltage over time : 0
+voltage over time : 0
+voltage over time : -0.1
+voltage over time : 0.05
+voltage over time : -0.05
+voltage over time : 0
+voltage over time : 0.05
+voltage over time : 0
+voltage over time : 0
+voltage over time : -0.05
+voltage over time : 0
+voltage over time : 0
+voltage over time : 0.05
+voltage over time : 0
+voltage over time : -0.05
+voltage over time : 0.05
+voltage over time : -0.05
+voltage over time : 0
+voltage over time : 0.05
+voltage over time : -0.05
+voltage over time : 0
+voltage over time : 0
+voltage over time : 0
+voltage over time : -0.05
+voltage over time : 0.05
+voltage over time : 0
+voltage over time : 0.1
+voltage over time : -0.05
+voltage over time : -0.05
+voltage over time : -0.05
+voltage over time : 0
+voltage over time : 0.1
+voltage over time : 0
+voltage over time : 0
+voltage over time : 0
+voltage over time : -0.05
+voltage over time : 0.1
+voltage over time : -0.1
+voltage over time : 0.05
+voltage over time : -0.05
+voltage over time : 0
+voltage over time : 29.05
+spike detected
+voltage over time : 14.225
+spike detected
+voltage over time : 21.0917
+spike detected
+voltage over time : 20.8417
+spike detected
+voltage over time : 21.975
+spike detected
+voltage over time : 21.5583
+spike detected
+voltage over time : 10.4667
+spike detected
+voltage over time : 4.88333
+spike detected
+voltage over time : 2.30833
+voltage over time : 1.59167
+voltage over time : 0.866667
+voltage over time : 0.466667
+voltage over time : 0.308333
+voltage over time : 0.208333
+voltage over time : 0.1
+voltage over time : 0.1
+voltage over time : 0.05
+voltage over time : -0.05
+voltage over time : 0.1
+voltage over time : 0.0583333
+voltage over time : 0
+voltage over time : -0.308333
+voltage over time : 0
+voltage over time : -0.05
+voltage over time : 0.3
+voltage over time : 0.108333
+voltage over time : -0.158333
+voltage over time : 0.208333
+voltage over time : 0.05
+voltage over time : -0.358333
+voltage over time : 0
+voltage over time : -0.15
+voltage over time : 0.358333
+voltage over time : 0.2
+voltage over time : -0.408333
+voltage over time : 0.308333
+voltage over time : 0.1
+voltage over time : -0.508333
+voltage over time : 0.05
+voltage over time : 0.358333
+voltage over time : 0
+voltage over time : 0.1
+voltage over time : 0.05
+voltage over time : -0.358333
+voltage over time : 0.208333
+voltage over time : 0.1
+voltage over time : -0.05
+voltage over time : -0.308333
+voltage over time : -0.2
+voltage over time : 0.408333
+voltage over time : 0.2
+voltage over time : -0.1
+voltage over time : 0
+voltage over time : -0.208333
+voltage over time : 0.258333
+voltage over time : -0.05
+voltage over time : -0.308333
+voltage over time : -0.1
+voltage over time : 0.358333
+voltage over time : -0.308333
+raw data:
+\left[\left(0.100000,0.000000\right),\left(0.100000,0.000000\right),\left(0.100000,0.823795\right),\left(0.100000,0.781907\right),\left(0.100000,0.998328\right),\left(0.100000,1.494002\right),\left(0.100000,1.766273\right),\left(0.100000,1.947787\right),\left(0.100000,2.010619\right),\left(0.100000,2.073451\right),\left(0.100000,2.122320\right),\left(0.100000,2.150246\right),\left(0.100000,2.136283\right),\left(0.100000,2.164208\right),\left(0.100000,2.206096\right),\left(0.100000,2.185152\right),\left(0.100000,2.178171\right),\left(0.100000,2.150246\right),\left(0.100000,2.157227\right),\left(0.100000,2.241003\right),\left(0.100000,2.247984\right),\left(0.100000,2.234021\right),\left(0.100000,2.247984\right),\left(0.100000,2.282891\right),\left(0.100000,2.275909\right),\left(0.100000,2.227040\right),\left(0.100000,2.206096\right),\left(0.100000,2.213078\right),\left(0.100000,2.254965\right),\left(0.100000,2.199115\right),\left(0.100000,2.185152\right),\left(0.100000,2.171190\right),\left(0.100000,2.157227\right),\left(0.100000,2.192133\right),\left(0.100000,2.199115\right),\left(0.100000,2.206096\right),\left(0.100000,2.213078\right),\left(0.100000,2.241003\right),\left(0.100000,2.261947\right),\left(0.100000,2.241003\right),\left(0.100000,2.247984\right),\left(0.300000,2.254965\right),\left(0.300000,2.387610\right),\left(0.300000,4.056145\right),\left(0.300000,5.249950\right),\left(0.300000,5.941101\right),\left(0.300000,6.478662\right),\left(0.300000,6.611307\right),\left(0.300000,6.806784\right),\left(0.300000,6.946411\right),\left(0.300000,7.044149\right),\left(0.300000,7.023205\right),\left(0.300000,7.351327\right),\left(0.300000,7.099999\right),\left(0.300000,7.099999\right),\left(0.300000,7.127924\right),\left(0.300000,7.400196\right),\left(0.300000,7.309439\right),\left(0.300000,7.197738\right),\left(0.300000,7.281514\right),\left(0.300000,7.072074\right),\left(0.300000,7.190756\right),\left(0.300000,7.407177\right),\left(0.300000,7.400196\right),\left(0.300000,7.113962\right),\left(0.300000,7.295476\right),\left(0.300000,7.323401\right),\left(0.300000,7.267551\right),\left(0.300000,7.169813\right),\left(0.300000,7.386233\right),\left(0.300000,7.281514\right),\left(0.300000,7.337364\right),\left(0.300000,7.316420\right),\left(0.300000,7.239626\right),\left(0.300000,7.134906\right),\left(0.300000,7.323401\right),\left(0.300000,7.567748\right),\left(0.300000,7.323401\right),\left(0.300000,7.176794\right),\left(0.300000,7.225663\right),\left(0.300000,7.351327\right),\left(0.300000,7.260570\right),\left(0.300000,7.337364\right),\left(0.300000,7.344346\right),\left(0.300000,7.106981\right),\left(0.300000,7.197738\right),\left(0.300000,7.337364\right),\left(0.300000,7.281514\right),\left(0.300000,7.051130\right),\left(0.300000,7.323401\right),\left(0.300000,7.490953\right),\left(0.300000,7.372271\right),\left(0.200000,7.162831\right),\left(0.200000,7.169813\right),\left(0.200000,6.541494\right),\left(0.200000,6.122615\right),\left(0.200000,5.955063\right),\left(0.200000,5.431465\right),\left(0.200000,5.417502\right),\left(0.200000,5.124287\right),\left(0.200000,5.131268\right),\left(0.200000,5.117305\right),\left(0.200000,5.068436\right),\left(-0.500000,5.012586\right),\left(-0.500000,4.893903\right),\left(-0.500000,1.361357\right),\left(-0.500000,-4.014257\right),\left(-0.500000,-7.819075\right),\left(-0.500000,-9.375909\right),\left(-0.500000,-10.409143\right),\left(-0.500000,-11.156144\right),\left(-0.500000,-11.575024\right),\left(-0.500000,-11.602949\right),\left(-0.500000,-11.658799\right),\left(-0.500000,-12.161454\right),\left(-0.500000,-12.245230\right),\left(-0.500000,-11.903146\right),\left(-0.500000,-12.091641\right),\left(-0.500000,-12.091641\right),\left(-0.500000,-12.370893\right),\left(-0.500000,-12.412782\right),\left(-0.500000,-12.238249\right),\left(-0.500000,-12.238249\right),\left(-0.500000,-12.426744\right),\left(-0.500000,-12.329006\right),\left(-0.500000,-12.510520\right),\left(-0.500000,-12.580334\right),\left(-0.500000,-12.301081\right),\left(-0.500000,-12.147491\right),\left(-0.500000,-12.426744\right),\left(-0.500000,-12.377875\right),\left(-0.500000,-12.419763\right),\left(-0.500000,-12.112585\right),\left(-0.500000,-12.203342\right),\left(-0.500000,-12.601277\right),\left(-0.500000,-12.377875\right),\left(-0.500000,-12.224286\right),\left(-0.500000,-12.217305\right),\left(-0.500000,-12.140511\right),\left(-0.500000,-11.931070\right),\left(-0.500000,-12.433725\right),\left(-0.500000,-12.349950\right),\left(-0.500000,-12.545426\right),\left(-0.500000,-12.273155\right),\left(-0.500000,-12.398819\right),\left(-0.500000,-12.580334\right),\left(-0.500000,-12.447688\right),\left(-0.500000,-12.021828\right),\left(-0.500000,-12.301081\right),\left(-0.500000,-12.559389\right),\left(-0.500000,-12.405800\right),\left(-0.500000,-12.426744\right),\left(-0.500000,-12.063716\right),\left(-0.500000,-12.601277\right),\left(-0.500000,-12.356931\right),\left(-0.500000,-12.238249\right),\left(-0.500000,-12.349950\right),\left(-0.500000,-12.384856\right),\left(-0.500000,-12.112585\right),\left(-0.500000,-12.175417\right),\left(-0.500000,-12.566371\right),\left(-0.500000,-12.363913\right),\left(-0.500000,-12.182398\right),\left(-0.500000,-12.287118\right),\left(1.000000,-12.301081\right),\left(1.000000,-11.917109\right),\left(1.000000,-5.654867\right),\left(1.000000,-4.363323\right),\left(1.000000,0.837758\right),\left(1.000000,9.564404\right),\left(1.000000,15.212290\right),\left(1.000000,18.675022\right),\left(1.000000,20.790361\right),\left(1.000000,22.605505\right),\left(1.000000,22.821926\right),\left(1.000000,23.575907\right),\left(1.000000,23.855160\right),\left(1.000000,24.281021\right),\left(1.000000,24.630087\right),\left(1.000000,24.762732\right),\left(1.000000,25.432938\right),\left(1.000000,24.385740\right),\left(1.000000,25.830873\right),\left(1.000000,25.062927\right),\left(1.000000,25.775023\right),\left(1.000000,24.993114\right),\left(1.000000,25.481808\right),\left(1.000000,25.726152\right),\left(1.000000,24.846508\right),\left(1.000000,25.321238\right),\left(1.000000,25.872761\right),\left(1.000000,25.188591\right),\left(1.000000,24.671974\right),\left(1.000000,25.244442\right),\left(1.000000,25.495770\right),\left(1.000000,24.818583\right),\left(1.000000,24.895376\right),\left(1.000000,26.682594\right),\left(1.000000,24.776693\right),\left(1.000000,24.930283\right),\left(1.000000,24.532349\right),\left(1.000000,25.495770\right),\left(1.000000,24.832544\right),\left(1.000000,25.132742\right),\left(1.000000,25.279348\right),\left(1.000000,25.097836\right),\left(1.000000,24.727825\right),\left(1.000000,25.076891\right),\left(1.000000,26.291639\right),\left(1.000000,24.741787\right),\left(1.000000,25.670303\right),\left(1.000000,24.588198\right),\left(1.000000,26.047295\right),\left(1.000000,24.155357\right),\left(1.000000,25.411993\right),\left(1.000000,25.139723\right),\left(1.000000,25.328218\right),\left(1.000000,24.930283\right),\left(1.000000,25.495770\right),\left(1.000000,25.523695\right),\left(1.000000,24.979153\right),\left(1.000000,24.630087\right),\left(1.000000,25.405012\right),\left(1.000000,26.850145\right),\left(1.000000,24.350834\right)\right]
+filtered data:
+\left[\left(0.000000,0.000000\right),\left(-0.000500,0.000000\right),\left(0.049833,0.000000\right),\left(0.087250,0.491211\right),\left(0.098583,0.911390\right),\left(0.099583,1.413217\right),\left(0.101167,1.634588\right),\left(0.102667,1.882411\right),\left(0.103667,2.016113\right),\left(0.103667,2.089616\right),\left(0.104167,2.124588\right),\left(0.103667,2.146122\right),\left(0.104750,2.151470\right),\left(0.104750,2.164623\right),\left(0.104167,2.170881\right),\left(0.104750,2.168145\right),\left(0.105250,2.172556\right),\left(0.104750,2.179552\right),\left(0.104750,2.245661\right),\left(0.105750,2.022635\right),\left(0.105250,2.175247\right),\left(0.104750,2.180723\right),\left(0.104750,2.178517\right),\left(0.105250,2.245160\right),\left(0.105750,2.213817\right),\left(0.103667,2.204021\right),\left(0.104750,2.179005\right),\left(0.104750,2.177721\right),\left(0.104750,2.244738\right),\left(0.104750,2.208733\right),\left(0.104750,2.191816\right),\left(0.104750,2.183807\right),\left(0.104167,2.180006\right),\left(0.105250,2.172486\right),\left(0.105250,2.179518\right),\left(0.104750,2.250840\right),\left(0.105750,2.211630\right),\left(0.105250,2.202981\right),\left(0.104750,2.194015\right),\left(0.105250,2.184862\right),\left(0.105250,2.253540\right),\left(0.104750,2.217797\right),\left(0.104750,2.196126\right),\left(0.178667,2.232079\right),\left(0.259250,3.114527\right),\left(0.283333,4.487986\right),\left(0.288000,5.512600\right),\left(0.289000,6.135322\right),\left(0.293083,6.497413\right),\left(0.294167,6.740550\right),\left(0.294667,6.870704\right),\left(0.295167,6.961730\right),\left(0.296167,7.027125\right),\left(0.295667,7.063792\right),\left(0.295667,7.078165\right),\left(0.296667,7.025751\right),\left(0.296667,7.026565\right),\left(0.296667,7.055440\right),\left(0.296667,7.089444\right),\left(0.297250,7.103358\right),\left(0.297750,7.117486\right),\left(0.296667,7.130793\right),\left(0.296667,7.136408\right),\left(0.297250,7.128951\right),\left(0.297250,7.139483\right),\left(0.297250,7.137169\right),\left(0.297250,7.135910\right),\left(0.297250,7.145768\right),\left(0.297250,7.151163\right),\left(0.296667,7.143533\right),\left(0.296167,7.132834\right),\left(0.296667,7.131899\right),\left(0.297250,7.126493\right),\left(0.297750,7.140623\right),\left(0.297250,7.143399\right),\left(0.297750,7.139305\right),\left(0.297750,7.153249\right),\left(0.296667,7.160877\right),\left(0.297250,7.142283\right),\left(0.297250,7.138697\right),\left(0.297250,7.147291\right),\left(0.297250,7.141424\right),\left(0.297250,7.148784\right),\left(0.297750,7.142237\right),\left(0.297250,7.144280\right),\left(0.297250,7.150343\right),\left(0.297250,7.153663\right),\left(0.297250,7.144896\right),\left(0.297750,7.140120\right),\left(0.297250,7.143127\right),\left(0.296667,7.149713\right),\left(0.297750,7.146756\right),\left(0.297750,7.146740\right),\left(0.297250,7.146734\right),\left(0.262833,7.151684\right),\left(0.223333,6.743771\right),\left(0.210500,6.092395\right),\left(0.210500,5.569383\right),\left(0.211000,5.287065\right),\left(0.209417,5.140218\right),\left(0.208417,5.023685\right),\left(0.207417,4.950256\right),\left(0.207417,4.918532\right),\left(0.207917,4.851078\right),\left(0.207417,4.870488\right),\left(0.101667,4.857181\right),\left(-0.169917,3.073294\right),\left(-0.367000,-0.228796\right),\left(-0.443500,-4.152064\right),\left(-0.472250,-7.172548\right),\left(-0.484583,-9.166311\right),\left(-0.493833,-10.402995\right),\left(-0.491750,-11.198016\right),\left(-0.492250,-11.607912\right),\left(-0.493833,-11.847971\right),\left(-0.494333,-11.989465\right),\left(-0.494833,-12.082055\right),\left(-0.496417,-12.134776\right),\left(-0.496417,-12.181797\right),\left(-0.496917,-12.161337\right),\left(-0.496917,-12.167981\right),\left(-0.496417,-12.182675\right),\left(-0.497417,-12.194751\right),\left(-0.497917,-12.220119\right),\left(-0.497417,-12.245679\right),\left(-0.497417,-12.250003\right),\left(-0.497417,-12.259547\right),\left(-0.498417,-12.261172\right),\left(-0.497917,-12.278263\right),\left(-0.498417,-12.282012\right),\left(-0.498417,-12.289757\right),\left(-0.497917,-12.289904\right),\left(-0.497917,-12.288432\right),\left(-0.497917,-12.283502\right),\left(-0.498417,-12.284902\right),\left(-0.498417,-12.291349\right),\left(-0.498417,-12.294907\right),\left(-0.497917,-12.292742\right),\left(-0.497917,-12.289998\right),\left(-0.498417,-12.288485\right),\left(-0.497917,-12.289203\right),\left(-0.498417,-12.288046\right),\left(-0.498417,-12.293084\right),\left(-0.497917,-12.291738\right),\left(-0.498417,-12.289444\right),\left(-0.498417,-12.289732\right),\left(-0.498417,-12.294014\right),\left(-0.498417,-12.296375\right),\left(-0.498917,-12.297678\right),\left(-0.498417,-12.299942\right),\left(-0.498417,-12.299645\right),\left(-0.497417,-12.299481\right),\left(-0.497917,-12.283918\right),\left(-0.498417,-12.285131\right),\left(-0.498917,-12.291476\right),\left(-0.498917,-12.300653\right),\left(-0.497917,-12.301581\right),\left(-0.497917,-12.294873\right),\left(-0.497917,-12.287051\right),\left(-0.497917,-12.286859\right),\left(-0.498417,-12.286754\right),\left(-0.497417,-12.292372\right),\left(-0.498417,-12.280000\right),\left(-0.497917,-12.288647\right),\left(-0.498417,-12.283620\right),\left(-0.498417,-12.290643\right),\left(-0.207917,-11.787899\right),\left(-0.065667,-8.646261\right),\left(0.145250,-4.850126\right),\left(0.353667,-0.764740\right),\left(0.573417,3.459320\right),\left(0.789000,8.276655\right),\left(0.893667,13.394577\right),\left(0.942500,17.423231\right),\left(0.965583,20.212555\right),\left(0.981500,22.019753\right),\left(0.990167,23.203928\right),\left(0.994833,23.958389\right),\left(0.997917,24.430412\right),\left(1.000000,24.726942\right),\left(1.001000,24.914894\right),\left(1.002000,25.031387\right),\left(1.002500,25.107302\right),\left(1.002000,25.154015\right),\left(1.003000,25.158159\right),\left(1.003583,25.188908\right),\left(1.003583,25.212585\right),\left(1.000500,25.225697\right),\left(1.000500,25.197809\right),\left(1.000000,25.183287\right),\left(1.003000,25.168623\right),\left(1.004083,25.194702\right),\left(1.002500,25.221493\right),\left(1.004583,25.218281\right),\left(1.005083,25.240252\right),\left(1.001500,25.259876\right),\left(1.001500,25.227104\right),\left(1.000000,25.210913\right),\left(1.003583,25.183922\right),\left(1.005583,25.208792\right),\left(1.001500,25.247322\right),\left(1.004583,25.221186\right),\left(1.005583,25.241859\right),\left(1.000500,25.264709\right),\left(1.001000,25.219414\right),\left(1.004583,25.200031\right),\left(1.004583,25.231070\right),\left(1.005583,25.247334\right),\left(1.006083,25.267740\right),\left(1.002500,25.285671\right),\left(1.004583,25.253822\right),\left(1.005583,25.259933\right),\left(1.005083,25.274719\right),\left(1.002000,25.277206\right),\left(1.000000,25.244360\right),\left(1.004083,25.202446\right),\left(1.006083,25.226707\right),\left(1.005083,25.262018\right),\left(1.005083,25.270172\right),\left(1.003000,25.274689\right),\left(1.005583,25.253441\right),\left(1.005083,25.272051\right),\left(1.002000,25.275728\right),\left(1.001000,25.243542\right),\left(1.004583,25.213392\right)\right]
+extra data (torque, current):
+\left[\left(0.000000,0.000000\right),\left(0.002827,0.014000\right),\left(0.009565,0.035000\right),\left(0.008807,0.035000\right),\left(0.008740,0.035000\right),\left(0.008634,0.035000\right),\left(0.008534,0.035000\right),\left(0.000000,0.010000\right),\left(0.000000,0.000000\right),\left(0.000000,0.000000\right),\left(0.000000,0.000000\right),\left(0.000000,0.000000\right),\left(0.000000,0.000000\right),\left(0.000000,0.000000\right),\left(0.000000,0.000000\right),\left(0.000000,0.000000\right),\left(0.000000,0.000000\right),\left(0.000000,0.000000\right),\left(0.000000,0.000000\right),\left(0.000000,0.000000\right),\left(0.000000,0.000000\right),\left(0.000000,0.000000\right),\left(0.000000,0.000000\right),\left(0.000000,0.000000\right),\left(0.000000,0.000000\right),\left(0.000000,0.000000\right),\left(0.000000,0.000000\right),\left(0.000000,0.000000\right),\left(0.000000,0.000000\right),\left(0.000000,0.000000\right),\left(0.000000,0.000000\right),\left(0.000000,0.000000\right),\left(0.000000,0.000000\right),\left(0.000000,0.000000\right),\left(0.000000,0.000000\right),\left(0.000000,0.000000\right),\left(0.000000,0.000000\right),\left(0.000000,0.000000\right),\left(0.000000,0.000000\right),\left(0.000000,0.000000\right),\left(0.000000,0.000000\right),\left(0.000000,0.000000\right),\left(0.003451,0.035000\right),\left(0.036341,0.122000\right),\left(0.059811,0.179000\right),\left(0.077979,0.221000\right),\left(0.089352,0.247000\right),\left(0.099199,0.270000\right),\left(0.064806,0.192000\right),\left(0.042773,0.142000\right),\left(0.028659,0.110000\right),\left(0.021552,0.094000\right),\left(0.016306,0.082000\right),\left(0.011906,0.072000\right),\left(0.008759,0.065000\right),\left(0.006119,0.059000\right),\left(0.003479,0.053000\right),\left(0.000839,0.047000\right),\left(0.000000,0.040000\right),\left(0.000000,0.037000\right),\left(0.000000,0.038000\right),\left(0.000000,0.041000\right),\left(0.000000,0.044000\right),\left(0.000360,0.046000\right),\left(0.000000,0.044000\right),\left(0.000000,0.039000\right),\left(0.000000,0.032000\right),\left(0.000000,0.031000\right),\left(0.000000,0.032000\right),\left(0.000000,0.036000\right),\left(0.000000,0.041000\right),\left(0.000000,0.044000\right),\left(0.000000,0.043000\right),\left(0.000000,0.040000\right),\left(0.000000,0.035000\right),\left(0.000000,0.031000\right),\left(0.000000,0.032000\right),\left(0.000000,0.036000\right),\left(0.000000,0.041000\right),\left(0.000000,0.043000\right),\left(0.000000,0.044000\right),\left(0.000000,0.040000\right),\left(0.000000,0.034000\right),\left(0.000000,0.031000\right),\left(0.000000,0.032000\right),\left(0.000000,0.036000\right),\left(0.000000,0.041000\right),\left(0.000000,0.042000\right),\left(0.000000,0.042000\right),\left(0.000000,0.041000\right),\left(0.000000,0.035000\right),\left(0.000000,0.037000\right),\left(0.000000,0.038000\right),\left(0.000000,0.037000\right),\left(0.000000,0.031000\right),\left(0.000000,0.025000\right),\left(0.000000,0.018000\right),\left(0.000000,0.007000\right),\left(0.000000,0.000000\right),\left(0.000000,0.000000\right),\left(0.000000,0.001000\right),\left(0.000000,0.001000\right),\left(0.000000,0.003000\right),\left(0.000000,0.003000\right),\left(0.012121,0.043000\right),\left(0.099956,0.253000\right),\left(0.199415,0.509000\right),\left(0.268219,0.677000\right),\left(0.310736,0.778000\right),\left(0.338511,0.843000\right),\left(0.286852,0.727000\right),\left(0.184032,0.493000\right),\left(0.106558,0.317000\right),\left(0.063772,0.220000\right),\left(0.038219,0.162000\right),\left(0.024546,0.131000\right),\left(0.015200,0.110000\right),\left(0.010800,0.100000\right),\left(0.007246,0.092000\right),\left(0.005486,0.088000\right),\left(0.003320,0.083000\right),\left(0.001933,0.080000\right),\left(0.001459,0.079000\right),\left(0.000613,0.077000\right),\left(0.000613,0.077000\right),\left(0.000173,0.076000\right),\left(0.000106,0.076000\right),\left(0.000000,0.075000\right),\left(0.000000,0.075000\right),\left(0.000000,0.075000\right),\left(0.000000,0.075000\right),\left(0.000000,0.074000\right),\left(0.000000,0.073000\right),\left(0.000000,0.074000\right),\left(0.000000,0.074000\right),\left(0.000000,0.074000\right),\left(0.000000,0.075000\right),\left(0.000000,0.074000\right),\left(0.000000,0.074000\right),\left(0.000000,0.074000\right),\left(0.000000,0.075000\right),\left(0.000000,0.073000\right),\left(0.000000,0.073000\right),\left(0.000000,0.074000\right),\left(0.000000,0.074000\right),\left(0.000000,0.074000\right),\left(0.000000,0.073000\right),\left(0.000000,0.074000\right),\left(0.000000,0.074000\right),\left(0.000000,0.074000\right),\left(0.000000,0.074000\right),\left(0.000000,0.074000\right),\left(0.000000,0.073000\right),\left(0.000000,0.074000\right),\left(0.000000,0.074000\right),\left(0.000000,0.075000\right),\left(0.000000,0.074000\right),\left(0.000000,0.073000\right),\left(0.000000,0.074000\right),\left(0.000000,0.074000\right),\left(0.000000,0.074000\right),\left(0.000000,0.074000\right),\left(0.000000,0.074000\right),\left(0.000000,0.074000\right),\left(0.000000,0.073000\right),\left(0.072775,0.197000\right),\left(0.134648,0.316000\right),\left(0.191366,0.457000\right),\left(0.284787,0.701000\right),\left(0.387130,0.967000\right),\left(0.519672,1.301000\right),\left(0.521912,1.322000\right),\left(0.555606,1.406000\right),\left(0.496862,1.276000\right),\left(0.412197,1.086000\right),\left(0.295458,0.822000\right),\left(0.172826,0.544000\right),\left(0.102219,0.384000\right),\left(0.066000,0.302000\right),\left(0.035573,0.233000\right),\left(0.023186,0.205000\right),\left(0.009953,0.175000\right),\left(0.004266,0.162000\right),\left(0.002439,0.158000\right),\left(0.000000,0.151000\right),\left(0.000000,0.149000\right),\left(0.000000,0.144000\right),\left(0.000000,0.142000\right),\left(0.000000,0.131000\right),\left(0.000000,0.129000\right),\left(0.000000,0.127000\right),\left(0.000000,0.123000\right),\left(0.000000,0.119000\right),\left(0.000000,0.117000\right),\left(0.000000,0.116000\right),\left(0.000000,0.110000\right),\left(0.000000,0.111000\right),\left(0.000000,0.115000\right),\left(0.000000,0.120000\right),\left(0.000000,0.120000\right),\left(0.000000,0.122000\right),\left(0.000000,0.120000\right),\left(0.000000,0.119000\right),\left(0.000000,0.116000\right),\left(0.000000,0.118000\right),\left(0.000000,0.119000\right),\left(0.000000,0.122000\right),\left(0.000000,0.120000\right),\left(0.000000,0.117000\right),\left(0.000000,0.121000\right),\left(0.000000,0.116000\right),\left(0.000000,0.115000\right),\left(0.000000,0.114000\right),\left(0.000000,0.117000\right),\left(0.000000,0.114000\right),\left(0.000000,0.116000\right),\left(0.000000,0.115000\right),\left(0.000000,0.117000\right),\left(0.000000,0.114000\right),\left(0.000000,0.117000\right),\left(0.000000,0.114000\right),\left(0.000000,0.117000\right),\left(0.000000,0.114000\right),\left(0.000000,0.118000\right),\left(0.000000,0.116000\right)\right]
+power data:
+\left[0.000000,0.000000,0.007878,0.006885,0.008724,0.012897,0.015070,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.008238,0.147378,0.313944,0.463191,0.578770,0.655709,0.441038,0.297061,0.201842,0.151338,0.119847,0.084515,0.062177,0.043607,0.025740,0.006131,0.000000,0.000000,0.000000,0.000000,0.000000,0.002663,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.059306,0.136050,0.800352,2.096827,2.912882,3.522946,3.199564,2.129770,1.236158,0.743370,0.464711,0.300509,0.180890,0.130561,0.087602,0.067857,0.041198,0.023649,0.017856,0.007613,0.007553,0.002161,0.001332,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.867098,0.761274,0.834833,0.238537,3.701968,7.903905,9.744872,11.549063,11.229692,9.405361,6.964368,4.122004,2.481522,1.625279,0.880721,0.589583,0.242661,0.110180,0.061126,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000\right]
+tick based vel data:
+\left[nan,0.000000,0.698132,0.698132,1.396263,1.396263,2.094395,2.094395,2.094395,2.094395,2.094395,2.094395,2.094395,2.094395,2.094395,2.094395,2.094395,2.792527,1.396263,2.792527,2.094395,2.094395,2.792527,2.094395,2.094395,2.094395,2.094395,2.792527,2.094395,2.094395,2.094395,2.094395,2.094395,2.094395,2.792527,2.094395,2.094395,2.094395,2.094395,2.792527,2.094395,2.094395,2.792527,4.188790,4.886922,5.585053,6.283185,6.981317,6.981317,6.283185,6.981317,7.679449,6.981317,6.981317,6.981317,6.981317,7.679449,7.679449,6.981317,6.981317,6.981317,7.679449,6.981317,7.679449,6.981317,6.981317,7.679449,7.679449,6.981317,6.981317,7.679449,6.981317,7.679449,6.981317,6.981317,7.679449,7.679449,6.981317,6.981317,7.679449,6.981317,7.679449,6.981317,6.981317,7.679449,7.679449,6.981317,6.981317,6.981317,7.679449,7.679449,6.981317,6.981317,7.679449,6.283185,6.981317,5.585053,5.585053,5.585053,4.886922,4.886922,5.585053,4.188790,5.585053,4.886922,1.396263,-3.490659,-6.981317,-9.075712,-10.471975,-10.471975,-11.868238,-11.170107,-12.566371,-11.170107,-12.566371,-11.868238,-11.868238,-12.566371,-12.566371,-11.868238,-11.868238,-12.566371,-12.566371,-11.868238,-12.566371,-11.868238,-12.566371,-12.566371,-12.566371,-11.868238,-12.566371,-11.868238,-12.566371,-12.566371,-12.566371,-11.868238,-12.566371,-12.566371,-11.868238,-12.566371,-12.566371,-11.868238,-12.566371,-11.868238,-12.566371,-12.566371,-12.566371,-11.868238,-12.566371,-12.566371,-11.868238,-12.566371,-12.566371,-12.566371,-11.868238,-12.566371,-11.868238,-12.566371,-12.566371,-12.566371,-11.868238,-12.566371,-11.868238,-12.566371,-12.566371,-6.283185,-2.094395,2.094395,7.679449,13.962634,16.755161,20.245819,22.340214,22.340214,23.736477,23.736477,24.434610,24.434610,24.434610,25.132742,25.132742,24.434610,25.132742,25.132742,25.132742,25.132742,25.132742,25.830873,25.132742,25.132742,25.132742,25.132742,25.132742,26.529005,24.434610,25.830873,25.132742,24.434610,25.830873,25.132742,25.132742,25.132742,25.132742,25.132742,25.830873,25.132742,25.132742,25.830873,25.132742,25.132742,25.132742,25.132742,25.830873,25.132742,25.830873,25.132742,25.132742,25.132742,25.132742,25.830873,25.132742,25.830873,25.132742,25.132742,25.132742,25.132742,25.132742,25.830873\right]
+voltage over time : 0.358333
+voltage over time : 0.000000
+voltage over time : 0.000000
+voltage over time : -0.208333
+voltage over time : -0.200000
+voltage over time : 0.358333
+voltage over time : 0.050000
+voltage over time : -0.358333
+voltage over time : 0.050000
+voltage over time : 0.258333
+voltage over time : 0.100000
+voltage over time : 0.050000
+voltage over time : -0.250000
+voltage over time : -0.258333
+voltage over time : 0.408333
+voltage over time : 0.050000
+voltage over time : 0.050000
+voltage over time : -0.050000
+voltage over time : 0.000000
+voltage over time : 0.050000
+voltage over time : -0.050000
+voltage over time : -0.308333
+voltage over time : -0.150000
+voltage over time : 0.050000
+voltage over time : 0.308333
+voltage over time : 0.050000
+voltage over time : -0.308333
+voltage over time : 0.358333
+voltage over time : -0.050000
+voltage over time : 0.100000
+voltage over time : -0.358333
+voltage over time : 0.308333
+voltage over time : 0.000000
+voltage over time : -0.408333
+voltage over time : -0.050000
+voltage over time : 0.000000
+voltage over time : 0.050000
+voltage over time : 0.208333
+voltage over time : 0.200000
+voltage over time : -0.308333
+voltage over time : -0.050000
+voltage over time : 0.308333
+voltage over time : 0.000000
+voltage over time : -0.308333
+voltage over time : 0.258333
+voltage over time : 0.150000
+voltage over time : -0.100000
+voltage over time : -0.258333
+voltage over time : 0.208333
+voltage over time : -0.208333
+voltage over time : 0.208333
+voltage over time : -0.408333
+voltage over time : 0.408333
+voltage over time : 0.100000
+voltage over time : 0.050000
+voltage over time : 0.000000
+voltage over time : -0.050000
+voltage over time : -0.308333
+voltage over time : -0.100000
+voltage over time : 0.308333
+voltage over time : 0.050000
+voltage over time : -0.208333
+voltage over time : -0.050000
+voltage over time : 0.308333
+voltage over time : -0.150000
+voltage over time : -0.258333
+voltage over time : 0.050000
+voltage over time : 0.258333
+voltage over time : 0.100000
+voltage over time : -0.308333
+voltage over time : 0.108333
+voltage over time : 0.200000
+voltage over time : 0.000000
+voltage over time : -0.408333
+voltage over time : 0.358333
+voltage over time : -0.358333
+voltage over time : -0.150000
+voltage over time : 0.100000
+voltage over time : 0.358333
+voltage over time : 0.050000
+voltage over time : 0.000000
+voltage over time : 0.100000
+voltage over time : -0.050000
+voltage over time : -0.308333
+voltage over time : -0.100000
+voltage over time : 0.358333
+voltage over time : 0.050000
+voltage over time : 0.000000
+voltage over time : -0.308333
+voltage over time : 0.208333
+voltage over time : 0.150000
+voltage over time : -0.408333
+voltage over time : 0.158333
+voltage over time : 0.200000
+voltage over time : -0.050000
+voltage over time : 0.000000
+voltage over time : 0.050000
+voltage over time : -0.308333
+voltage over time : 0.258333
+voltage over time : 0.050000
+voltage over time : 0.000000
+voltage over time : -0.258333
+voltage over time : 0.158333
+voltage over time : 0.050000
+voltage over time : -0.308333
+voltage over time : 0.258333
+voltage over time : 0.100000
+voltage over time : 0.000000
+voltage over time : -0.408333
+voltage over time : 0.258333
+voltage over time : 0.150000
+voltage over time : -0.050000
+voltage over time : 0.100000
+voltage over time : -0.408333
+voltage over time : 0.258333
+voltage over time : 0.050000
+voltage over time : 0.100000
+voltage over time : -0.458333
+voltage over time : 0.308333
+voltage over time : 0.050000
+voltage over time : 0.000000
+voltage over time : -0.208333
+voltage over time : 0.208333
+voltage over time : 0.000000
+voltage over time : 0.050000
+voltage over time : -0.308333
+voltage over time : 0.208333
+voltage over time : 0.050000
+voltage over time : -0.308333
+voltage over time : 0.258333
+voltage over time : 0.100000
+voltage over time : -0.050000
+voltage over time : 0.000000
+voltage over time : 0.000000
+voltage over time : 0.100000
+voltage over time : 0.000000
+voltage over time : -0.050000
+voltage over time : -0.358333
+voltage over time : 0.000000
+voltage over time : 0.158333
+voltage over time : 0.150000
+voltage over time : -0.358333
+voltage over time : 0.358333
+voltage over time : 0.050000
+voltage over time : 0.000000
+voltage over time : -0.150000
+voltage over time : 0.100000
+voltage over time : -0.208333
+voltage over time : -0.150000
+voltage over time : 0.050000
+voltage over time : 0.158333
+voltage over time : 0.100000
+voltage over time : 0.100000
+voltage over time : -0.100000
+voltage over time : 0.100000
+voltage over time : 0.050000
+voltage over time : -0.050000
+voltage over time : 0.050000
+voltage over time : 0.058333
+voltage over time : -0.108333
+voltage over time : -0.358333
+voltage over time : 0.158333
+voltage over time : 0.150000
+voltage over time : 0.000000
+voltage over time : -0.408333
+voltage over time : 0.308333
+voltage over time : 0.150000
+voltage over time : -0.100000
+voltage over time : 0.150000
+voltage over time : 0.000000
+voltage over time : -0.050000
+voltage over time : 0.000000
+voltage over time : -0.050000
+voltage over time : -0.258333
+voltage over time : -0.150000
+voltage over time : 0.050000
+voltage over time : 0.308333
+voltage over time : 0.050000
+voltage over time : -0.308333
+voltage over time : 0.258333
+voltage over time : 0.100000
+voltage over time : -0.050000
+voltage over time : 0.000000
+voltage over time : 0.100000
+voltage over time : -0.408333
+voltage over time : -0.100000
+voltage over time : 0.050000
+voltage over time : 0.258333
+voltage over time : 0.100000
+voltage over time : 0.000000
+WARNING - pros.serial.terminal.terminal:stop - Stopping terminal - pros-cli version:3.5.6
+
+[tomas@nixbtw:~/projects/Robotics/current/libs/lyfast]$
+

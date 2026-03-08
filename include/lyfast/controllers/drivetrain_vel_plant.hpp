@@ -7,6 +7,7 @@
 #include "pros/motors.hpp"
 #include "units/Angle.hpp"
 #include "units/units.hpp"
+#include <chrono>
 #include <map>
 
 namespace blazing {
@@ -30,11 +31,20 @@ class MotorGroupKalmanFilter {
     using CovarianceUnit = Exponentiated<AngularVelocity, std::ratio<2>>;
 
     struct Input {
+        Torque torque;
         Voltage voltage;
     };
 
     struct State {
         AngularVelocity velocity;
+    };
+
+    struct CorrectCovarianceGains {
+        // cov = factor * measurement^2
+        // covariance increases on larger velocities
+        float measurement_covariance_factor = units::square(0.4);
+        // minimum covariance
+        CovarianceUnit measurement_covariance_offset = units::square(5_rpm);
     };
 
     struct Constants {
@@ -50,13 +60,14 @@ class MotorGroupKalmanFilter {
         // ks constant of the motor
         Voltage Ks;
 
+        Divided<AngularVelocity, Torque> Kt;
+        // number of ms to disable torque usage
+        uint32_t torque_disable_period = 100;
+
         CovarianceUnit process_covariance = units::square(5_rpm);
 
-        // cov = factor * measurement^2
-        // covariance increases on larger velocities
-        float measurement_covariance_factor = units::square(0.4);
-        // minimum covariance
-        CovarianceUnit measurement_covariance_offset = units::square(5_rpm);
+        CorrectCovarianceGains motor_reported_gains;
+        CorrectCovarianceGains tick_based_gains;
     };
 
   private:
@@ -67,66 +78,124 @@ class MotorGroupKalmanFilter {
     Input m_input;
     CovarianceUnit m_covariance { 0 };
 
-    void correctSingleMotor(std::uint8_t idx) {
-        AngularVelocity motor_reported_velocity =
-          motor_group->get_actual_velocity(idx) * rpm;
-        pros::MotorGears gearing = motor_group->get_gearing(idx);
+    uint32_t m_last_predict_timestamp;
+    uint32_t m_disabled_torque_timestamp = 0;
 
-        AngularVelocity geared_motor_reported_velocity =
-          (motor_reported_velocity / gearingToVelocity(gearing)) *
-          m_constants.final_gearing_rpm;
+    struct motorState {
+        uint32_t prev_motor_clock;
+        int32_t prev_motor_ticks;
+    };
 
-        std::cout << "motor vel: "
-                  << geared_motor_reported_velocity.convert(radps) << std::endl;
+    std::array<std::optional<motorState>, 21> motor_states;
 
-        // TODO: perform basic filtering on the reported velocity?
+    void correctVelocity(AngularVelocity measurement, bool tick_based) {
+        CorrectCovarianceGains& current_constants =
+          tick_based ? m_constants.tick_based_gains :
+                       m_constants.motor_reported_gains;
 
-        AngularVelocity innovation =
-          geared_motor_reported_velocity - m_state_estimate.velocity;
-        std::cout << "innovation: " << innovation.internal() << std::endl;
+        AngularVelocity innovation = measurement - m_state_estimate.velocity;
 
         CovarianceUnit measurement_covariance =
-          m_constants.measurement_covariance_factor *
-            units::square(geared_motor_reported_velocity) +
-          m_constants.measurement_covariance_offset;
-        std::cout << "meas cov: " << measurement_covariance.internal()
-                  << std::endl;
+          current_constants.measurement_covariance_factor *
+            units::square(measurement) +
+          current_constants.measurement_covariance_offset;
 
         CovarianceUnit innovation_covariance =
           m_covariance + measurement_covariance;
-        std::cout << "innovation cov: " << innovation_covariance.internal()
-                  << std::endl;
 
         float gain = m_covariance / innovation_covariance;
-        std::cout << "gain: " << gain << std::endl;
 
         m_state_estimate.velocity =
           m_state_estimate.velocity + gain * innovation;
-        std::cout << "new vel: " << m_state_estimate.velocity << std::endl;
 
         // update covariance from measurement
         m_covariance = (1 - gain) * m_covariance;
-        std::cout << "new cov: " << m_covariance << std::endl;
-        std::cout << "ENDED" << std::endl;
+    }
+
+    void correctSingleMotor(std::uint8_t idx) {
+        AngularVelocity raw_motor_measurement =
+          motor_group->get_actual_velocity(idx) * rpm;
+        pros::MotorGears gearing = motor_group->get_gearing(idx);
+
+        AngularVelocity motor_measurement =
+          (raw_motor_measurement / gearingToVelocity(gearing)) *
+          m_constants.final_gearing_rpm;
+
+        // correct using the motor estimated velocity
+        // TODO: disabled for debugging for now
+        // correctVelocity(motor_measurement, false);
+
+        uint32_t curr_motor_clock;
+        int32_t curr_motor_ticks =
+          motor_group->get_raw_position(&curr_motor_clock, idx);
+
+        uint32_t motor_port = std::abs(motor_group->get_port(idx)) - 1;
+        auto& motor_state = motor_states[motor_port];
+
+        if (!motor_state.has_value()) {
+            // no clue on the previous value, update previous and skip
+            motor_state = motorState { .prev_motor_clock = curr_motor_clock,
+                                       .prev_motor_ticks = curr_motor_ticks };
+            return;
+        }
+
+        double motor_dt =
+          5.0 *
+          std::round((curr_motor_clock - motor_state->prev_motor_clock) / 5.0);
+
+        double tick_delta = curr_motor_ticks - motor_state->prev_motor_ticks;
+        motor_state->prev_motor_clock = curr_motor_clock;
+        motor_state->prev_motor_ticks = curr_motor_ticks;
+
+        // 900 ticks / revolution for 200 rpm cart
+        // ticks decrease as final rpm increases
+        Divided<Number, Angle> conversion =
+          (900.0 / rot) * (200_rpm / m_constants.final_gearing_rpm);
+
+        Angle angular_position_delta = tick_delta / conversion;
+        AngularVelocity tick_based_measurement =
+          angular_position_delta / from_msec(motor_dt);
+
+        if (std::abs(motor_dt) <= 1e-5 ||
+            units::abs(tick_based_measurement) >
+              29_radps) { // Motor position reset manually
+            // again don't have any new information, return
+        } else {
+            // we do have good measurement, use
+            correctVelocity(tick_based_measurement, true);
+        }
+    }
+
+    void updateTorqueInput() {
+        int motor_count = 0;
+
+        m_input.torque = 0_Nm;
+        for (auto torque : motor_group->get_torque_all()) {
+            m_input.torque += from_Nm(torque);
+            motor_count++;
+        }
+
+        m_input.torque /= static_cast<float>(motor_count);
     }
 
     // update input (voltage) based on motor data
     void updateInput() {
-        m_input.voltage = 0_volt;
         int motor_count = 0;
+
+        m_input.voltage = 0_volt;
         for (auto voltage : motor_group->get_voltage_all()) {
             m_input.voltage += from_mvolt(voltage) / 12.0;
             motor_count++;
         }
         m_input.voltage /= static_cast<float>(motor_count);
-        std::cout << "input updated to " << m_input.voltage << std::endl;
+
+        updateTorqueInput();
     }
 
   public:
     // take measurements from the motor(s) and correct model based on them
     void correct() {
         // apply correction for each motor
-        std::cout << "correcting" << std::endl;
         for (int i = 0; i < motor_group->size(); i++) {
             correctSingleMotor(i);
         }
@@ -134,6 +203,10 @@ class MotorGroupKalmanFilter {
 
     // predict x_k+1 from x_k and u_k
     void predict(Time dt) {
+        // torque data seems to be delayed, so use current one instead of last
+        // data
+        updateTorqueInput();
+
         Voltage V_eff;
         if (units::abs(m_input.voltage) < m_constants.Ks) {
             // voltage low enough that it cannot overcome friction, resulting in
@@ -143,8 +216,6 @@ class MotorGroupKalmanFilter {
             V_eff =
               m_input.voltage - m_constants.Ks * units::sgn(m_input.voltage);
         }
-        std::cout << "START" << std::endl;
-        std::cout << "V_eff " << V_eff << std::endl;
 
         // V = kv * v + ka * a + ks * sgn(V)
         // [V - sgn(v) * ks] = kv * v + ka * a
@@ -164,23 +235,55 @@ class MotorGroupKalmanFilter {
         //
         // v = A * v + B * V_eff
 
+        auto curr_time = pros::millis();
+        bool curr_torque_enabled = curr_time - m_disabled_torque_timestamp >
+                                   m_constants.torque_disable_period;
+
         double A = 1 - (m_constants.Kv / m_constants.Ka) * dt;
-        auto B = (1.0 / m_constants.Ka) * dt;
-        std::cout << "A/B " << A << " " << B << std::endl;
+        auto Bv = (1.0 / m_constants.Ka) * dt;
+        auto Bt = -m_constants.Kt * units::sgn(V_eff);
 
         AngularVelocity new_predicted_v =
-          m_state_estimate.velocity * A + B * V_eff;
+          m_state_estimate.velocity * A + Bv * V_eff;
 
-        std::cout << "new predicted v " << new_predicted_v << std::endl;
+        if (curr_torque_enabled) new_predicted_v += Bt * m_input.torque;
 
         m_state_estimate = { .velocity = new_predicted_v };
 
         m_covariance = A * A * m_covariance + m_constants.process_covariance;
-        std::cout << "new predict covairance " << m_covariance << std::endl;
+
+        // save voltage before updating input
+        auto last_voltage = m_input.voltage;
 
         // update input after prediction
-        std::cout << "updating input " << std::endl;
         updateInput();
+
+        auto voltage_over_time = (m_input.voltage - last_voltage) / dt;
+
+        // TODO: move 3.5 to be a constant
+        if (units::abs(voltage_over_time) > Divided<Voltage, Time> { 3.5 }) {
+            // there will be a torque spike because of the voltage change,
+            // disable torque based prediction temporarily to avoid wrong
+            // predictions
+            m_disabled_torque_timestamp = curr_time;
+            std::cout << "spike detected" << std::endl;
+        }
+
+        m_last_predict_timestamp = curr_time;
+    }
+
+    // predicts to match the timestamp, as a time in pros::millis()
+    void predictToTimestamp(uint32_t timestamp) {
+        if (timestamp <= m_last_predict_timestamp) {
+            // timestamp before the latest prediction timestamp, can't predict
+            // into the past
+            return;
+        }
+        predict(from_msec(timestamp - m_last_predict_timestamp));
+    }
+
+    uint32_t getLastPredictTimestamp() {
+        return m_last_predict_timestamp;
     }
 
     Input getInput() {
@@ -194,6 +297,7 @@ class MotorGroupKalmanFilter {
     void setPredictedState(State new_state, CovarianceUnit covariance) {
         m_state_estimate = new_state;
         m_covariance = covariance;
+        m_last_predict_timestamp = pros::millis();
     }
 
     MotorGroupKalmanFilter(pros::MotorGroup* motors,
@@ -203,8 +307,9 @@ class MotorGroupKalmanFilter {
         : motor_group(motors),
           m_constants(constants),
           m_state_estimate(initial_state_estimate),
-          m_input({ .voltage = 0_volt }),
-          m_covariance(initial_covariance) {}
+          m_input({ .torque = 0_Nm, .voltage = 0_volt }),
+          m_covariance(initial_covariance),
+          m_last_predict_timestamp(pros::millis()) {}
 };
 
 class AngularMotorGroupVelocityPlant {
