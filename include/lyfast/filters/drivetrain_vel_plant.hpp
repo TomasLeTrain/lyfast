@@ -13,19 +13,6 @@
 namespace blazing {
 namespace lyfast {
 
-// returns -1 if gearing is invalid
-// TODO: move to blazing utils?
-inline AngularVelocity gearingToVelocity(pros::MotorGears gearing) {
-    if (gearing == pros::MotorGears::rpm_600)
-        return 600_rpm;
-    else if (gearing == pros::MotorGears::rpm_200)
-        return 200_rpm;
-    else if (gearing == pros::MotorGears::rpm_100)
-        return 100_rpm;
-    // if encoder units are not set then it defaults to 200?
-    return 200_rpm;
-}
-
 class MotorGroupKalmanFilter {
   public:
     using CovarianceUnit = Exponentiated<AngularVelocity, std::ratio<2>>;

@@ -167,6 +167,17 @@ std::array<T, size> desaturate(std::array<T, size> saturated, T max) {
     return saturated;
 }
 
+inline AngularVelocity gearingToVelocity(pros::MotorGears gearing) {
+    if (gearing == pros::MotorGears::rpm_600)
+        return 600_rpm;
+    else if (gearing == pros::MotorGears::rpm_200)
+        return 200_rpm;
+    else if (gearing == pros::MotorGears::rpm_100)
+        return 100_rpm;
+    // if encoder units are not set then it defaults to 200?
+    return 200_rpm;
+}
+
 // gets the average angular velocity of the motor group
 inline AngularVelocity get_group_velocity(pros::MotorGroup* motors,
                                           AngularVelocity final_rpm) {
@@ -181,19 +192,8 @@ inline AngularVelocity get_group_velocity(pros::MotorGroup* motors,
 
         double velocity = motors->get_actual_velocity(motor_i);
         pros::MotorGears encoder_units = motors->get_gearing(motor_i);
-        AngularVelocity start_rpm;
-
-        if (encoder_units == pros::MotorGears::blue)
-            start_rpm = 600_rpm;
-        else if (encoder_units == pros::MotorGears::green)
-            start_rpm = 200_rpm;
-        else if (encoder_units == pros::MotorGears::red)
-            start_rpm = 100_rpm;
-        else
-            // if encoder units are not set then it defaults to 200?
-            start_rpm = 200_rpm;
-
-        AngularVelocity actual_rpm = (velocity * rpm) * final_rpm / start_rpm;
+        AngularVelocity start_rpm = gearingToVelocity(encoder_units);
+        AngularVelocity actual_rpm = (velocity * rpm) * (final_rpm / start_rpm);
 
         average_rpm += actual_rpm;
     }

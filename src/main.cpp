@@ -8,6 +8,7 @@
 #include "lyfast/controllers/drivetrain_vel_plant.hpp"
 #include "lyfast/controllers/path_pose_feedback.hpp"
 #include "lyfast/controllers/vel_controller.hpp"
+#include "lyfast/controllers/vel_filtering.hpp"
 #include "lyfast/motions/path_follower.hpp"
 #include "lyfast/sysid/system_identification.hpp"
 #include "pros/abstract_motor.hpp"
@@ -1103,7 +1104,21 @@ lyfast::MotorGroupKalmanFilter filter { &test_motor,
                                         initial_state,
                                         units::square(0_rpm) };
 
+EMAVelocityFilter::Constants ema_filter_constants {
+    .final_gearing_rpm = 200_rpm,
+    .Koffset = 0.1,
+    .KalphaFactor = 0.7,
+};
+lyfast::EMAVelocityFilter ema_filter { &test_motor,
+                                       ema_filter_constants,
+                                       initial_state.velocity };
+
 std::vector<FAngularVelocity> tick_based_vel_data;
+
+std::vector<lyfast::sysid::AngularSysidEntry> raw_data, filtered_data;
+
+std::vector<std::pair<FTorque, FCurrent>> extra_data;
+std::vector<FPower> power_data;
 
 void managerTaskFunction() {
     printf("\nstarted sylib daemon\n");
@@ -1131,9 +1146,6 @@ void managerTaskFunction() {
     uint32_t detectorPreviousTime = pros::millis();
     uint64_t systemTimeMicros = pros::micros();
     uint64_t prevMicros = systemTimeMicros;
-    uint32_t lastCenterControllerPressTime = 0;
-    uint32_t centerControllerPressStartTime = 0;
-    bool controllerCenterButtonPressDetected = false;
 
     int frameCount;
 
@@ -1164,35 +1176,42 @@ void managerTaskFunction() {
             if (frameCount % 5 == 0) {
                 uint32_t curr_time = pros::millis();
                 // predict the filter
-                filter.predictToTimestamp(curr_time);
-                filter.correct();
+                ema_filter.predictToTimestamp(curr_time);
+                ema_filter.correct();
 
-                uint32_t currentInternalMotorClock;
-                int32_t currentMotorTicks =
-                  test_motor.get_raw_position(&currentInternalMotorClock);
-
-                double dT = 5.0 * std::round((currentInternalMotorClock -
-                                              previousInternalMotorClock) /
-                                             5.0);
-                // if (dT == 0.0) {
-                //     return outputVelocity;
-                // }
-                // static uint32_t prevTime = pros::millis();
-                double dN = currentMotorTicks - oldMotorTicks;
-                previousInternalMotorClock = currentInternalMotorClock;
-                oldMotorTicks = currentMotorTicks;
-                // double rawVelocity = (dN / 50) / dT * 60000;
-
-                // 900 ticks / revolution
-                Angle angular_position_delta = dN / (900 / rot);
-                AngularVelocity estimated_angular_velocity =
-                  angular_position_delta / from_msec(dT);
-
-                // if (std::abs(rawVelocity) >
-                //     5000) { // Motor position reset manually
-                //     // return outputVelocity;
-                // }
-                tick_based_vel_data.emplace_back(estimated_angular_velocity);
+                // uint32_t currentInternalMotorClock;
+                // int32_t currentMotorTicks =
+                //   test_motor.get_raw_position(&currentInternalMotorClock);
+                //
+                // double dT = 5.0 * std::round((currentInternalMotorClock -
+                //                               previousInternalMotorClock) /
+                //                              5.0);
+                // double dN = currentMotorTicks - oldMotorTicks;
+                // previousInternalMotorClock = currentInternalMotorClock;
+                // oldMotorTicks = currentMotorTicks;
+                //
+                // // 900 ticks / revolution
+                // Angle angular_position_delta = dN / (900 / rot);
+                // AngularVelocity estimated_angular_velocity =
+                //   angular_position_delta / from_msec(dT);
+                //
+                // tick_based_vel_data.emplace_back(estimated_angular_velocity);
+                //
+                // Voltage filter_voltage = ema_filter.getInput();
+                // AngularVelocity filter_velocity =
+                //   ema_filter.getPredictedState();
+                //
+                // AngularVelocity raw_vel =
+                //   test_motor.get_actual_velocity() * rpm;
+                //
+                // Torque torque = test_motor.get_torque() * Nm; // calculated
+                // Current current = test_motor.get_current_draw() * mamp;
+                // Power power = test_motor.get_power() * watt;
+                //
+                // raw_data.emplace_back(raw_vel, filter_voltage);
+                // filtered_data.emplace_back(filter_velocity, filter_voltage);
+                // extra_data.emplace_back(torque, current);
+                // power_data.emplace_back(power);
             }
 
             pros::Task::delay_until(&systemTime, 2);
@@ -1432,19 +1451,16 @@ void motorPlantTest() {
     startSylibDaemon();
 
     std::vector<VoltageCommand> test_commands = {
-        { 0.1_volt,  400_msec },
-        { 0.3_volt,  500_msec },
-        { 0.2_volt,  100_msec },
-        { -0.5_volt, 600_msec },
-        { 1.0_volt,  600_msec },
+        { 0.1_volt,  400_msec  },
+        { 0.3_volt,  500_msec  },
+        { 0.4_volt,  100_msec  },
+        { 0.2_volt,  100_msec  },
+        { -0.5_volt, 600_msec  },
+        { -1.0_volt, 600_msec  },
+        { 1.0_volt,  1000_msec },
     };
 
     uint32_t int_delta_time = 10;
-
-    std::vector<lyfast::sysid::AngularSysidEntry> raw_data, filtered_data;
-
-    std::vector<std::pair<FTorque, FCurrent>> extra_data;
-    std::vector<FPower> power_data;
 
     // uint32_t last_timestamp;
     // int last_position = test_motor.get_raw_position(&last_timestamp);
@@ -1458,39 +1474,6 @@ void motorPlantTest() {
         uint32_t prev_time = pros::millis();
 
         while (!timeoutDone(duration, start_time)) {
-            // predict and correct the filter
-            // filter.predict(10_msec);
-            // filter.correct();
-
-            Voltage filter_voltage = filter.getInput().voltage;
-            AngularVelocity filter_velocity =
-              filter.getPredictedState().velocity;
-
-            Voltage desired_voltage = voltage;
-            AngularVelocity raw_vel = test_motor.get_actual_velocity() * rpm;
-
-            Torque torque = test_motor.get_torque() * Nm; // calculated
-            Current current = test_motor.get_current_draw() * mamp;
-            Power power = test_motor.get_power() * watt;
-
-            // uint32_t curr_timestamp;
-            // int curr_position = test_motor.get_raw_position(&curr_timestamp);
-            // auto position_delta = curr_position - last_position;
-            // Time time_delta = from_msec(curr_timestamp - last_timestamp);
-
-            // 900 ticks / revolution
-            // Angle angular_position_delta = position_delta / (900 / rot);
-            // AngularVelocity estimated_angular_velocity =
-            //   angular_position_delta / time_delta;
-
-            // last_timestamp = curr_timestamp;
-            // last_position = curr_position;
-
-            raw_data.emplace_back(raw_vel, desired_voltage);
-            filtered_data.emplace_back(filter_velocity, filter_voltage);
-            extra_data.emplace_back(torque, current);
-            power_data.emplace_back(power);
-
             pros::c::task_delay_until(&prev_time, int_delta_time);
         }
     }
