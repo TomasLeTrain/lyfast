@@ -5,7 +5,7 @@
 #include "blazing/latex_utils.hpp"
 #include "blazing/utils.hpp"
 #include "lyfast/api.hpp"
-#include "lyfast/controllers/drivetrain_vel_plant.hpp"
+#include "lyfast/filters/ema_filter.hpp"
 #include "lyfast/controllers/path_pose_feedback.hpp"
 #include "lyfast/controllers/vel_controller.hpp"
 #include "lyfast/controllers/vel_filtering.hpp"
@@ -1075,39 +1075,6 @@ FeedforwardVelocityControllerParams<AngularVelocity> feedforward_params {
     .Kv = Kv,
     .Ka = Ka,
     .Ks = Ks,
-};
-
-MotorGroupKalmanFilter::Constants filter_constants {
-    .final_gearing_rpm = 200_rpm,
-    .Kv = kalman_Kv,
-    .Ka = kalman_Ka,
-    .Ks = kalman_Ks,
-    .Kt  = kalman_Kt,
-	.torque_disable_period = 100,
-    .process_covariance = units::square(5_rpm),
-    .motor_reported_gains =  {
-                           .measurement_covariance_factor = 0.35,
-                           .measurement_covariance_offset = units::square(5_rpm),
-                           },
-    .tick_based_gains =  {
-                           .measurement_covariance_factor = 0.45,
-                           .measurement_covariance_offset = units::square(5_rpm),
-                           },
-};
-
-MotorGroupKalmanFilter::State initial_state { .velocity = 0_radps };
-
-//
-//
-lyfast::MotorGroupKalmanFilter filter { &test_motor,
-                                        filter_constants,
-                                        initial_state,
-                                        units::square(0_rpm) };
-
-EMAVelocityFilter::Constants ema_filter_constants {
-    .final_gearing_rpm = 200_rpm,
-    .Koffset = 0.1,
-    .KalphaFactor = 0.7,
 };
 lyfast::EMAVelocityFilter ema_filter { &test_motor,
                                        ema_filter_constants,
