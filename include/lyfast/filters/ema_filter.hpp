@@ -175,7 +175,7 @@ class EMAVelocityFilter {
 
     EMAVelocityFilter(pros::MotorGroup* motors,
                       Constants constants,
-                      State initial_state_estimate)
+                      State initial_state_estimate = 0_radps)
         : motor_group(motors),
           m_constants(constants),
           m_state_estimate(initial_state_estimate),

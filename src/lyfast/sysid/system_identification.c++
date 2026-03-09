@@ -24,13 +24,12 @@ template class MotorGroupUtils<AngularVelocity>;
 
 // gathers velocity data from robot by moving voltage_commands
 template<typename T>
-MotorGroupUtils<T>::VectorDataT MotorGroupUtils<T>::generateData(
-  std::vector<VoltageCommand> voltage_commands,
-  pros::MotorGroup* motor_group,
-  AngularVelocity final_rpm,
-  std::function<T(AngularVelocity)> conversionFunc,
-  std::optional<Time> steady_state_time,
-  Time delta_time) {
+MotorGroupUtils<T>::VectorDataT
+MotorGroupUtils<T>::generateData(std::vector<VoltageCommand> voltage_commands,
+                                 pros::MotorGroup* motor_group,
+                                 std::function<T()> velocity_func,
+                                 std::optional<Time> steady_state_time,
+                                 Time delta_time) {
 
     uint32_t int_delta_time = std::lround(to_msec(delta_time));
     VectorDataT data;
@@ -50,8 +49,7 @@ MotorGroupUtils<T>::VectorDataT MotorGroupUtils<T>::generateData(
                   units::max(0_Fsec, target_time - steady_state_time.value());
 
             if (timeoutDone(threshold_time, start_time) && record) {
-                T velocity = conversionFunc(
-                  blazing::get_group_velocity(motor_group, final_rpm));
+                T velocity = velocity_func();
 
                 data.emplace_back(velocity, voltage);
             }

@@ -75,12 +75,9 @@ class MotorGroupUtils {
     static VectorDataT generateData(
       std::vector<VoltageCommand> voltage_commands,
       pros::MotorGroup* motor_group,
-      AngularVelocity final_rpm,
-      std::function<VelUnit(AngularVelocity)>
-        conversion_func, // converts drivetrain rpm to vel unit
-      std::optional<Time>
-        steady_state_time, // if specified it only captures data at the end of
-                           // the voltage command for steady_state_time time
+      std::function<VelUnit()>
+        velocity_func, // returns velocity of motor group in velocity units
+      std::optional<Time> steady_state_time,
       Time delta_time);
 
     // uses linear least squares to find kv and ks gains that best fit data
