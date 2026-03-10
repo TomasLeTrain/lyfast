@@ -1,14 +1,15 @@
 #pragma once
 
 #include "blazing/chassis.hpp"
+#include "blazing/controllers/clamp.hpp"
 #include "blazing/controllers/feedback/feedback.hpp"
 #include "blazing/controllers/feedback/pid.hpp"
 #include "blazing/controllers/feedforward/feedforward.hpp"
 #include "blazing/controllers/slew.hpp"
-#include "blazing/controllers/clamp.hpp"
 #include "blazing/drivetrains/differential.hpp"
 #include "blazing/drivetrains/drivetrain.hpp"
 #include "blazing/executor.hpp"
+#include "blazing/latex_utils.hpp"
 #include "blazing/motion_builder.hpp"
 #include "blazing/motions/boomerang.hpp"
 #include "blazing/motions/distanceAtHeading.hpp"

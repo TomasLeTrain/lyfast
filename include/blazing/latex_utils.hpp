@@ -7,6 +7,7 @@
 #include <vector>
 
 namespace blazing {
+// TODO: put into c++ file
 
 // prints pair of floats as (x,y) coordinate pair
 // NOTE: does not leave newline

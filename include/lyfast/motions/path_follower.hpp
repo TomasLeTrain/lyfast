@@ -35,8 +35,7 @@ template<typename ControllersType,
          typename TrackerType,
          typename TolerancesType>
     requires poseTracker<TrackerType> && forwardTravelTracker<TrackerType> &&
-               TankDrivetrain<DrivetrainType> &&
-               hasVelocityFeedforward<ControllersType> &&
+               VelocityArcadeDrivetrain<DrivetrainType> &&
                hasPathPoseFeedback<ControllersType>
 class PathFollow : public Motion<ControllersType,
                                  DrivetrainType,
@@ -237,42 +236,33 @@ class PathFollow : public Motion<ControllersType,
         // linear and angular should be references for the velocity
         // controller
 
-        LeftRightVoltages voltages =
-          this->controllers.velocity_feedforward.update(new_speeds, delta_time);
-
-        // TODO: need to do?
-        std::array<Voltage, 2> saturated_voltages { voltages.left_voltage,
-                                                    voltages.right_voltage };
-
-        // normalizes voltages to [-1, 1]
-        auto [normal_left_voltage, normal_right_voltage] =
-          desaturate(saturated_voltages, 1_volt);
-
         auto [left_vel, right_vel] = this->drivetrain.getDrivetrainVelocities();
         auto [actual_volt_left, actual_volt_right] =
           this->drivetrain.getDrivetrainVoltages();
 
-        std::cout << std::fixed;
-        std::cout << std::setprecision(5);
+        // std::cout << std::fixed;
+        // std::cout << std::setprecision(5);
+        //
+        // std::cout << "lin/ang/drive_left/drive_right/tv_l/tv_r/"
+        //              "av_l/av_r/x/y/theta/tx/ty/ttheta: "
+        //           << new_speeds.linear_velocity.internal() << " "
+        //           << new_speeds.angular_velocity.internal() << " "
+        //           << left_vel.internal() << " " << right_vel.internal() << "
+        //           "
+        //           << saturated_voltages.at(0).internal() << " "
+        //           << saturated_voltages.at(1).internal() << " "
+        //           << actual_volt_left.internal() << " "
+        //           << actual_volt_right.internal() << " "
+        //           << position.x.convert(in) << " " //
+        //           << position.y.convert(in) << " " //
+        //           << heading.convert(deg) << " "
+        //           << path_pose_reference.pose.x.convert(in) << " "
+        //           << path_pose_reference.pose.y.convert(in) << " "
+        //           << path_pose_reference.pose.orientation.convert(deg)
+        //           << std::endl;
 
-        std::cout << "lin/ang/drive_left/drive_right/tv_l/tv_r/"
-                     "av_l/av_r/x/y/theta/tx/ty/ttheta: "
-                  << new_speeds.linear_velocity.internal() << " "
-                  << new_speeds.angular_velocity.internal() << " "
-                  << left_vel.internal() << " " << right_vel.internal() << " "
-                  << saturated_voltages.at(0).internal() << " "
-                  << saturated_voltages.at(1).internal() << " "
-                  << actual_volt_left.internal() << " "
-                  << actual_volt_right.internal() << " "
-                  << position.x.convert(in) << " " //
-                  << position.y.convert(in) << " " //
-                  << heading.convert(deg) << " "
-                  << path_pose_reference.pose.x.convert(in) << " "
-                  << path_pose_reference.pose.y.convert(in) << " "
-                  << path_pose_reference.pose.orientation.convert(deg)
-                  << std::endl;
-
-        this->drivetrain.moveTank(normal_left_voltage, normal_right_voltage);
+        this->drivetrain.moveArcade(new_speeds.linear_velocity,
+                                    new_speeds.angular_velocity);
 
         return result;
     }

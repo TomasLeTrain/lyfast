@@ -1,6 +1,8 @@
 #include "main.h"
 #include "blazing/api.hpp"
 #include "lyfast/api.hpp"
+#include "lyfast/drivetrains/velocity_differential.hpp"
+#include "lyfast/plants/velocity_plants.hpp"
 #include "pros/abstract_motor.hpp"
 #include "pros/apix.h"
 #include "pros/imu.h"
@@ -120,6 +122,65 @@ AngularVelocity final_rpm = 450_rpm;
 DifferentialDrivetrain
   drivetrain(&left_motors, &right_motors, wheel_diameter, final_rpm);
 
+lyfast::DifferentialVelocityControllerParams params {
+	.linear = {
+		.left_Kv = 0.43 * volt / mps,
+		.left_Ka = 0.09 * volt / mps2,
+		.left_Ks = 0.04 * volt,
+
+		.right_Kv = 0.43 * volt / mps,
+		.right_Ka = 0.09 * volt / mps2,
+		.right_Ks = 0.04 * volt,
+	},
+	.angular = {
+		.left_Kv = 0.47 * volt / mps,
+		.left_Ka = 0.09 * volt / mps2,
+		.left_Ks = 0.06 * volt,
+
+		.right_Kv = 0.47 * volt / mps,
+		.right_Ka = 0.09 * volt / mps2,
+		.right_Ks = 0.06 * volt,
+	},
+	.pid = {
+		.left_Kp = 0.7 * volt / mps,
+		.left_Ki = 0.0 * volt / m,
+
+		.left_max_output =  1_volt,
+		.left_tbh_factor =  1.0,
+
+		.right_Kp = 0.7 * volt / mps,
+		.right_Ki = 0.0 * volt / m,
+
+		.right_max_output =  1_volt,
+		.right_tbh_factor =  1.0,
+	}
+};
+lyfast::DifferentialVelocityController vel_controller { params,
+                                                        76_inps,
+                                                        track_width,
+                                                        false };
+
+lyfast::EMAVelocityFilter::Constants drivetrain_ema_filter_constants {
+    .final_gearing_rpm = 450_rpm,
+    .Koffset = 0.1,
+    .KalphaFactor = 0.7,
+};
+
+lyfast::EMAVelocityFilter left_ema_filter { &left_motors,
+                                            drivetrain_ema_filter_constants };
+lyfast::EMAVelocityFilter right_ema_filter { &right_motors,
+                                             drivetrain_ema_filter_constants };
+
+lyfast::DrivetrainVelocityPlant drivetrain_plant { &left_ema_filter,
+                                                   &right_ema_filter,
+                                                   vel_controller,
+                                                   wheel_diameter };
+
+lyfast::VelocityDifferentialDrivetrain velocity_drivetrain(&left_motors,
+                                                           &right_motors,
+                                                           &drivetrain_plant,
+                                                           track_width);
+
 ForwardsTracker
   left_motor_tracker(&left_motors, -track_width / 2, wheel_diameter, final_rpm);
 
@@ -127,19 +188,6 @@ ForwardsTracker right_motor_tracker(&right_motors,
                                     track_width / 2,
                                     wheel_diameter,
                                     final_rpm);
-
-// tracker configs - same signs as lemlib
-// tracker_config_t forwards_tracker_config = {
-//     .diameter = 1.991_in,
-//     // geometric is also 0
-//     .offset = -0.08_in,
-// };
-//
-// tracker_config_t sideways_tracker_config = {
-//     .diameter = 1.991_in,
-//     // geometric are -2.5, meaning cor is 0.5_in forwards from geometric
-//     center .offset = -3.17_in,
-// };
 
 // TODO: update since now sideways might be zero
 ForwardsTracker forwards_tracker(&forwards_odom_rotation, 0.5_in, 1.991_in);
@@ -203,155 +251,10 @@ normalLargeChainTolerances tolerances(linearTolerances,
                                       chainAngularTolerances);
 
 Chassis chassis(drivetrain, arc_pose_tracker, tolerances);
+Chassis velocity_chassis(velocity_drivetrain, arc_pose_tracker, tolerances);
 
 RunExecutor run;
 AsyncExecutor async;
-
-namespace {
-using namespace lyfast;
-DrivetrainSideVelocityController left_vel_controller {
-    // linear
-    FeedforwardVelocityController<LinearVelocity> { {
-      .Kv = 1 * volt / mps,
-      .Ka = 1 * volt / mps2,
-      .Ks = 1 * volt,
-    } },
-
-    // angular
-    FeedforwardVelocityController<LinearVelocity> { {
-      .Kv = 1 * volt / mps,
-      .Ka = 1 * volt / mps2,
-      .Ks = 1 * volt,
-    } },
-
-    // feedback
-    PIDVelocityController<LinearVelocity> { { .Kp = 1 * volt / mps,
-                                              .Ki = 1 * volt / m,
-                                              .max_output = 1 * volt,
-                                              .tbh_factor = 0.0 } },
-
-};
-
-} // namespace
-
-lyfast::DrivetrainSideVelocityController right_vel_controller {
-    // linear
-    FeedforwardVelocityController<LinearVelocity> { {
-      .Kv = 1 * volt / mps,
-      .Ka = 1 * volt / mps2,
-      .Ks = 1 * volt,
-    } },
-
-    // angular
-    FeedforwardVelocityController<LinearVelocity> { {
-      .Kv = 1 * volt / mps,
-      .Ka = 1 * volt / mps2,
-      .Ks = 1 * volt,
-    } },
-
-    // feedback
-    PIDVelocityController<LinearVelocity> { { .Kp = 1 * volt / mps,
-                                              .Ki = 1 * volt / m,
-                                              .max_output = 1 * volt,
-                                              .tbh_factor = 0.0 } },
-};
-
-lyfast::DifferentialVelocityController vel_controller {
-    left_vel_controller, right_vel_controller, 76_inps, track_width, 1.0, false,
-    std::ref(drivetrain)
-};
-
-// blazing::lyfast::DifferentialVelocityController linear_velocity_controller(
-//   lyfast::VelocityControllerParams {
-//     .left_Kv = 0.43 * volt / mps,
-//
-//     // length kp and ka term create a feedback loop intenuating noise
-//     .left_Ka = 0.09 * volt / mps2,
-//     .left_Ks = 0.04 * volt,
-//
-//     .left_Kp = 0.7 * volt / mps,
-//     .left_Ki = 4.0 * volt / m,
-//
-//     .right_Kv = 0.43 * volt / mps,
-//     .right_Ka = 0.09 * volt / mps2,
-//     .right_Ks = 0.04 * volt,
-//
-//     .right_Kp = 0.7 * volt / mps,
-//     .right_Ki = 4.0 * volt / m,
-//   },
-//   76_inps,
-//   track_width,
-//   0.8,
-//   false, // do saturation as normal
-//   std::ref(drivetrain));
-
-// --- turning vel stuff --- //
-// goated for turning
-// blazing::lyfast::DifferentialVelocityController angular_velocity_controller(
-//   lyfast::VelocityControllerParams {
-//     .left_Kv = 0.47 * volt / mps,
-//     .left_Ka = 0.09 * volt / mps2,
-//     .left_Ks = 0.08 * volt,
-//
-//     .left_Kp = 0.3 * volt / mps,
-//     .left_Ki = 5.09538143189 * volt / m,
-//
-//     .right_Kv = 0.475 * volt / mps,
-//     .right_Ka = 0.09 * volt / mps2,
-//     .right_Ks = 0.08 * volt,
-//
-//     .right_Kp = 0.3 * volt / mps,
-//     .right_Ki = 5.5578634857 * volt / m,
-//   },
-//   76_inps,
-//   track_width,
-//   0.85,
-//   false, // do saturation as normal
-//   std::ref(drivetrain));
-//
-// lyfast::ArcadeVelocityController vel_controller {
-//     linear_velocity_controller,
-//     angular_velocity_controller,
-//     76_inps,
-//     false, // do saturation as normal
-//     track_width
-// };
-
-// PID<Length, LinearVelocity> linear_vel_pid(0.5,
-//                                            0.0,
-//                                            3.6,
-//                                            7,
-//                                            // std::nullopt,
-//                                            127, // max
-//                                            std::nullopt, // derivative alpha
-//                                            50_msec,
-//                                            1_in,
-//                                            1_inps);
-
-// CascadedControllers<decltype(linear_vel_pid),
-//                     decltype(vel_controller),
-//                     Length,
-//                     LinearVelocity,
-//                     Voltage>
-//   linear_control(linear_vel_pid, vel_controller);
-
-// PID<Angle, AngularVelocity> angular_vel_pid(4.5,
-//                                             0.0,
-//                                             3.6,
-//                                             7,
-//                                             // std::nullopt,
-//                                             127, // max
-//                                             std::nullopt, // derivative alpha
-//                                             50_msec,
-//                                             1_stDeg,
-//                                             1_degps);
-
-// CascadedControllers<decltype(angular_vel_pid),
-//                     decltype(vel_controller),
-//                     Angle,
-//                     AngularVelocity,
-//                     Voltage>
-//   angular_control(angular_vel_pid, vel_controller);
 
 FLength track_radius = track_width * 0.5;
 
@@ -359,13 +262,10 @@ FLinearVelocity max_velocity = 76_Finps;
 // w = v / r
 FAngularVelocity max_angular_velocity = (max_velocity / track_radius) * Frad;
 
-std::array<float, 3> Q { // max forwards of 10 inches?
-                         (40_in).internal(),
-                         // max crosstrack of 6 inches?
+std::array<float, 3> Q { (40_in).internal(),
                          (3_in).internal(),
-                         // maximum is 180
-                         (45_stDeg).internal()
-};
+                         (45_stDeg).internal() };
+
 std::array<float, 2> R { // max velocity
                          max_velocity.internal(),
                          // max angular velocity
@@ -373,11 +273,12 @@ std::array<float, 2> R { // max velocity
 };
 
 blazing::lyfast::state_space::LTVUnicycleController lqr_controller(Q, R);
-blazing::lyfast::NoPathFeedbackController no_feedback_controller;
 
 lyfast::PathPoseFeedbackController<decltype(lqr_controller)>
-  // lyfast::PathPoseFeedbackController<decltype(no_feedback_controller)>
   path_pose_feedback_controller(lqr_controller);
+
+// blazing::lyfast::NoPathFeedbackController no_feedback_controller;
+// lyfast::PathPoseFeedbackController<decltype(no_feedback_controller)>
 // path_pose_feedback_controller(no_feedback_controller);
 
 Controllers controllers(
@@ -385,28 +286,17 @@ Controllers controllers(
   PIDLinearController(linear_pid),
   PIDAngularController(angular_pid),
 
-  // LinearFeedbackController<decltype(linear_control)>(linear_control),
-  // AngularFeedbackController<decltype(angular_control)>(angular_control),
-
-  lyfast::VelocityFeedforward<lyfast::DifferentialVelocityController>(
-    vel_controller),
-
   path_pose_feedback_controller,
-
-  // slew controllers
-  // LinearSlewController(0.07_volt, 0.06_volt),
-  // AngularSlewController(0.8_volt),
 
   LinearSlewController {},
   AngularSlewController {},
 
   // voltage constraints controllers
-  // (included just so they can be set per motion)
   LinearVoltageClampController(),
   AngularVoltageClampController());
 
 // MotionBuilder mb(chassis, controllers);
-MotionBuilder vel_mb(chassis, controllers);
+MotionBuilder vel_mb(velocity_chassis, controllers);
 
 ChainedExecutor chain(100_msec);
 
@@ -779,35 +669,29 @@ void path_follow_test() {
 
     std::cout << "running path!" << std::endl;
     // use path follow to follow the path
-    lyfast::PathFollow<decltype(controllers),
-                       decltype(drivetrain),
-                       decltype(arc_pose_tracker),
-                       decltype(tolerances)>(controllers,
-                                             chassis,
-                                             test_trajectory)
-        .drive_toleranceDuration(100_sec)
-        .drive_largeToleranceDuration(100_sec)
-        // .parameterization(blazing::lyfast::time_based)
-        .timeout(5_sec) |
-      run;
+    // lyfast::PathFollow<decltype(controllers),
+    //                    decltype(drivetrain),
+    //                    decltype(arc_pose_tracker),
+    //                    decltype(tolerances)>(controllers,
+    //                                          chassis,
+    //                                          test_trajectory)
+    //     .drive_toleranceDuration(100_sec)
+    //     .drive_largeToleranceDuration(100_sec)
+    //     // .parameterization(blazing::lyfast::time_based)
+    //     .timeout(5_sec) |
+    //   run;
 }
 
 pros::MotorGroup test_motor({ 13 }, pros::MotorGears::green);
 
 pros::Mutex task_mutex;
 
+// test motor kv ks and ka
 auto Kv = 0.0394825 * volt / radps;
 auto Ks = 0.0186283 * volt;
 auto Ka = 0.000876 * volt / radps2;
 
-//
-AngularFeedforwardVelocityControllerParams feedforward_params {
-    .Kv = Kv,
-    .Ka = Ka,
-    .Ks = Ks,
-};
-
-EMAVelocityFilter::Constants ema_filter_constants {
+lyfast::EMAVelocityFilter::Constants ema_filter_constants {
     .final_gearing_rpm = 200_rpm,
     .Koffset = 0.1,
     .KalphaFactor = 0.7,
@@ -866,11 +750,12 @@ void timeCriticalTask() {
 
     // A 1ms loop will actually take around 1040 or 960 microseconds, always
     // alternating. Over 3ms, the total length of time in micros should be
-    // either around 3040 or 960 Daemon needs to start on a cycle to be directly
-    // opposite of vexBackgroundProcessing() vexBackgroundProcessing always runs
-    // after a short cycle, meaning the sylib daemon needs to start after a long
-    // cycle Values offset by 20 to give room for error, the groupings are very
-    // tight so it shouldnt matter
+    // either around 3040 or 960 Daemon needs to start on a cycle to be
+    // directly opposite of vexBackgroundProcessing()
+    // vexBackgroundProcessing always runs after a short cycle, meaning the
+    // sylib daemon needs to start after a long cycle Values offset by 20 to
+    // give room for error, the groupings are very tight so it shouldnt
+    // matter
 
     constexpr std::uint64_t LONG_MICROS_CYCLE_LENGTH = 1040 - 20;
     constexpr std::uint64_t AVERAGE_MICROS_CYCLE_LENGTH = 1000;
@@ -899,7 +784,7 @@ void timeCriticalTask() {
 
     while (1) {
         {
-            // std::lock_guard _lock { task_mutex };
+            std::lock_guard lock { task_mutex };
             frameCount++;
 
             // do stuff here
@@ -909,6 +794,23 @@ void timeCriticalTask() {
                 // predict the filter
                 ema_filter.predictToTimestamp(curr_time);
                 ema_filter.correct();
+
+                // drivetrain related things
+                left_ema_filter.predictToTimestamp(curr_time);
+                left_ema_filter.correct();
+
+                right_ema_filter.predictToTimestamp(curr_time);
+                right_ema_filter.correct();
+
+                drivetrain_plant.update(curr_time);
+                auto curr_drivetrain_voltages =
+                  drivetrain_plant.getCommandedVoltages();
+
+                // actuate motors with desired voltages
+                left_motors.move_voltage(
+                  12 * to_mvolt(curr_drivetrain_voltages.left_voltage));
+                right_motors.move_voltage(
+                  12 * to_mvolt(curr_drivetrain_voltages.right_voltage));
             }
 
             pros::Task::delay_until(&systemTime, 2);

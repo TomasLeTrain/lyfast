@@ -92,13 +92,6 @@ struct FeedforwardVelocityControllerParams {
     KvUnits<VelUnit> Kv;
     KaUnits<VelUnit> Ka;
     Voltage Ks;
-
-    // KvUnits<VelUnit> Kp { 0 };
-    // Divided<Voltage, Multiplied<VelUnit, Time>> Ki { 0 };
-    //
-    // Voltage max_output { 1_volt };
-    //
-    // double tbh_factor { 0.0 };
 };
 
 template<typename VelUnit>
@@ -108,48 +101,6 @@ struct PIDVelocityControllerParams {
 
     Voltage max_output { 1_volt };
     double tbh_factor { 0.0 };
-};
-
-template<typename VelUnit>
-struct VelocityControllerParams {
-    KvUnits<VelUnit> left_Kv;
-    KaUnits<VelUnit> left_Ka;
-    KsUnits left_Ks;
-    KvUnits<VelUnit> left_Kp { 0 };
-    Divided<Voltage, Multiplied<VelUnit, Time>> left_Ki { 0 };
-    Voltage left_max_output { 1_volt };
-    double left_tbh_factor { 0.0 };
-
-    KvUnits<VelUnit> right_Kv;
-    KaUnits<VelUnit> right_Ka;
-    KsUnits right_Ks;
-    KvUnits<VelUnit> right_Kp { 0 };
-    Divided<Voltage, Multiplied<VelUnit, Time>> right_Ki { 0 };
-    Voltage right_max_output { 1_volt };
-    double right_tbh_factor { 0.0 };
-
-    // construct both sides with equal gains
-    static VelocityControllerParams fromFeedforwardPID(
-      FeedforwardVelocityControllerParams<VelUnit> feedforward_params,
-      PIDVelocityControllerParams<VelUnit> feedback_params) {
-        return {
-            .left_Kv = feedforward_params.Kv,
-            .left_Ka = feedforward_params.Ka,
-            .left_Ks = feedforward_params.Ks,
-            .left_Kp = feedback_params.Kp,
-            .left_Ki = feedback_params.Ki,
-            .left_max_output = feedback_params.max_output,
-            .left_tbh_factor = feedback_params.tbh_factor,
-
-            .right_Kv = feedforward_params.Kv,
-            .right_Ka = feedforward_params.Ka,
-            .right_Ks = feedforward_params.Ks,
-            .right_Kp = feedback_params.Kp,
-            .right_Ki = feedback_params.Ki,
-            .right_max_output = feedback_params.max_output,
-            .right_tbh_factor = feedback_params.tbh_factor,
-        };
-    }
 };
 
 template<typename VelUnit>
@@ -386,6 +337,76 @@ class DrivetrainSideVelocityController {
           m_pid(pid) {}
 };
 
+struct FFLeftRightVelocityControllerParams {
+    KvUnits<LinearVelocity> left_Kv;
+    KaUnits<LinearVelocity> left_Ka;
+    KsUnits left_Ks;
+
+    KvUnits<LinearVelocity> right_Kv;
+    KaUnits<LinearVelocity> right_Ka;
+    KsUnits right_Ks;
+};
+
+struct PIDLeftRightVelocityControllerParams {
+    KvUnits<LinearVelocity> left_Kp { 0 };
+    KiUnits<LinearVelocity> left_Ki { 0 };
+
+    Voltage left_max_output { 1_volt };
+    double left_tbh_factor { 0.0 };
+
+    KvUnits<LinearVelocity> right_Kp { 0 };
+    KiUnits<LinearVelocity> right_Ki { 0 };
+
+    Voltage right_max_output { 1_volt };
+    double right_tbh_factor { 0.0 };
+};
+
+// makes it easier to construct entire drivetrain controller without
+// constructing all the objects first
+struct DifferentialVelocityControllerParams {
+    FFLeftRightVelocityControllerParams linear;
+    FFLeftRightVelocityControllerParams angular;
+    PIDLeftRightVelocityControllerParams pid;
+
+    DrivetrainSideVelocityController constructLeftController() {
+        return { FeedforwardVelocityController<LinearVelocity>({
+                   .Kv = linear.left_Kv,
+                   .Ka = linear.left_Ka,
+                   .Ks = linear.left_Ks,
+                 }),
+                 FeedforwardVelocityController<LinearVelocity>({
+                   .Kv = angular.left_Kv,
+                   .Ka = angular.left_Ka,
+                   .Ks = angular.left_Ks,
+                 }),
+                 PIDVelocityController<LinearVelocity>({
+                   .Kp = pid.left_Kp,
+                   .Ki = pid.left_Ki,
+                   .max_output = pid.left_max_output,
+                   .tbh_factor = pid.left_tbh_factor,
+                 }) };
+    }
+
+    DrivetrainSideVelocityController constructRightController() {
+        return { FeedforwardVelocityController<LinearVelocity>({
+                   .Kv = linear.right_Kv,
+                   .Ka = linear.right_Ka,
+                   .Ks = linear.right_Ks,
+                 }),
+                 FeedforwardVelocityController<LinearVelocity>({
+                   .Kv = angular.right_Kv,
+                   .Ka = angular.right_Ka,
+                   .Ks = angular.right_Ks,
+                 }),
+                 PIDVelocityController<LinearVelocity>({
+                   .Kp = pid.right_Kp,
+                   .Ki = pid.right_Ki,
+                   .max_output = pid.right_max_output,
+                   .tbh_factor = pid.right_tbh_factor,
+                 }) };
+    }
+};
+
 class DifferentialVelocityController {
     DrivetrainSideVelocityController m_left_controller;
     DrivetrainSideVelocityController m_right_controller;
@@ -395,7 +416,6 @@ class DifferentialVelocityController {
     bool m_prioritize_angular = false;
 
     // used for getting and filtering velocity
-    std::reference_wrapper<DifferentialDrivetrain> drivetrain;
     std::optional<LeftRightSpeeds> last_velocities = std::nullopt;
 
   public:
@@ -416,19 +436,19 @@ class DifferentialVelocityController {
 
         LinearVelocity target_linear_velocity = target.linear_velocity;
         // angular velocity converted to linear velocity wheel speeds
-        LinearVelocity target_angular_velocity =
+        LinearVelocity converted_angular_velocity =
           (target.angular_velocity / rad) * track_radius;
 
         Voltage left_voltage =
           m_left_controller.update(measurement.left_vel,
                                    { .linear = target_linear_velocity,
-                                     .angular = -target_angular_velocity },
+                                     .angular = -converted_angular_velocity },
                                    duration);
 
         Voltage right_voltage =
           m_right_controller.update(measurement.right_vel,
                                     { .linear = target_linear_velocity,
-                                      .angular = target_angular_velocity },
+                                      .angular = converted_angular_velocity },
                                     duration);
 
         LeftRightVoltages result = { left_voltage, right_voltage };
@@ -442,11 +462,12 @@ class DifferentialVelocityController {
         m_right_controller.reset();
     }
 
-    // return the left and right controllers
-    std::pair<DrivetrainSideVelocityController,
-              DrivetrainSideVelocityController>
-    getControllers() {
-        return { m_left_controller, m_right_controller };
+    const DrivetrainSideVelocityController& getLeftController() {
+        return m_left_controller;
+    }
+
+    const DrivetrainSideVelocityController& getRightController() {
+        return m_right_controller;
     }
 
     void setLeftController(DrivetrainSideVelocityController controller) {
@@ -462,14 +483,23 @@ class DifferentialVelocityController {
       DrivetrainSideVelocityController right_controller,
       LinearVelocity max_velocity,
       Length track_width,
-      bool prioritize_angular,
-      std::reference_wrapper<DifferentialDrivetrain> drivetrain)
+      bool prioritize_angular)
         : m_left_controller(left_controller),
           m_right_controller(right_controller),
           m_max_velocity(max_velocity),
           m_track_width(track_width),
-          m_prioritize_angular(prioritize_angular),
-          drivetrain(drivetrain) {}
+          m_prioritize_angular(prioritize_angular) {}
+
+    DifferentialVelocityController(
+      DifferentialVelocityControllerParams controller_params,
+      LinearVelocity max_velocity,
+      Length track_width,
+      bool prioritize_angular)
+        : m_left_controller(controller_params.constructLeftController()),
+          m_right_controller(controller_params.constructRightController()),
+          m_max_velocity(max_velocity),
+          m_track_width(track_width),
+          m_prioritize_angular(prioritize_angular) {}
 };
 
 // explicit declarations

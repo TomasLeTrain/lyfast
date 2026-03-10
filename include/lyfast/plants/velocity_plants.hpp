@@ -65,8 +65,7 @@ class AngularMotorGroupVelocityPlant {
     }
 
     AngularMotorGroupVelocityPlant(EMAVelocityFilter* filter,
-                                   AngularSimpleVelocityController controller,
-                                   Length wheel_diameter)
+                                   AngularSimpleVelocityController controller)
         : m_filter(filter),
           m_controller(controller) {}
 };
@@ -150,9 +149,24 @@ class DrivetrainVelocityPlant {
         return m_controller.update(getEstimatedSpeeds(), target, duration);
     }
 
+    uint32_t m_last_update_timestamp;
+
   public:
+    const DifferentialVelocityController& getController() {
+        return m_controller;
+    }
+
     void resetController() {
         m_controller.reset();
+        m_last_update_timestamp = pros::millis();
+    }
+
+    void update(uint32_t timestamp) {
+        // can't go back in time
+        if (timestamp < m_last_update_timestamp) return;
+
+        // if both are equal then still update, let the controller handle it
+        update(timestamp - m_last_update_timestamp);
     }
 
     void update(Time dt) {
@@ -165,6 +179,7 @@ class DrivetrainVelocityPlant {
 
             m_commanded_voltages = voltage_target;
         }
+        m_last_update_timestamp = pros::millis();
     }
 
     void
@@ -202,7 +217,8 @@ class DrivetrainVelocityPlant {
         : m_left_filter(left_filter),
           m_right_filter(right_filter),
           m_controller(controller),
-          m_wheel_diameter(wheel_diameter) {}
+          m_wheel_diameter(wheel_diameter),
+          m_last_update_timestamp(pros::millis()) {}
 };
 } // namespace lyfast
 } // namespace blazing

@@ -20,6 +20,18 @@ concept TankDrivetrain =
   };
 
 template<typename Q>
+concept VelocityArcadeDrivetrain = requires(Q q,
+                                            LinearVelocity linear_velocity,
+                                            AngularVelocity angular_velocity) {
+    q.moveArcade(linear_velocity, angular_velocity);
+};
+template<typename Q>
+concept VelocityTankDrivetrain =
+  requires(Q q, LinearVelocity left_velocity, LinearVelocity right_velocity) {
+      q.moveTank(left_velocity, right_velocity);
+  };
+
+template<typename Q>
 concept MotionChainableDrivetrain =
   requires(Q q, std::vector<Voltage> voltages, bool enabled) {
       { q.getEnabled() } -> std::same_as<bool>;
