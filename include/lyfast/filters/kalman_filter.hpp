@@ -107,9 +107,9 @@ class MotorGroupKalmanFilter {
           motor_group->get_actual_velocity(idx) * rpm;
         pros::MotorGears gearing = motor_group->get_gearing(idx);
 
-        AngularVelocity motor_measurement =
-          (raw_motor_measurement / gearingToVelocity(gearing)) *
-          m_constants.final_gearing_rpm;
+        // AngularVelocity motor_measurement =
+        //   (raw_motor_measurement / gearingToVelocity(gearing)) *
+        //   m_constants.final_gearing_rpm;
 
         // correct using the motor estimated velocity
         // TODO: disabled for debugging for now

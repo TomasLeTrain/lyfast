@@ -236,9 +236,9 @@ class PathFollow : public Motion<ControllersType,
         // linear and angular should be references for the velocity
         // controller
 
-        auto [left_vel, right_vel] = this->drivetrain.getDrivetrainVelocities();
-        auto [actual_volt_left, actual_volt_right] =
-          this->drivetrain.getDrivetrainVoltages();
+        // auto [left_vel, right_vel] = this->drivetrain.getDrivetrainVelocities();
+        // auto [actual_volt_left, actual_volt_right] =
+        //   this->drivetrain.getDrivetrainVoltages();
 
         // std::cout << std::fixed;
         // std::cout << std::setprecision(5);

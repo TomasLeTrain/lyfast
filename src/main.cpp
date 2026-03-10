@@ -669,17 +669,12 @@ void path_follow_test() {
 
     std::cout << "running path!" << std::endl;
     // use path follow to follow the path
-    // lyfast::PathFollow<decltype(controllers),
-    //                    decltype(drivetrain),
-    //                    decltype(arc_pose_tracker),
-    //                    decltype(tolerances)>(controllers,
-    //                                          chassis,
-    //                                          test_trajectory)
-    //     .drive_toleranceDuration(100_sec)
-    //     .drive_largeToleranceDuration(100_sec)
-    //     // .parameterization(blazing::lyfast::time_based)
-    //     .timeout(5_sec) |
-    //   run;
+    lyfast::PathFollow(controllers, velocity_chassis, test_trajectory)
+        .drive_toleranceDuration(100_sec)
+        .drive_largeToleranceDuration(100_sec)
+        // .parameterization(blazing::lyfast::time_based)
+        .timeout(5_sec) |
+      run;
 }
 
 pros::MotorGroup test_motor({ 13 }, pros::MotorGears::green);
