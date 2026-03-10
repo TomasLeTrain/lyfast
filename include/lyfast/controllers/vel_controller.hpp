@@ -392,7 +392,6 @@ class DifferentialVelocityController {
 
     LinearVelocity m_max_velocity;
     Length m_track_width;
-    double m_vel_alpha = 1.0;
     bool m_prioritize_angular = false;
 
     // used for getting and filtering velocity
@@ -437,28 +436,6 @@ class DifferentialVelocityController {
         return result;
     }
 
-    LeftRightVoltages update(DifferentialSpeeds target, Time duration) {
-
-        // fall back to using specified drivetrain
-        LeftRightSpeeds velocities = drivetrain.get().getDrivetrainVelocities();
-
-        // use low pass filter on the velocities
-        // TODO: replace with kalman filter based velocity
-        if (last_velocities) {
-            velocities.left_vel =
-              m_vel_alpha * velocities.left_vel +
-              (1 - m_vel_alpha) * last_velocities.value().left_vel;
-
-            velocities.right_vel =
-              m_vel_alpha * velocities.right_vel +
-              (1 - m_vel_alpha) * last_velocities.value().right_vel;
-        }
-
-        last_velocities = velocities;
-
-        return update(velocities, target, duration);
-    }
-
     void reset() {
         last_velocities = std::nullopt;
         m_left_controller.reset();
@@ -485,14 +462,12 @@ class DifferentialVelocityController {
       DrivetrainSideVelocityController right_controller,
       LinearVelocity max_velocity,
       Length track_width,
-      double vel_alpha,
       bool prioritize_angular,
       std::reference_wrapper<DifferentialDrivetrain> drivetrain)
         : m_left_controller(left_controller),
           m_right_controller(right_controller),
           m_max_velocity(max_velocity),
           m_track_width(track_width),
-          m_vel_alpha(vel_alpha),
           m_prioritize_angular(prioritize_angular),
           drivetrain(drivetrain) {}
 };

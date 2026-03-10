@@ -20,18 +20,55 @@ class AngularMotorGroupVelocityPlant {
     EMAVelocityFilter* m_filter;
     AngularSimpleVelocityController m_controller;
 
+    std::variant<Voltage, AngularVelocity> m_target;
+    Voltage m_commanded_voltage;
+
+    Voltage controllerUpdate(AngularVelocity target, Time duration) {
+        return m_controller.update(getEstimatedSpeed(), target, duration);
+    }
+
   public:
     void resetController() {
         m_controller.reset();
+    }
+
+    void update(Time dt) {
+        if (std::holds_alternative<Voltage>(m_target)) {
+            auto voltage_target = std::get<Voltage>(m_target);
+            m_commanded_voltage = voltage_target;
+        } else {
+            auto speed_target = std::get<AngularVelocity>(m_target);
+            auto voltage_target = controllerUpdate(speed_target, dt);
+
+            m_commanded_voltage = voltage_target;
+        }
+    }
+
+    void setTarget(std::variant<Voltage, AngularVelocity> new_target) {
+        // if they differ in the type they hold
+        if (new_target.index() != m_target.index() &&
+            std::holds_alternative<AngularVelocity>(new_target)) {
+            // resets controller if we go from voltage to velocity
+            resetController();
+        }
+
+        // update target
+        m_target = new_target;
     }
 
     AngularVelocity getEstimatedSpeed() {
         return m_filter->getPredictedState();
     }
 
-    Voltage controllerUpdate(AngularVelocity target, Time duration) {
-        return m_controller.update(getEstimatedSpeed(), target, duration);
+    Voltage getCommandedVoltage() {
+        return m_commanded_voltage;
     }
+
+    AngularMotorGroupVelocityPlant(EMAVelocityFilter* filter,
+                                   AngularSimpleVelocityController controller,
+                                   Length wheel_diameter)
+        : m_filter(filter),
+          m_controller(controller) {}
 };
 
 // moves controller using velocity estimates from the filters
@@ -42,23 +79,53 @@ class LinearMotorGroupVelocityPlant {
 
     Length m_wheel_diameter;
 
+    std::variant<Voltage, LinearVelocity> m_target;
+    Voltage m_commanded_voltage;
+
+    Voltage controllerUpdate(LinearVelocity target, Time duration) {
+        return m_controller.update(getEstimatedSpeed(), target, duration);
+    }
+
   public:
     void resetController() {
         m_controller.reset();
+    }
+
+    void update(Time dt) {
+        if (std::holds_alternative<Voltage>(m_target)) {
+            auto voltage_target = std::get<Voltage>(m_target);
+            m_commanded_voltage = voltage_target;
+        } else {
+            auto speed_target = std::get<LinearVelocity>(m_target);
+            auto voltage_target = controllerUpdate(speed_target, dt);
+
+            m_commanded_voltage = voltage_target;
+        }
+    }
+
+    void setTarget(std::variant<Voltage, LinearVelocity> new_target) {
+        // if they differ in the type they hold
+        if (new_target.index() != m_target.index() &&
+            std::holds_alternative<LinearVelocity>(new_target)) {
+            // resets controller if we go from voltage to velocity
+            resetController();
+        }
+
+        // update target
+        m_target = new_target;
     }
 
     LinearVelocity getEstimatedSpeed() {
         return toLinear(m_filter->getPredictedState(), m_wheel_diameter);
     }
 
-    Voltage controllerUpdate(LinearVelocity target, Time duration) {
-        return m_controller.update(getEstimatedSpeed(), target, duration);
+    Voltage getCommandedVoltage() {
+        return m_commanded_voltage;
     }
 
-    LinearMotorGroupVelocityPlant(
-      EMAVelocityFilter* filter,
-      SimpleVelocityController<LinearVelocity> controller,
-      Length wheel_diameter)
+    LinearMotorGroupVelocityPlant(EMAVelocityFilter* filter,
+                                  LinearSimpleVelocityController controller,
+                                  Length wheel_diameter)
         : m_filter(filter),
           m_controller(controller),
           m_wheel_diameter(wheel_diameter) {}
@@ -69,35 +136,52 @@ class LinearMotorGroupVelocityPlant {
 
 // TODO: mutex
 class DrivetrainVelocityPlant {
-    pros::MotorGroup* left_motors;
-    pros::MotorGroup* right_motors;
-
     EMAVelocityFilter* m_left_filter;
     EMAVelocityFilter* m_right_filter;
     DifferentialVelocityController m_controller;
 
     Length m_wheel_diameter;
 
-    FLeftRightVoltages m_commanded_voltages { 0_volt, 0_volt };
-
     std::variant<LeftRightVoltages, DifferentialSpeeds> m_target;
+    LeftRightVoltages m_commanded_voltages;
 
-    void updateMotors(Voltage left_voltage, Voltage right_voltage) {
-        m_commanded_voltages =
-          FLeftRightVoltages { .left_voltage = left_voltage,
-                               .right_voltage = right_voltage };
-        left_motors->move_voltage(12 * to_mvolt(left_voltage));
-        right_motors->move_voltage(12 * to_mvolt(right_voltage));
+    LeftRightVoltages controllerUpdate(DifferentialSpeeds target,
+                                       Time duration) {
+        return m_controller.update(getEstimatedSpeeds(), target, duration);
     }
 
   public:
-    std::array<Voltage, 2> getCommandedVoltages() {
-        return std::array<Voltage, 2> { m_commanded_voltages.left_voltage,
-                                        m_commanded_voltages.right_voltage };
-    }
-
     void resetController() {
         m_controller.reset();
+    }
+
+    void update(Time dt) {
+        if (std::holds_alternative<LeftRightVoltages>(m_target)) {
+            auto voltage_target = std::get<LeftRightVoltages>(m_target);
+            m_commanded_voltages = voltage_target;
+        } else {
+            auto speed_target = std::get<DifferentialSpeeds>(m_target);
+            auto voltage_target = controllerUpdate(speed_target, dt);
+
+            m_commanded_voltages = voltage_target;
+        }
+    }
+
+    void
+    setTarget(std::variant<LeftRightVoltages, DifferentialSpeeds> new_target) {
+        // if they differ in the type they hold
+        if (new_target.index() != m_target.index() &&
+            std::holds_alternative<DifferentialSpeeds>(new_target)) {
+            // resets controller if we go from voltage to velocity
+            resetController();
+        }
+
+        // update target
+        m_target = new_target;
+    }
+
+    std::variant<LeftRightVoltages, DifferentialSpeeds> getTarget() {
+        return m_target;
     }
 
     LeftRightSpeeds getEstimatedSpeeds() {
@@ -107,18 +191,8 @@ class DrivetrainVelocityPlant {
         };
     }
 
-    // LeftRightVoltages controllerUpdate(DifferentialSpeeds target,
-    //                                    Time duration) {
-    //     return m_controller.update(getEstimatedSpeeds(), target, duration);
-    // }
-
-    void update(Time dt) {
-        if (std::holds_alternative<LeftRightVoltages>(m_target)) {
-            auto target = std::get<LeftRightVoltages>(m_target);
-        } else {
-            return m_controller.update(getEstimatedSpeeds(), target, duration);
-            auto target = std::get<DifferentialSpeeds>(m_target);
-        }
+    LeftRightVoltages getCommandedVoltages() {
+        return m_commanded_voltages;
     }
 
     DrivetrainVelocityPlant(EMAVelocityFilter* left_filter,

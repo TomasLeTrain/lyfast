@@ -1,16 +1,6 @@
 #include "main.h"
 #include "blazing/api.hpp"
-#include "blazing/controllers/controllers.hpp"
-#include "blazing/controllers/slew.hpp"
-#include "blazing/latex_utils.hpp"
-#include "blazing/utils.hpp"
 #include "lyfast/api.hpp"
-#include "lyfast/controllers/path_pose_feedback.hpp"
-#include "lyfast/controllers/vel_controller.hpp"
-#include "lyfast/filters/ema_filter.hpp"
-#include "lyfast/motions/path_follower.hpp"
-#include "lyfast/plants/velocity_plants.hpp"
-#include "lyfast/sysid/system_identification.hpp"
 #include "pros/abstract_motor.hpp"
 #include "pros/apix.h"
 #include "pros/imu.h"
@@ -1118,37 +1108,24 @@ void accel_test() {
 }
 
 void motorPlantTest() {
-    // lyfast::FeedforwardVelocityController<AngularVelocity> feedforward {
-    //     lyfast::FeedforwardVelocityControllerParams<AngularVelocity> {
-    //                                                                   .Kv = 1
-    //                                                                   * volt
-    //                                                                   /
-    //                                                                   radps,
-    //                                                                   .Ka = 1
-    //                                                                   * volt
-    //                                                                   /
-    //                                                                   radps2,
-    //                                                                   .Ks =
-    //                                                                   0.01 *
-    //                                                                   volt,
-    //                                                                   }
-    // };
-    // lyfast::PIDVelocityController<AngularVelocity> feedback {
-    //     lyfast::PIDVelocityControllerParams<AngularVelocity> {
-    //                                                           .Kp = 1 * volt
-    //                                                           / radps, .Ki =
-    //                                                           1 * volt / rad,
-    //                                                           .max_output
-    //                                                           = 1.0 * volt,
-    //                                                           .tbh_factor =
-    //                                                           0.0,
-    //                                                           }
-    // };
-    // lyfast::SimpleVelocityController<AngularVelocity> controller {
-    // feedforward,
-    //                                                                feedback
-    //                                                                };
-    // lyfast::AngularMotorGroupVelocityPlant plant(filter, controller);
+    lyfast::FeedforwardVelocityController<AngularVelocity> feedforward {
+        lyfast::FeedforwardVelocityControllerParams<AngularVelocity> {
+                                                                      .Kv = Kv,
+                                                                      .Ka = Ka,
+                                                                      .Ks = Ks,
+                                                                      }
+    };
+    lyfast::PIDVelocityController<AngularVelocity> feedback {
+        lyfast::PIDVelocityControllerParams<AngularVelocity> {
+                                                              .Kp = 0 * volt / radps,
+                                                              .Ki = 0 * volt / rad,
+                                                              .max_output = 1.0 * volt,
+                                                              .tbh_factor = 0.0,
+                                                              }
+    };
+    lyfast::SimpleVelocityController<AngularVelocity> controller { feedforward,
+                                                                   feedback };
+    lyfast::AngularMotorGroupVelocityPlant plant(&ema_filter, controller);
 
     using namespace lyfast::sysid;
     //

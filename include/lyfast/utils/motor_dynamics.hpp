@@ -5,8 +5,10 @@
 namespace blazing {
 namespace lyfast {
 
-// pct should be speed / max_speed
-// outputs torque from motor for a specific velocity
+// TODO: this makes no sense since the torque depends on the gearing of the
+// motor.
+// pct should be speed / max_speed outputs torque from motor for a
+// specific velocity
 inline FTorque motor_torque(float pct) {
     // make sure its positive
     pct = std::abs(pct);

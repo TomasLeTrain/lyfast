@@ -3,6 +3,7 @@
 #include "blazing/drivetrains/differential.hpp"
 #include "blazing/utils.hpp"
 #include "lyfast/plants/velocity_plants.hpp"
+#include "pros/motor_group.hpp"
 #include "units/Angle.hpp"
 #include "units/units.hpp"
 
@@ -13,98 +14,86 @@ namespace lyfast {
 // forwarding plant data. Plant should be getting updated constantly elsewhere!
 class VelocityDifferentialDrivetrain : public ChainableDrivetrain {
   protected:
-    pros::MotorGroup* left_motors;
-    pros::MotorGroup* right_motors;
+    pros::MotorGroup* m_left_motors;
+    pros::MotorGroup* m_right_motors;
+    lyfast::DrivetrainVelocityPlant* m_plant;
+    Length m_track_width;
 
-    lyfast::DrivetrainVelocityPlant* plant;
-
-    std::array<Voltage, 2> voltages { 0_volt, 0_volt };
+    std::array<Voltage, 2> m_commanded_voltages { 0_volt, 0_volt };
 
   public:
-    VelocityDifferentialDrivetrain(Length track_width)
-        : m_track_width(track_width) {}
+    VelocityDifferentialDrivetrain(pros::MotorGroup* left_motors,
+                                   pros::MotorGroup* right_motors,
+                                   lyfast::DrivetrainVelocityPlant* plant,
+                                   Length track_width)
+        : m_left_motors(left_motors),
+          m_right_motors(right_motors),
+          m_plant(plant),
+          m_track_width(track_width) {}
+
+    // move robot based on left and right velocities
+    void moveTank(Voltage left_voltage, Voltage right_voltage) {
+        // TODO: saturate here or offload to controller?
+        std::array<Voltage, 2> saturated_voltages { left_voltage,
+                                                    right_voltage };
+
+        // normalizes voltages to [-1, 1]
+        auto [new_left_voltage, new_right_voltage] =
+          desaturate(saturated_voltages, 1_volt);
+
+        m_plant->setTarget(
+          LeftRightVoltages { new_left_voltage, new_right_voltage });
+    }
 
     void moveVoltages(std::vector<Voltage> voltages) override {
         // if voltages are invalid then the .at should throw an error
         moveTank(voltages.at(0), voltages.at(1));
     }
 
-    std::vector<Voltage> getVoltages() override {
-        return { voltages.at(0), voltages.at(1) };
-    }
-
     // move robot based on left and right velocities
-    void moveTank(Voltage left_voltage, Voltage right_voltage) {
-        // set voltages vector regardless of hardware action
-        voltages = { left_voltage, right_voltage };
-
-        // return if not doing hardware action
-        if (!enabled) {
-            return;
-        }
-
-        if (left_motors != nullptr && right_motors != nullptr) {
-            left_motors->move_voltage(to_mvolt(12 * left_voltage));
-            right_motors->move_voltage(to_mvolt(12 * right_voltage));
-        }
+    // positive angular -> turns left
+    void moveArcade(Voltage linear_output, Voltage angular_output) {
+        moveTank(linear_output - angular_output,
+                 linear_output + angular_output);
     }
 
     // move robot based on left and right velocities
     // positive angular -> turns left
-    void moveArcade(Voltage linear_output, Voltage angular_output) {
-        std::array<Voltage, 2> saturated_voltages {
-            linear_output - angular_output,
-            linear_output + angular_output
-        };
-
-        // normalizes voltages to [-1, 1]
-        auto [left_voltage, right_voltage] =
-          desaturate(saturated_voltages, 1_volt);
-
-        moveTank(left_voltage, right_voltage);
+    void moveArcade(LinearVelocity linear_velocity,
+                    AngularVelocity angular_velocity) {
+        // TODO: saturate here or offload to controller?
+        m_plant->setTarget(
+          DifferentialSpeeds { linear_velocity, angular_velocity });
     }
 
     // move robot based on left and right velocities
-    void moveTank(LinearVelocity left_voltage, LinearVelocity right_voltage) {
-        plant.resetController();
-        // TODO: have from last update time?
-        // plant update should be getting called always, this should just set
-        // the target
-        plant.controllerUpdate(DifferentialSpeeds {}, 10_msec);
-    }
-
-    // move robot based on left and right velocities
-    // positive angular -> turns left
-    void moveArcade(Voltage linear_output, Voltage angular_output) {
-        std::array<Voltage, 2> saturated_voltages {
-            linear_output - angular_output,
-            linear_output + angular_output
-        };
-
-        // normalizes voltages to [-1, 1]
-        auto [left_voltage, right_voltage] =
-          desaturate(saturated_voltages, 1_volt);
-
-        moveTank(left_voltage, right_voltage);
+    void moveTank(LinearVelocity left_velocity, LinearVelocity right_velocity) {
+        // convert left and right velocities into linear and angular
+        // v = (v_l + v_r) / 2
+        // w = (v_r - v_l) / (track_width)
+        LinearVelocity v = (left_velocity + right_velocity) / 2;
+        AngularVelocity w =
+          rad * (right_velocity - left_velocity) / (m_track_width);
+        moveArcade(v, w);
     }
 
     void setBrakeMode(pros::MotorBrake brake_mode) {
-        left_motors->set_brake_mode_all(brake_mode);
-        right_motors->set_brake_mode_all(brake_mode);
+        m_left_motors->set_brake_mode_all(brake_mode);
+        m_right_motors->set_brake_mode_all(brake_mode);
+    }
+
+    std::vector<Voltage> getVoltages() override {
+        return { m_plant->getCommandedVoltages().left_voltage,
+                 m_plant->getCommandedVoltages().right_voltage };
     }
 
     LeftRightSpeeds getDrivetrainVelocities() {
-        return plant.getEstimatedSpeeds();
+        return m_plant->getEstimatedSpeeds();
     }
 
     LeftRightVoltages getDrivetrainVoltages() {
-        return LeftRightVoltages { get_group_voltage(left_motors),
-                                   get_group_voltage(right_motors) };
-    }
-
-    LinearVelocity getMaxVelocity() {
-        // v = r * omega
-        return (wheel_diameter / 2) * final_rpm / rad;
+        return LeftRightVoltages { get_group_voltage(m_left_motors),
+                                   get_group_voltage(m_right_motors) };
     }
 };
 } // namespace lyfast
