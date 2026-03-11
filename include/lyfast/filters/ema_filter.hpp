@@ -5,10 +5,12 @@
 #include "pros/abstract_motor.hpp"
 #include "pros/motor_group.hpp"
 #include "pros/motors.hpp"
+#include "pros/rtos.hpp"
 #include "units/Angle.hpp"
 #include "units/units.hpp"
 #include <chrono>
 #include <map>
+#include <mutex>
 #include <queue>
 
 namespace blazing {
@@ -17,6 +19,9 @@ namespace lyfast {
 // returns -1 if gearing is invalid
 
 class EMAVelocityFilter {
+  protected:
+    pros::Mutex m_mutex;
+
   public:
     using Input = Voltage;
     using State = AngularVelocity;
@@ -93,7 +98,7 @@ class EMAVelocityFilter {
         if (std::abs(motor_dt) <= 1e-5 ||
             units::abs(tick_based_measurement) >
               // if measurement is impossibly fast
-              m_constants.final_gearing_rpm * 2.0) {
+              m_constants.final_gearing_rpm * 1.35) {
             // Motor position was likely reset, reset manually or dc'd
             // again don't have any new information, return
         } else {
@@ -117,6 +122,7 @@ class EMAVelocityFilter {
   public:
     // take measurements from the motor(s) and correct model based on them
     void correct() {
+        std::lock_guard lock(m_mutex);
         // apply correction for each motor
         for (int i = 0; i < motor_group->size(); i++) {
             correctSingleMotor(i);
@@ -126,6 +132,7 @@ class EMAVelocityFilter {
     // uses input to calculate gain for the current iteration
     // (constant model)
     void predict(Time dt) {
+        std::lock_guard lock(m_mutex);
         // can't go back in time or predict to where we are right now
         if (dt.convert(msec) <= 1e-6) return;
 
@@ -148,6 +155,7 @@ class EMAVelocityFilter {
 
     // predicts to match the timestamp, as a time in pros::millis()
     void predictToTimestamp(uint32_t timestamp) {
+        // NOTE: no lockguard since predict uses it
         if (timestamp <= m_last_predict_timestamp) {
             // timestamp before the latest prediction timestamp, can't predict
             // into the past
@@ -157,18 +165,22 @@ class EMAVelocityFilter {
     }
 
     uint32_t getLastPredictTimestamp() {
+        std::lock_guard lock(m_mutex);
         return m_last_predict_timestamp;
     }
 
     Input getInput() {
+        std::lock_guard lock(m_mutex);
         return m_input;
     }
 
     State getPredictedState() {
+        std::lock_guard lock(m_mutex);
         return m_state_estimate;
     }
 
     void setPredictedState(State new_state) {
+        std::lock_guard lock(m_mutex);
         m_state_estimate = new_state;
         m_last_predict_timestamp = pros::millis();
     }

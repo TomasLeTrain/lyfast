@@ -28,6 +28,7 @@ MotorGroupUtils<T>::VectorDataT
 MotorGroupUtils<T>::generateData(std::vector<VoltageCommand> voltage_commands,
                                  pros::MotorGroup* motor_group,
                                  std::function<T()> velocity_func,
+                                 std::function<Voltage(Voltage)> voltage_func,
                                  std::optional<Time> steady_state_time,
                                  Time delta_time) {
 

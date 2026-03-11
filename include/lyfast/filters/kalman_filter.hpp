@@ -9,6 +9,7 @@
 #include "units/units.hpp"
 #include <chrono>
 #include <map>
+#include <mutex>
 #include <queue>
 
 namespace blazing {
@@ -17,6 +18,9 @@ namespace lyfast {
 // doesnt respond well to disturbances (excess load), ema seems to be good
 // enough
 class MotorGroupKalmanFilter {
+  protected:
+    pros::Mutex m_mutex;
+
   public:
     using CovarianceUnit = Exponentiated<AngularVelocity, std::ratio<2>>;
 
@@ -185,6 +189,7 @@ class MotorGroupKalmanFilter {
   public:
     // take measurements from the motor(s) and correct model based on them
     void correct() {
+        std::lock_guard lock(m_mutex);
         // apply correction for each motor
         for (int i = 0; i < motor_group->size(); i++) {
             correctSingleMotor(i);
@@ -193,6 +198,7 @@ class MotorGroupKalmanFilter {
 
     // predict x_k+1 from x_k and u_k
     void predict(Time dt) {
+        std::lock_guard lock(m_mutex);
         // torque data seems to be delayed, so use current one instead of last
         // data
         updateTorqueInput();
@@ -273,18 +279,22 @@ class MotorGroupKalmanFilter {
     }
 
     uint32_t getLastPredictTimestamp() {
+        std::lock_guard lock(m_mutex);
         return m_last_predict_timestamp;
     }
 
     Input getInput() {
+        std::lock_guard lock(m_mutex);
         return m_input;
     }
 
     State getPredictedState() {
+        std::lock_guard lock(m_mutex);
         return m_state_estimate;
     }
 
     void setPredictedState(State new_state, CovarianceUnit covariance) {
+        std::lock_guard lock(m_mutex);
         m_state_estimate = new_state;
         m_covariance = covariance;
         m_last_predict_timestamp = pros::millis();

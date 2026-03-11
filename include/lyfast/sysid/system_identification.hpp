@@ -77,6 +77,9 @@ class MotorGroupUtils {
       pros::MotorGroup* motor_group,
       std::function<VelUnit()>
         velocity_func, // returns velocity of motor group in velocity units
+      std::function<Voltage(Voltage)>
+        voltage_func, // returns current voltage, commanded voltage given as
+                      // parameter
       std::optional<Time> steady_state_time,
       Time delta_time);
 

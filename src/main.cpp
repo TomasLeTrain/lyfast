@@ -1,5 +1,6 @@
 #include "main.h"
 #include "blazing/api.hpp"
+#include "blazing/utils.hpp"
 #include "lyfast/api.hpp"
 #include "lyfast/drivetrains/velocity_differential.hpp"
 #include "lyfast/plants/velocity_plants.hpp"
@@ -299,18 +300,6 @@ Controllers controllers(
 MotionBuilder vel_mb(velocity_chassis, controllers);
 
 ChainedExecutor chain(100_msec);
-
-void initialize() {
-    // pros::c::serctl(SERCTL_DISABLE_COBS, NULL);
-    imu.reset(true);
-
-    pros::Task([&] {
-        while (true) {
-            arc_pose_tracker.update();
-            pros::delay(10);
-        }
-    });
-}
 
 // allows running tuning routine multiple times
 // press A to run routine, X to get raw data
@@ -679,12 +668,14 @@ void path_follow_test() {
 
 pros::MotorGroup test_motor({ 13 }, pros::MotorGears::green);
 
-pros::Mutex task_mutex;
-
 // test motor kv ks and ka
-auto Kv = 0.0394825 * volt / radps;
-auto Ks = 0.0186283 * volt;
-auto Ka = 0.000876 * volt / radps2;
+auto Kv = 0.039394 * volt / radps;
+auto Ks = 0.027303 * volt;
+auto Ka = 0.001357 * volt / radps2;
+
+auto motor_voltage_Kv = 0.039394 * volt / radps;
+auto motor_voltage_Ks = 0.027303 * volt;
+auto motor_voltage_Ka = 0.001357 * volt / radps2;
 
 lyfast::EMAVelocityFilter::Constants ema_filter_constants {
     .final_gearing_rpm = 200_rpm,
@@ -693,6 +684,25 @@ lyfast::EMAVelocityFilter::Constants ema_filter_constants {
 };
 lyfast::EMAVelocityFilter ema_filter { &test_motor, ema_filter_constants };
 
+lyfast::FeedforwardVelocityController<AngularVelocity> feedforward {
+    lyfast::FeedforwardVelocityControllerParams<AngularVelocity> {
+                                                                  .Kv = motor_voltage_Kv,
+                                                                  .Ka = motor_voltage_Ka,
+                                                                  .Ks = motor_voltage_Ks,
+                                                                  }
+};
+lyfast::PIDVelocityController<AngularVelocity> feedback {
+    lyfast::PIDVelocityControllerParams<AngularVelocity> {
+                                                          .Kp = 0.01 * volt / radps,
+                                                          .Ki = 0.10 * volt / rad,
+                                                          .max_output = 1.0 * volt,
+                                                          .tbh_factor = 0.0,
+                                                          }
+};
+lyfast::SimpleVelocityController<AngularVelocity> controller { feedforward,
+                                                               feedback };
+lyfast::AngularMotorGroupVelocityPlant test_plant(&ema_filter, controller);
+
 std::vector<FAngularVelocity> tick_based_vel_data;
 
 std::vector<lyfast::sysid::AngularSysidEntry> raw_data, filtered_data;
@@ -700,7 +710,7 @@ std::vector<lyfast::sysid::AngularSysidEntry> raw_data, filtered_data;
 std::vector<std::pair<FTorque, FCurrent>> extra_data;
 std::vector<FPower> power_data;
 
-void logInformation() {
+void logInformation(Voltage commanded_voltage) {
     static uint32_t previousInternalMotorClock;
     static int32_t oldMotorTicks =
       test_motor.get_raw_position(&previousInternalMotorClock);
@@ -732,7 +742,7 @@ void logInformation() {
     Current current = test_motor.get_current_draw() * mamp;
     Power power = test_motor.get_power() * watt;
 
-    raw_data.emplace_back(raw_vel, filter_voltage);
+    raw_data.emplace_back(raw_vel, commanded_voltage);
     filtered_data.emplace_back(filter_velocity, filter_voltage);
     extra_data.emplace_back(torque, current);
     power_data.emplace_back(power);
@@ -779,7 +789,6 @@ void timeCriticalTask() {
 
     while (1) {
         {
-            std::lock_guard lock { task_mutex };
             frameCount++;
 
             // do stuff here
@@ -789,6 +798,13 @@ void timeCriticalTask() {
                 // predict the filter
                 ema_filter.predictToTimestamp(curr_time);
                 ema_filter.correct();
+                // update plant
+                test_plant.updateToTimestamp(curr_time);
+
+                Voltage test_plant_voltage = test_plant.getCommandedVoltage();
+
+                // actuate motor
+                test_motor.move_voltage(12 * to_mvolt(test_plant_voltage));
 
                 // drivetrain related things
                 left_ema_filter.predictToTimestamp(curr_time);
@@ -797,7 +813,7 @@ void timeCriticalTask() {
                 right_ema_filter.predictToTimestamp(curr_time);
                 right_ema_filter.correct();
 
-                drivetrain_plant.update(curr_time);
+                drivetrain_plant.updateToTimestamp(curr_time);
                 auto curr_drivetrain_voltages =
                   drivetrain_plant.getCommandedVoltages();
 
@@ -806,6 +822,8 @@ void timeCriticalTask() {
                   12 * to_mvolt(curr_drivetrain_voltages.left_voltage));
                 right_motors.move_voltage(
                   12 * to_mvolt(curr_drivetrain_voltages.right_voltage));
+
+                logInformation(test_plant_voltage);
             }
 
             pros::Task::delay_until(&systemTime, 2);
@@ -822,6 +840,20 @@ void startTimeCriticalTask() {
                                "time critical task");
         daemonStarted = true;
     }
+}
+
+void initialize() {
+    // pros::c::serctl(SERCTL_DISABLE_COBS, NULL);
+    imu.reset(true);
+
+    pros::Task([&] {
+        while (true) {
+            arc_pose_tracker.update();
+            pros::delay(10);
+        }
+    });
+
+    startTimeCriticalTask();
 }
 
 void test_motor_kv_ks_tuner() {
@@ -854,15 +886,22 @@ void test_motor_kv_ks_tuner() {
 
     AngularVelocity final_rpm = 200_rpm;
 
-    // TODO: can use filtered data instead
     auto vel_func = [&]() -> AngularVelocity {
-        return get_group_velocity(&test_motor, final_rpm);
+        // return get_group_velocity(&test_motor, final_rpm);
+        // can use filtered data for kv/ks
+        return ema_filter.getPredictedState();
+    };
+    auto voltage_func = [&](Voltage commanded_voltage) -> Voltage {
+        // using either will return different values?
+        // return commanded_voltage;
+        return get_group_voltage(&test_motor);
     };
 
     auto data =
       AngularMotorGroupUtils::generateData(kv_ks_commands,
                                            &test_motor,
                                            vel_func,
+                                           voltage_func,
                                            180_msec, // takes 20 samples?
                                            10_msec);
 
@@ -875,7 +914,7 @@ void test_motor_kv_ks_tuner() {
               << Ks.convert(volt) << std::endl;
 }
 
-void accel_test() {
+void test_motor_ka_tuner() {
     using namespace lyfast::sysid;
     std::vector<VoltageCommand> ka_commands = {
         // bunch of harsh accelerations
@@ -980,14 +1019,19 @@ void accel_test() {
 
     AngularVelocity final_rpm = 200_rpm;
 
-    // TODO: can use filtered data instead
     auto vel_func = [&]() -> AngularVelocity {
         return get_group_velocity(&test_motor, final_rpm);
+    };
+    auto voltage_func = [&](Voltage commanded_voltage) -> Voltage {
+        // using either will return different values?
+        // return commanded_voltage;
+        return get_group_voltage(&test_motor);
     };
 
     auto data = AngularMotorGroupUtils::generateData(ka_commands,
                                                      &test_motor,
                                                      vel_func,
+                                                     voltage_func,
                                                      std::nullopt,
                                                      10_msec);
 
@@ -998,48 +1042,51 @@ void accel_test() {
 
     std::cout << "trying Ka_method1: " << std::endl;
 
-    auto Ka_method1 =
-      AngularMotorGroupUtils::fit_ka_data(data, 10_msec, Kv, Ks);
+    auto Ka_method1 = AngularMotorGroupUtils::fit_ka_data(data,
+                                                          10_msec,
+                                                          motor_voltage_Kv,
+                                                          motor_voltage_Ks);
     std::cout << "Ka_method1: " << Ka_method1.convert(volt / radps2)
               << std::endl;
 }
 
 void motorPlantTest() {
-    lyfast::FeedforwardVelocityController<AngularVelocity> feedforward {
-        lyfast::FeedforwardVelocityControllerParams<AngularVelocity> {
-                                                                      .Kv = Kv,
-                                                                      .Ka = Ka,
-                                                                      .Ks = Ks,
-                                                                      }
-    };
-    lyfast::PIDVelocityController<AngularVelocity> feedback {
-        lyfast::PIDVelocityControllerParams<AngularVelocity> {
-                                                              .Kp = 0 * volt / radps,
-                                                              .Ki = 0 * volt / rad,
-                                                              .max_output = 1.0 * volt,
-                                                              .tbh_factor = 0.0,
-                                                              }
-    };
-    lyfast::SimpleVelocityController<AngularVelocity> controller { feedforward,
-                                                                   feedback };
-    lyfast::AngularMotorGroupVelocityPlant plant(&ema_filter, controller);
 
     using namespace lyfast::sysid;
-    //
-    startTimeCriticalTask();
 
-    std::vector<VoltageCommand> test_commands = {
-        { 0.1_volt,  400_msec  },
-        { 0.3_volt,  500_msec  },
-        { 0.4_volt,  100_msec  },
-        { 0.2_volt,  100_msec  },
-        { -0.5_volt, 600_msec  },
-        { -1.0_volt, 600_msec  },
-        { 1.0_volt,  1000_msec },
+    // test_motor_kv_ks_tuner();
+    // test_motor_ka_tuner();
+    // return;
+
+    std::vector<std::pair<AngularVelocity, Time>> test_commands = {
+        { 0.1 * 200_rpm,  400_msec  },
+        { 0.3 * 200_rpm,  500_msec  },
+        { 0.4 * 200_rpm,  100_msec  },
+        { 0.2 * 200_rpm,  100_msec  },
+        { -0.5 * 200_rpm, 600_msec  },
+        { -1.0 * 200_rpm, 600_msec  },
+        { 1.0 * 200_rpm,  1000_msec },
     };
 
-    for (auto [voltage, duration, record] : test_commands) {
-        test_motor.move_voltage(12 * to_mvolt(voltage));
+    //
+    // std::vector<VoltageCommand> test_commands = {
+    //     { 0.1_volt,  400_msec  },
+    //     { 0.3_volt,  500_msec  },
+    //     { 0.4_volt,  100_msec  },
+    //     { 0.2_volt,  100_msec  },
+    //     { -0.5_volt, 600_msec  },
+    //     { -1.0_volt, 600_msec  },
+    //     { 1.0_volt,  1000_msec },
+    // };
+    //
+    // for (auto [voltage, duration, record] : test_commands) {
+    //     test_motor.move_voltage(12 * to_mvolt(voltage));
+    //
+    //     pros::delay(to_msec(duration));
+    // }
+    //
+    for (auto [velocity, duration] : test_commands) {
+        test_plant.setTarget(velocity);
 
         pros::delay(to_msec(duration));
     }
@@ -1060,6 +1107,6 @@ void motorPlantTest() {
 }
 
 void opcontrol() {
-    pros::delay(2000);
+    // pros::delay(2000);
     motorPlantTest();
 }
