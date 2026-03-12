@@ -164,7 +164,7 @@ lyfast::DifferentialVelocityController vel_controller { params,
 lyfast::EMAVelocityFilter::Constants drivetrain_ema_filter_constants {
     .final_gearing_rpm = 450_rpm,
     .Koffset = 0.1,
-    .KalphaFactor = 0.7,
+    .KalphaFactor = 0.1,
 };
 
 lyfast::EMAVelocityFilter left_ema_filter { &left_motors,
@@ -680,7 +680,7 @@ auto motor_voltage_Ka = 0.001357 * volt / radps2;
 lyfast::EMAVelocityFilter::Constants ema_filter_constants {
     .final_gearing_rpm = 200_rpm,
     .Koffset = 0.1,
-    .KalphaFactor = 0.7,
+    .KalphaFactor = 0.1,
 };
 lyfast::EMAVelocityFilter ema_filter { &test_motor, ema_filter_constants };
 
@@ -693,10 +693,10 @@ lyfast::FeedforwardVelocityController<AngularVelocity> feedforward {
 };
 lyfast::PIDVelocityController<AngularVelocity> feedback {
     lyfast::PIDVelocityControllerParams<AngularVelocity> {
-                                                          .Kp = 0.01 * volt / radps,
-                                                          .Ki = 0.10 * volt / rad,
+                                                          .Kp = 0.05 * volt / radps,
+                                                          .Ki = 0.02 * volt / rad,
                                                           .max_output = 1.0 * volt,
-                                                          .tbh_factor = 0.0,
+                                                          .tbh_factor = 1.0,
                                                           }
 };
 lyfast::SimpleVelocityController<AngularVelocity> controller { feedforward,

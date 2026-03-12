@@ -34,7 +34,7 @@ class EMAVelocityFilter {
 
         // minimum alpha
         float Koffset = 0.1;
-        float KalphaFactor = 0.7;
+        float KalphaFactor = 0.1;
     };
 
   private:
@@ -98,7 +98,7 @@ class EMAVelocityFilter {
         if (std::abs(motor_dt) <= 1e-5 ||
             units::abs(tick_based_measurement) >
               // if measurement is impossibly fast
-              m_constants.final_gearing_rpm * 1.35) {
+              m_constants.final_gearing_rpm * 1.25) {
             // Motor position was likely reset, reset manually or dc'd
             // again don't have any new information, return
         } else {
@@ -146,7 +146,8 @@ class EMAVelocityFilter {
           m_constants.Koffset +
           // uses sqrt as scaling function for the derivative, could test others
           // like ln
-          sqrt(units::abs(voltage_derivative)) * m_constants.KalphaFactor;
+          // sqrt(units::abs(voltage_derivative)) * m_constants.KalphaFactor;
+          units::abs(voltage_derivative) * m_constants.KalphaFactor;
 
         m_alpha_gain = units::clamp(m_alpha_gain, 0, 1);
 
