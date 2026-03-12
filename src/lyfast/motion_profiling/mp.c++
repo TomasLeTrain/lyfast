@@ -222,14 +222,14 @@ FLinearAcceleration Trajectory::get_accel(FLinearVelocity last_vel) {
     const FAngularVelocity last_wheel_ang_vel = rad * (last_vel / wheel_radius);
 
     const FTorque curr_torque =
-      motor_torque(last_wheel_ang_vel / m_constraints.max_wheel_ang_vel);
+      motor_torque2(last_wheel_ang_vel, m_constraints.max_wheel_ang_vel) *
+      m_constraints.motor_count;
 
     // Torque = Force * Radius = (Mass * Accel) * Radius
     // ->
     // Accel = Torque / (Mass * Radius)
     const FLinearAcceleration curr_accel =
-      (curr_torque * m_constraints.motor_count) /
-      (wheel_radius * m_constraints.robot_mass);
+      curr_torque / (wheel_radius * m_constraints.robot_mass);
 
     return curr_accel;
 }
