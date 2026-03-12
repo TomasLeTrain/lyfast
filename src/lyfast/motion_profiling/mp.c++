@@ -20,31 +20,31 @@ void Trajectory::compute() {
 
     float t = 0;
 
-    for (FLength curr_dist = 0_Fm; curr_dist < curve->total_distance;
-         curr_dist += delta_distance) {
+    for (FLength curr_dist = 0_Fm; curr_dist < curve->m_total_distance;
+         curr_dist += m_delta_distance) {
 
         // reused for getting heading and calculating curvature
         geometry::Point df = curve->df(t);
 
-        points.emplace_back(curve->f(t),
-                            curve->c(t, df),
-                            units::constrainAngle2pi(df.getAngle()),
-                            curr_dist,
-                            t);
+        m_points.emplace_back(curve->f(t),
+                              curve->c(t, df),
+                              units::constrainAngle2pi(df.getAngle()),
+                              curr_dist,
+                              t);
 
         // dt * v = d
         // dt = d / v
         // t += dt
-        float delta_t = delta_distance / df.magnitude();
+        float delta_t = m_delta_distance / df.magnitude();
         // use std::min since units min casts to Number (doubles)
         t = std::min(t + delta_t, 1.0f);
     }
     // add last point
-    points.emplace_back(curve->f(1),
-                        curve->c(1),
-                        units::constrainAngle2pi(curve->df(1).getAngle()),
-                        curve->total_distance,
-                        1);
+    m_points.emplace_back(curve->f(1),
+                          curve->c(1),
+                          units::constrainAngle2pi(curve->df(1).getAngle()),
+                          curve->getTotalDistance(),
+                          1);
 
     printf("adding points:%llu\n", pros::c::micros() - start_time);
     isolatedConstraints();
@@ -54,7 +54,7 @@ void Trajectory::compute() {
     backwardsPass();
     printf("backwards pass:%llu\n", pros::c::micros() - start_time);
 
-    for (MotionPoint& point : points) {
+    for (MotionPoint& point : m_points) {
         final_vels_debug.emplace_back(point.vel);
     }
 
@@ -64,16 +64,77 @@ void Trajectory::compute() {
     printf("final time:%llu\n", pros::c::micros() - start_time);
 }
 
+// finds an index given a constraint keyframe (spline time or length)
+size_t Trajectory::indexByKeyframe(std::variant<float, FLength>& keyframe) {
+    float spline_time = 0;
+    FLength target_dist;
+
+    if (std::holds_alternative<float>(keyframe)) {
+        // indexed by spline time
+        // first clamp to be in correct range
+        spline_time = units::clamp(get<float>(keyframe), 0, 1);
+
+        // calculate distance from the spline time
+        target_dist = curve->s(spline_time);
+    } else if (std::holds_alternative<FLength>(keyframe)) {
+        // indexed by distance
+        target_dist = get<FLength>(keyframe);
+    }
+
+    // find index from the distance
+    return indexByDistance(target_dist);
+}
+
+void Trajectory::applyPointAndRangeConstraints() {
+    for (PointConstraint& constraint : m_point_constraints) {
+        int index = indexByKeyframe(constraint.keyframe);
+        MotionPoint& curr_point = getPoint(index);
+
+        // apply constraints
+        if (constraint.vel.has_value())
+            curr_point.vel = units::min(curr_point.vel, *constraint.vel);
+
+        if (constraint.accel.has_value())
+            curr_point.accel = units::min(curr_point.accel, *constraint.accel);
+
+        if (constraint.decel.has_value())
+            curr_point.decel = units::min(curr_point.decel, *constraint.decel);
+    }
+
+    for (RangeConstraint& constraint : m_range_constraints) {
+        size_t left_spline_idx = indexByKeyframe(constraint.left_keyframe);
+        size_t right_spline_idx = indexByKeyframe(constraint.right_keyframe);
+
+        // apply the constraints to all the points in the range
+        for (size_t i = left_spline_idx; i <= right_spline_idx; i++) {
+            // apply constraints
+            MotionPoint& curr_point = getPoint(i);
+
+            // apply constraints
+            if (constraint.vel.has_value())
+                curr_point.vel = units::min(curr_point.vel, *constraint.vel);
+
+            if (constraint.accel.has_value())
+                curr_point.accel =
+                  units::min(curr_point.accel, *constraint.accel);
+
+            if (constraint.decel.has_value())
+                curr_point.decel =
+                  units::min(curr_point.decel, *constraint.decel);
+        }
+    }
+}
+
 // computes the isolated constraints
 // These constraints do not depend on any other points
 void Trajectory::isolatedConstraints() {
     const FLinearAcceleration friction_multiplier =
-      constraints.coeff_friction * (9.81_Fmps2);
+      m_constraints.coeff_friction * (9.81_Fmps2);
 
     // half the track width
-    const FLength track_radius = constraints.track_width * 0.5f;
+    const FLength track_radius = m_constraints.track_width * 0.5f;
 
-    for (MotionPoint& point : points) {
+    for (MotionPoint& point : m_points) {
         // prevent divisions by zero
         const FCurvature abs_curvature =
           units::max(FCurvature(1e-5f), units::abs(point.curvature));
@@ -100,13 +161,14 @@ void Trajectory::isolatedConstraints() {
         // kin_multiplier = 1 / (1 + |c|*tr)
         // v = v_max * kin_multiplier
 
+        // multiplier ensuring no saturation happens
         const float kin_multiplier =
           1.0 / (1.0 + (track_radius * abs_curvature));
 
         const FLinearVelocity max_kin_vel =
-          constraints.max_vel * kin_multiplier;
+          m_constraints.max_vel * kin_multiplier;
         const FLinearVelocity max_turn_vel =
-          constraints.max_angular_vel * abs_radius_rad;
+          m_constraints.max_angular_vel * abs_radius_rad;
 
         point.vel = units::min(max_kin_vel, max_turn_vel);
 
@@ -122,14 +184,14 @@ void Trajectory::isolatedConstraints() {
           units::min(point.vel, units::sqrt(friction_multiplier * abs_radius));
 
         const FLinearAcceleration max_kin_accel =
-          constraints.max_accel * kin_multiplier;
+          m_constraints.max_accel * kin_multiplier;
         const FLinearAcceleration max_turn_accel =
-          constraints.max_angular_accel * abs_radius_rad;
+          m_constraints.max_angular_accel * abs_radius_rad;
 
         const FLinearAcceleration max_kin_decel =
-          constraints.max_decel * kin_multiplier;
+          m_constraints.max_decel * kin_multiplier;
         const FLinearAcceleration max_turn_decel =
-          constraints.max_angular_decel * abs_radius_rad;
+          m_constraints.max_angular_decel * abs_radius_rad;
 
         point.accel = units::min(max_kin_accel, max_turn_accel);
         point.decel = units::min(max_kin_decel, max_turn_decel);
@@ -148,74 +210,26 @@ void Trajectory::isolatedConstraints() {
         max_friction_vel_debug.emplace_back(point.vel);
     }
 
-    // TODO: add possibility of different constraints:
-    // (max/min vel/ang_vel/decel/accel for some range range)
-
-    for (PointConstraint& constraint : point_constraints) {
-        // finds closest point to constraint and sets those values
-        float spline_time = 0;
-
-        if (std::holds_alternative<float>(constraint.timeframe)) {
-            // indexed by spline time
-            spline_time = units::clamp(get<float>(constraint.timeframe), 0, 1);
-        } else if (std::holds_alternative<FLength>(constraint.timeframe)) {
-            // indexed by distance
-            std::cout << "using distance "
-                      << get<FLength>(constraint.timeframe).convert(in)
-                      << std::endl;
-            FLength distance = units::min(curve->total_distance,
-                                          get<FLength>(constraint.timeframe));
-            spline_time = curve->t_by_s(distance);
-        }
-
-        FLength dist = curve->s(spline_time);
-        int index =
-          int(float(dist / curve->total_distance) * (points.size() - 1));
-
-        std::cout << "constraint from " << index << std::endl;
-
-        std::cout << "before vel/accel/decel: "
-                  << points[index].vel.convert(inps) << " "
-                  << points[index].accel.convert(inps2) << " "
-                  << points[index].decel.convert(inps2) << std::endl;
-
-        // apply constraints
-        if (constraint.vel)
-            points[index].vel = units::min(points[index].vel, *constraint.vel);
-
-        if (constraint.accel)
-            points[index].accel =
-              units::min(points[index].accel, *constraint.accel);
-
-        if (constraint.decel)
-            points[index].decel =
-              units::min(points[index].decel, *constraint.decel);
-
-        std::cout << "after vel/accel/decel: "
-                  << points[index].vel.convert(inps) << " "
-                  << points[index].accel.convert(inps2) << " "
-                  << points[index].decel.convert(inps2) << std::endl;
-    }
-
     // sets the start and initial velocity constraints
-    points.front().vel = start_vel;
-    points.back().vel = end_vel;
+    // overrides all set constraints
+    m_points.front().vel = m_start_vel;
+    m_points.back().vel = m_end_vel;
 }
 
 FLinearAcceleration Trajectory::get_accel(FLinearVelocity last_vel) {
-    const FLength wheel_radius = constraints.wheel_diameter / 2.0f;
+    const FLength wheel_radius = m_constraints.wheel_diameter / 2.0f;
 
     const FAngularVelocity last_wheel_ang_vel = rad * (last_vel / wheel_radius);
 
     const FTorque curr_torque =
-      motor_torque(last_wheel_ang_vel / constraints.max_wheel_ang_vel);
+      motor_torque(last_wheel_ang_vel / m_constraints.max_wheel_ang_vel);
 
     // Torque = Force * Radius = (Mass * Accel) * Radius
     // ->
     // Accel = Torque / (Mass * Radius)
     const FLinearAcceleration curr_accel =
-      (curr_torque * constraints.motor_count) /
-      (wheel_radius * constraints.robot_mass);
+      (curr_torque * m_constraints.motor_count) /
+      (wheel_radius * m_constraints.robot_mass);
 
     return curr_accel;
 }
@@ -223,13 +237,13 @@ FLinearAcceleration Trajectory::get_accel(FLinearVelocity last_vel) {
 // performs a forward pass to keep max acceleration constraints
 void Trajectory::forwardsPass() {
     // constant for all points
-    const FLength distance_delta_mult = 2 * delta_distance;
-    forwards_pass_debug.emplace_back(points.front().vel);
+    const FLength distance_delta_mult = 2 * m_delta_distance;
+    forwards_pass_debug.emplace_back(m_points.front().vel);
 
     // excludes starting point
-    for (size_t i = 1; i < points.size(); i++) {
-        const MotionPoint& last_point = points[i - 1];
-        MotionPoint& point = points[i];
+    for (size_t i = 1; i < m_points.size(); i++) {
+        const MotionPoint& last_point = m_points[i - 1];
+        MotionPoint& point = m_points[i];
         // (Sprunk 25)
 
         // predicted max accel from motors
@@ -253,15 +267,15 @@ void Trajectory::forwardsPass() {
 // performs a forward pass to keep max deceleration constraints
 void Trajectory::backwardsPass() {
     // constant for all points
-    const FLength distance_delta_mult = 2 * delta_distance;
+    const FLength distance_delta_mult = 2 * m_delta_distance;
     backwards_pass_debug.insert(backwards_pass_debug.begin(),
-                                points.back().vel);
+                                m_points.back().vel);
 
     // excludes end point
-    for (int i = this->points.size() - 2; i >= 0; i--) {
+    for (int i = int(getNumPoints()) - 2; i >= 0; i--) {
         // (Sprunk 25)
-        MotionPoint& point = points[i];
-        const MotionPoint& next_point = points[i + 1];
+        MotionPoint& point = m_points[i];
+        const MotionPoint& next_point = m_points[i + 1];
 
         // predicted max decel from motors
         const FLinearAcceleration motor_accel =
@@ -285,12 +299,12 @@ void Trajectory::backwardsPass() {
 }
 
 void Trajectory::setTravelTimes() {
-    const FLength delta_distance2 = 2 * delta_distance;
-    points[0].travel_time = 0_sec;
+    const FLength delta_distance2 = 2 * m_delta_distance;
+    m_points[0].travel_time = 0_sec;
 
-    for (size_t i = 1; i < points.size(); i++) {
-        MotionPoint& point = points[i];
-        const MotionPoint& last_point = points[i - 1];
+    for (size_t i = 1; i < m_points.size(); i++) {
+        MotionPoint& point = m_points[i];
+        const MotionPoint& last_point = m_points[i - 1];
         // (Sprunk 23)
 
         // in case vel is negative the delta distance would also be positive, so
@@ -303,13 +317,8 @@ void Trajectory::setTravelTimes() {
 }
 
 int Trajectory::indexByDistance(FLength distance, int start_ind) {
-    // actual values of the point don't really matter
-    // (except for arc_length)
-    MotionPoint query_point = points[0];
-
-    query_point.arc_length = distance;
-
-    int idx_guess = std::round(distance / delta_distance);
+    // guess the closest index to the given distance
+    int idx_guess = std::round(distance / m_delta_distance);
 
     const int num_points = getNumPoints();
 
@@ -324,7 +333,7 @@ int Trajectory::indexByDistance(FLength distance, int start_ind) {
 int Trajectory::indexByTime(FTime time, int start_ind) {
     // actual values of the point don't really matter
     // (except for travel_time)
-    MotionPoint query_point = points[0];
+    MotionPoint query_point = m_points[0];
 
     query_point.travel_time = time;
 
@@ -334,10 +343,12 @@ int Trajectory::indexByTime(FTime time, int start_ind) {
     };
 
     // search for time in points
-    auto result_itr =
-      lower_bound(points.begin(), points.end(), query_point, travel_time_cmp);
+    auto result_itr = lower_bound(m_points.begin(),
+                                  m_points.end(),
+                                  query_point,
+                                  travel_time_cmp);
 
-    int idx = std::distance(points.begin(), result_itr);
+    int idx = std::distance(m_points.begin(), result_itr);
 
     const int num_points = getNumPoints();
 
@@ -356,7 +367,7 @@ int Trajectory::indexByClosestPoint(geometry::Point point,
     FLength best = Length(INFINITY);
     int result = 0;
 
-    FLength original_start_dist = points[start_ind].arc_length;
+    FLength original_start_dist = m_points[start_ind].arc_length;
     // either some max look dist or look until the end of the array
     FLength original_end_dist =
       units::min(original_start_dist + max_look_dist, getTotalDistance());
@@ -369,7 +380,7 @@ int Trajectory::indexByClosestPoint(geometry::Point point,
         // get index by distance
         int i = indexByDistance(curr_dist);
 
-        auto& motion_point = points[i];
+        auto& motion_point = m_points[i];
         Length curr_distance = point.distanceTo(motion_point.point);
         if (curr_distance < best) {
             best = curr_distance;
@@ -393,7 +404,7 @@ int Trajectory::indexByClosestPoint(geometry::Point point,
         // get index by distance
         int i = indexByDistance(curr_dist);
 
-        auto& motion_point = points[i];
+        auto& motion_point = m_points[i];
         Length curr_distance = point.distanceTo(motion_point.point);
         if (curr_distance < best) {
             best = curr_distance;
@@ -405,8 +416,8 @@ int Trajectory::indexByClosestPoint(geometry::Point point,
     return result;
 }
 
-int Trajectory::sanitizeIndex(int index) {
-    return std::clamp(index, 0, int(getNumPoints()));
+size_t Trajectory::sanitizeIndex(int index) {
+    return (size_t)std::clamp(index, 0, int(getNumPoints()) - 1);
 }
 
 FDifferentialSpeeds Trajectory::differentialVelocitiesByIndex(int index) {
@@ -416,52 +427,56 @@ FDifferentialSpeeds Trajectory::differentialVelocitiesByIndex(int index) {
 }
 
 FLength Trajectory::getTotalDistance() {
-    return points.back().arc_length;
+    return m_points.back().arc_length;
 }
 
 FTime Trajectory::getTotalTime() {
-    return points.back().travel_time;
+    return m_points.back().travel_time;
 }
 
 size_t Trajectory::getNumPoints() {
-    return points.size();
+    return m_points.size();
 }
 
 MotionPoint& Trajectory::getPoint(int index) {
-    return points.at(index);
+    return m_points.at(index);
 }
 
 MotionPoint& Trajectory::getMotionEndPoint() {
-    return points.front();
+    return m_points.front();
 }
 
 MotionPoint& Trajectory::getMotionStartPoint() {
-    return points.back();
+    return m_points.back();
 }
 
 Trajectory::Trajectory(std::shared_ptr<geometry::Curve> curve,
                        Constraints constraints,
                        std::vector<PointConstraint> point_constraints,
+                       std::vector<RangeConstraint> range_constraints,
                        LinearVelocity start_vel,
                        LinearVelocity end_vel,
                        Length change_in_distance)
     : curve(curve),
-      constraints(constraints),
-      start_vel(start_vel),
-      end_vel(end_vel),
-      delta_distance(change_in_distance),
-      point_constraints(point_constraints) {
+      m_constraints(constraints),
+      m_start_vel(start_vel),
+      m_end_vel(end_vel),
+      m_delta_distance(change_in_distance),
+      m_point_constraints(point_constraints),
+      m_range_constraints(range_constraints) {
 
-    printf("total distance: %f\n", curve->total_distance.convert(in));
-    printf("delta_distance: %f\n", delta_distance.convert(in));
-    printf(
-      "allocated for points %d\n",
-      static_cast<size_t>((curve->total_distance / delta_distance).internal()) +
-        10);
-    // makes the creation of points faster by allocating the required space
-    points.reserve(
-      static_cast<size_t>((curve->total_distance / delta_distance).internal()) +
-      10);
+    printf("total distance: %f\n", curve->getTotalDistance().convert(in));
+    printf("delta_distance: %f\n", m_delta_distance.convert(in));
+    size_t estimatedNumPoints =
+      static_cast<size_t>(
+        (curve->getTotalDistance() / m_delta_distance).internal()) +
+      10;
+
+    printf("allocated for points %d\n", estimatedNumPoints);
+
+    // makes the creation of points faster by reserving the required space
+    m_points.reserve(estimatedNumPoints);
+
     compute();
 }
 } // namespace mp

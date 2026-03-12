@@ -11,9 +11,18 @@ namespace blazing {
 namespace lyfast {
 namespace geometry {
 class Curve {
+  protected:
+    FLength m_total_distance;
+    std::array<Point, 2> m_endpoints;
+
   public:
-    FLength total_distance;
-    std::array<Point, 2> endpoints;
+    virtual FLength getTotalDistance() {
+        return m_total_distance;
+    }
+
+    virtual std::array<Point, 2> getEndpoints() {
+        return m_endpoints;
+    }
 
     /**
      * @brief sample point of curve at sample time t
@@ -67,10 +76,10 @@ class Curve {
                                    FLength resolution = 1_in);
 
     Curve(Point first_endpoint, Point last_endpoint)
-        : endpoints({ first_endpoint, last_endpoint }) {}
+        : m_endpoints({ first_endpoint, last_endpoint }) {}
 
     Curve(std::array<Point, 2> endpoints)
-        : endpoints(endpoints) {}
+        : m_endpoints(endpoints) {}
 
     virtual ~Curve() = default;
 };

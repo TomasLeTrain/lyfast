@@ -20,7 +20,17 @@ namespace mp {
 
 struct PointConstraint {
     // spline time or length based
-    std::variant<float, FLength> timeframe;
+    std::variant<float, FLength> keyframe;
+
+    std::optional<FLinearVelocity> vel = std::nullopt;
+    std::optional<FLinearAcceleration> accel = std::nullopt;
+    std::optional<FLinearAcceleration> decel = std::nullopt;
+};
+
+struct RangeConstraint {
+    // spline time or length based
+    std::variant<float, FLength> left_keyframe;
+    std::variant<float, FLength> right_keyframe;
 
     std::optional<FLinearVelocity> vel = std::nullopt;
     std::optional<FLinearAcceleration> accel = std::nullopt;
@@ -56,6 +66,7 @@ struct MotionPoint {
 class Trajectory {
 
   public:
+    // all for debugging:
     std::vector<FLinearVelocity> max_kin_vel_debug;
     std::vector<FLinearVelocity> max_turn_vel_debug;
     std::vector<FLinearVelocity> max_friction_vel_debug;
@@ -69,13 +80,18 @@ class Trajectory {
     std::vector<FLinearAcceleration> max_turn_decel_debug;
 
     std::vector<FLinearVelocity> final_vels_debug;
+    // debug end
 
     std::shared_ptr<geometry::Curve> curve;
 
   private:
-    std::shared_ptr<geometry::Curve> getCurve();
-
     void compute();
+
+    // finds an index given a constraint keyframe (spline time or length)
+    size_t indexByKeyframe(std::variant<float, FLength>& keyframe);
+
+    // applies extra given constraints
+    void applyPointAndRangeConstraints();
 
     // computes the isolated constraints
     // These constraints do not depend on any other points
@@ -92,19 +108,33 @@ class Trajectory {
     void setTravelTimes();
 
   public:
-    Constraints constraints;
-    FLinearVelocity start_vel, end_vel;
+    Constraints m_constraints;
+    FLinearVelocity m_start_vel, m_end_vel;
 
-    std::vector<MotionPoint> points;
+    std::vector<MotionPoint> m_points;
 
     // change in distance between points
-    FLength delta_distance;
+    FLength m_delta_distance;
 
-    std::vector<PointConstraint> point_constraints;
+    std::vector<PointConstraint> m_point_constraints;
+    std::vector<RangeConstraint> m_range_constraints;
 
+    // returns the curve the motion profile is using
+    std::shared_ptr<geometry::Curve> getCurve();
+
+    // returns the index of the point with a given distance, rounded to the
+    // nearest index
     int indexByDistance(FLength distance, int start_ind = 0);
+
+    // returns the index of the point with a given time, rounded to the
+    // nearest index
     int indexByTime(FTime time, int start_ind = 0);
 
+    // returns the index of the point on the curve closest to the given point.
+    // The point found has an index greater than start_ind and at most a
+    // max_dist distance from start_ind. resolution is used to search for the
+    // point in the given max_dist window, reducing increases lookup time and
+    // may no neccesarily increase precision (can get to within index precision)
     int indexByClosestPoint(geometry::Point point,
                             int start_ind = 0,
                             FLength max_dist = Length(INFINITY),
@@ -115,7 +145,9 @@ class Trajectory {
 
     size_t getNumPoints();
     MotionPoint& getPoint(int index);
-    int sanitizeIndex(int index);
+
+    // sanitizes a given index to be within a valid range
+    size_t sanitizeIndex(int index);
 
     MotionPoint& getMotionEndPoint();
     MotionPoint& getMotionStartPoint();
@@ -125,6 +157,7 @@ class Trajectory {
     Trajectory(std::shared_ptr<geometry::Curve> curve,
                Constraints constraints,
                std::vector<PointConstraint> point_constraints,
+               std::vector<RangeConstraint> range_constraints,
                LinearVelocity start_vel,
                LinearVelocity end_vel,
                Length change_in_distance);

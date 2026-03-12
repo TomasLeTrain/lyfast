@@ -5,7 +5,7 @@ namespace lyfast {
 namespace geometry {
 
 Point Line::f(float t) {
-    return derivative * t + endpoints[0];
+    return derivative * t + m_endpoints[0];
 }
 
 Point Line::df(float t) {
@@ -42,10 +42,10 @@ float Line::t_by_s(FLength target) {
 Line::Line(Point start, Point end)
     : Curve(start, end) {
 
-    derivative = endpoints[1] - endpoints[0];
+    derivative = m_endpoints[1] - m_endpoints[0];
     speed = derivative.magnitude();
 
-    total_distance = s(1.0);
+    m_total_distance = s(1.0);
 }
 
 Line::Line(std::array<Point, 2> endpoints)

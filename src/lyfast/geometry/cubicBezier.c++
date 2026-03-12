@@ -6,10 +6,10 @@ namespace lyfast {
 namespace geometry {
 
 void CubicBezier::compute_coefficient_matrices() {
-    const Point& p0 = endpoints[0];
+    const Point& p0 = m_endpoints[0];
     const Point& p1 = controls[0];
     const Point& p2 = controls[1];
-    const Point& p3 = endpoints[1];
+    const Point& p3 = m_endpoints[1];
 
     for (size_t i = 0; i < basis_matrix.size(); i++) {
         Point a0 = (p0 * basis_matrix[i][0]);
@@ -156,7 +156,7 @@ CubicBezier::CubicBezier(Point start, Point control0, Point control1, Point end)
       controls({ control0, control1 }) {
     compute_coefficient_matrices();
 
-    total_distance = s(1.0);
+    m_total_distance = s(1.0);
 }
 } // namespace geometry
 } // namespace lyfast

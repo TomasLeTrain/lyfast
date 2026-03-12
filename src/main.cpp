@@ -627,20 +627,20 @@ void path_follow_test() {
         print("v_{final}", test_trajectory->final_vels_debug, Finps);
 
         std::cout << "l_{times}=\\left[";
-        for (auto& point : test_trajectory->points) {
+        for (auto& point : test_trajectory->m_points) {
             std::cout << point.travel_time.convert(sec) << ",";
         }
         std::cout << "\\right]" << std::endl;
 
         std::cout << "l_{points}=\\left[";
-        for (auto& point : test_trajectory->points) {
+        for (auto& point : test_trajectory->m_points) {
             std::cout << "\\left(" << point.point.x.convert(in) << ","
                       << point.point.y.convert(in) << "\\right),";
         }
         std::cout << "\\right]" << std::endl;
 
         std::cout << "l_{headings}=\\left[";
-        for (auto& point : test_trajectory->points) {
+        for (auto& point : test_trajectory->m_points) {
             std::cout << point.heading.internal() << ",";
         }
         std::cout << "\\right]" << std::endl;

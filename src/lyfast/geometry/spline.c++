@@ -60,7 +60,7 @@ FLength Spline::s(float t) {
 float Spline::t_by_s(FLength target, float t_guess) {
     // here we have to look up the spline in which the distance is in range
 
-    assert((target <= total_distance) &&
+    assert((target <= m_total_distance) &&
            "target is larger than total distance");
 
     FLength past_distance = 0_Fm;
@@ -100,7 +100,7 @@ float Spline::t_by_s(FLength target) {
 }
 
 Spline::Spline(std::vector<std::shared_ptr<Curve>> curves)
-    : Curve(curves.front()->endpoints[0], curves.back()->endpoints[1]),
+    : Curve(curves.front()->m_endpoints[0], curves.back()->m_endpoints[1]),
       m_curves(curves) {
     num_curves = static_cast<float>(m_curves.size());
 
@@ -109,7 +109,7 @@ Spline::Spline(std::vector<std::shared_ptr<Curve>> curves)
         assert(
           (
             // distance from one endpoint to another
-            m_curves[i - 1]->endpoints[1].distanceTo(m_curves[i]->endpoints[0])
+            m_curves[i - 1]->m_endpoints[1].distanceTo(m_curves[i]->m_endpoints[0])
             // is bigger than some epsilon
             < 1_cm) &&
           "curve endpoints do not match");
@@ -119,11 +119,11 @@ Spline::Spline(std::vector<std::shared_ptr<Curve>> curves)
 
     // sets the distances to each curve
     for (std::shared_ptr<Curve>& curve : m_curves) {
-        distance += curve->total_distance;
+        distance += curve->m_total_distance;
         distance_to_curve.emplace_back(distance);
     }
 
-    total_distance = distance;
+    m_total_distance = distance;
 }
 } // namespace geometry
 } // namespace lyfast
