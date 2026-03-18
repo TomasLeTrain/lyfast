@@ -3,6 +3,7 @@
 #include "blazing/utils.hpp"
 #include "lyfast/api.hpp"
 #include "lyfast/drivetrains/velocity_differential.hpp"
+#include "lyfast/motion_profiling/mp.hpp"
 #include "lyfast/plants/velocity_plants.hpp"
 #include "pros/abstract_motor.hpp"
 #include "pros/apix.h"
@@ -342,7 +343,7 @@ void kv_ks_tuner(const std::string& type,
       type,
       delta_time,
       [&] {
-         return DifferentialUtils::generate_kv_ks_data(voltage_commands,
+          return DifferentialUtils::generate_kv_ks_data(voltage_commands,
                                                         drivetrain,
                                                         delta_time,
                                                         steady_state_time,
@@ -535,6 +536,90 @@ void angular_raw_ka_tuner(lyfast::KvUnits<LinearVelocity> left_Kv,
                  right_Ks);
 }
 
+void trajectoryDebugPrint(const lyfast::mp::Trajectory* trajectory) {
+    using namespace blazing::lyfast;
+    using namespace blazing::lyfast::geometry;
+    using namespace blazing::lyfast::mp;
+    auto print =
+      []<typename Unit>(std::string name,
+                        const std::vector<Trajectory::debugInfo>& list,
+                        Unit Trajectory::debugInfo::* member,
+                        Unit target_units) {
+          std::cout << name << "=\\left[";
+          for (size_t i = 0; i < list.size(); i++) {
+              if (i != 0) std::cout << ",";
+              std::cout << (list[i].*member).convert(target_units);
+          }
+          std::cout << "\\right]" << std::endl;
+      };
+
+    if (trajectory->getDebugEnabled()) {
+        print("a_{kin}",
+              trajectory->getDebugInfo(),
+              &Trajectory::debugInfo::max_kin_decel,
+              Finps2);
+
+        print("a_{turn}",
+              trajectory->getDebugInfo(),
+              &Trajectory::debugInfo::max_turn_accel,
+              Finps2);
+        print("d_{kin}",
+              trajectory->getDebugInfo(),
+              &Trajectory::debugInfo::max_kin_decel,
+              Finps2);
+        print("d_{turn}",
+              trajectory->getDebugInfo(),
+              &Trajectory::debugInfo::max_turn_decel,
+              Finps2);
+        //
+        print("v_{kin}",
+              trajectory->getDebugInfo(),
+              &Trajectory::debugInfo::max_kin_vel,
+              Finps);
+        print("v_{turn}",
+              trajectory->getDebugInfo(),
+              &Trajectory::debugInfo::max_kin_vel,
+              Finps);
+        print("v_{friction}",
+              trajectory->getDebugInfo(),
+              &Trajectory::debugInfo::max_friction_vel,
+              Finps);
+
+        print("v_{forward}",
+              trajectory->getDebugInfo(),
+              &Trajectory::debugInfo::forwards_pass,
+              Finps);
+        print("v_{backward}",
+              trajectory->getDebugInfo(),
+              &Trajectory::debugInfo::backwards_pass,
+              Finps);
+
+        print("v_{final}",
+              trajectory->getDebugInfo(),
+              &Trajectory::debugInfo::final_vels,
+              Finps);
+
+        std::cout << "l_{times}=\\left[";
+        for (auto& point : trajectory->getPoints()) {
+            std::cout << point.travel_time.convert(sec) << ",";
+        }
+        std::cout << "\\right]" << std::endl;
+
+        std::cout << "l_{points}=\\left[";
+        for (auto& point : trajectory->getPoints()) {
+            std::cout << "\\left(" << point.point.x.convert(in) << ","
+                      << point.point.y.convert(in) << "\\right),";
+        }
+        std::cout << "\\right]" << std::endl;
+
+        std::cout << "l_{headings}=\\left[";
+        for (auto& point : trajectory->getPoints()) {
+            std::cout << point.heading.internal() << ",";
+        }
+        std::cout << "\\right]" << std::endl;
+    }
+}
+
 void path_follow_test() {
     using namespace blazing::lyfast;
     using namespace blazing::lyfast::geometry;
@@ -554,11 +639,11 @@ void path_follow_test() {
 
     RobotConstraints robot_constraints(
       10.5_in, // track with
-      0.9, // friction coeff
+      0.9, // friction coeff - should tune?
       3.25_in, // wheel diameter
-      410_rpm, // max ang vel - determined somewhat from data
-      14.8_lb, // about 6.7 kg
-      2.0f); // motor count - determined somewhat from data
+      389_rpm, // max ang vel - determined somewhat from data
+      6.7_kg, // about 14.8 lbs
+      1.36f); // motor count - determined somewhat from data
 
     LinearConstraints linear_constraints(
       60_inps, // max vel - for testing
@@ -567,7 +652,7 @@ void path_follow_test() {
       100_inps2 // max decel - for testing also
     );
 
-    // effectively infinity
+    // TODO: what is the difference between angular accel/decel?
     AngularConstraints angular_constraints(2.0_radps, 1.3_radps2, 1.3_radps2);
 
     Constraints constraints(robot_constraints,
@@ -576,70 +661,24 @@ void path_follow_test() {
 
     // std::make_shared<geometry::Curve>(spline);
 
+    bool debug = true;
+
     std::shared_ptr<Trajectory> test_trajectory(
       new Trajectory(spline_ptr,
                      constraints,
-                     {
-                       // lyfast::mp::PointConstraint {
-                       //                              .timeframe = 18_in,
-                       //                              .vel = 10_inps,
-                       //                              },
-                     },
+                     {},
                      {},
                      // some initial velocity for it to move?
                      // TODO: could there be a place on the curve that also has
                      // a velof zero? if so this would also have the same issue?
                      0_inps,
                      0_inps,
-                     0.1_in));
+                     0.1_in,
+                     debug));
+
+    trajectoryDebugPrint(test_trajectory.get());
 
     // print out final trajectory and debug info
-
-    auto print =
-      []<typename T>(std::string name, std::vector<T>& list, T target_units) {
-          std::cout << name << "=\\left[";
-          for (size_t i = 0; i < list.size(); i++) {
-              if (i != 0) std::cout << ",";
-              std::cout << list[i].convert(target_units);
-          }
-          std::cout << "\\right]" << std::endl;
-      };
-
-    bool printing = true;
-    if (printing) {
-        print("a_{kin}", test_trajectory->max_kin_accel_debug, Finps2);
-        print("a_{turn}", test_trajectory->max_turn_accel_debug, Finps2);
-        print("d_{kin}", test_trajectory->max_kin_decel_debug, Finps2);
-        print("d_{turn}", test_trajectory->max_turn_decel_debug, Finps2);
-        //
-        print("v_{kin}", test_trajectory->max_kin_vel_debug, Finps);
-        print("v_{turn}", test_trajectory->max_turn_vel_debug, Finps);
-        print("v_{friction}", test_trajectory->max_friction_vel_debug, Finps);
-
-        print("v_{forward}", test_trajectory->forwards_pass_debug, Finps);
-        print("v_{backward}", test_trajectory->backwards_pass_debug, Finps);
-
-        print("v_{final}", test_trajectory->final_vels_debug, Finps);
-
-        std::cout << "l_{times}=\\left[";
-        for (auto& point : test_trajectory->m_points) {
-            std::cout << point.travel_time.convert(sec) << ",";
-        }
-        std::cout << "\\right]" << std::endl;
-
-        std::cout << "l_{points}=\\left[";
-        for (auto& point : test_trajectory->m_points) {
-            std::cout << "\\left(" << point.point.x.convert(in) << ","
-                      << point.point.y.convert(in) << "\\right),";
-        }
-        std::cout << "\\right]" << std::endl;
-
-        std::cout << "l_{headings}=\\left[";
-        for (auto& point : test_trajectory->m_points) {
-            std::cout << point.heading.internal() << ",";
-        }
-        std::cout << "\\right]" << std::endl;
-    }
 
     // drivetrain.setBrakeMode(pros::v5::MotorBrake::hold);
 

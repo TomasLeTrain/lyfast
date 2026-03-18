@@ -169,7 +169,7 @@ class PathFollow : public Motion<ControllersType,
         next_reference_speeds.linear_velocity *= reverse_multiplier;
 
         // points used for tolerances
-        mp::MotionPoint& curve_endpoint =
+        const mp::MotionPoint& curve_endpoint =
           target_trajectory->getMotionEndPoint();
         const Angle curve_endpoint_heading = curve_endpoint.heading;
         const Length distance_to_end =
@@ -236,8 +236,9 @@ class PathFollow : public Motion<ControllersType,
         // linear and angular should be references for the velocity
         // controller
 
-        // auto [left_vel, right_vel] = this->drivetrain.getDrivetrainVelocities();
-        // auto [actual_volt_left, actual_volt_right] =
+        // auto [left_vel, right_vel] =
+        // this->drivetrain.getDrivetrainVelocities(); auto [actual_volt_left,
+        // actual_volt_right] =
         //   this->drivetrain.getDrivetrainVoltages();
 
         // std::cout << std::fixed;

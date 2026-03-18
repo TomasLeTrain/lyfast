@@ -64,33 +64,48 @@ struct MotionPoint {
 };
 
 class Trajectory {
-
   public:
-    // all for debugging:
-    std::vector<FLinearVelocity> max_kin_vel_debug;
-    std::vector<FLinearVelocity> max_turn_vel_debug;
-    std::vector<FLinearVelocity> max_friction_vel_debug;
+    struct debugInfo {
+        FLinearVelocity max_kin_vel;
+        FLinearVelocity max_turn_vel;
+        FLinearVelocity max_friction_vel;
 
-    std::vector<FLinearVelocity> forwards_pass_debug;
-    std::vector<FLinearVelocity> backwards_pass_debug;
+        FLinearVelocity forwards_pass;
+        FLinearVelocity backwards_pass;
 
-    std::vector<FLinearAcceleration> max_kin_accel_debug;
-    std::vector<FLinearAcceleration> max_turn_accel_debug;
-    std::vector<FLinearAcceleration> max_kin_decel_debug;
-    std::vector<FLinearAcceleration> max_turn_decel_debug;
+        FLinearAcceleration max_kin_accel;
+        FLinearAcceleration max_turn_accel;
+        FLinearAcceleration max_kin_decel;
+        FLinearAcceleration max_turn_decel;
 
-    std::vector<FLinearVelocity> final_vels_debug;
-    // debug end
-
-    std::shared_ptr<geometry::Curve> curve;
+        FLinearVelocity final_vels;
+    };
 
   private:
+    std::vector<debugInfo> m_debug_info;
+
+    // TODO: make all private?
+    std::shared_ptr<geometry::Curve> curve;
+    Constraints m_constraints;
+    FLinearVelocity m_start_vel, m_end_vel;
+
+    std::vector<MotionPoint> m_points;
+
+    // change in distance between points
+    FLength m_delta_distance;
+
+    std::vector<PointConstraint> m_point_constraints;
+    std::vector<RangeConstraint> m_range_constraints;
+    bool m_debug_enabled;
+
+  private:
+    // computes the path and motion profile
     void compute();
 
     // finds an index given a constraint keyframe (spline time or length)
     size_t indexByKeyframe(std::variant<float, FLength>& keyframe);
 
-    // applies extra given constraints
+    // applies extra given point/range constraints
     void applyPointAndRangeConstraints();
 
     // computes the isolated constraints
@@ -105,30 +120,33 @@ class Trajectory {
     // performs a forward pass to keep max deceleration constraints
     void backwardsPass();
 
+    // computes travel time for all the points
     void setTravelTimes();
 
   public:
-    Constraints m_constraints;
-    FLinearVelocity m_start_vel, m_end_vel;
-
-    std::vector<MotionPoint> m_points;
-
-    // change in distance between points
-    FLength m_delta_distance;
-
-    std::vector<PointConstraint> m_point_constraints;
-    std::vector<RangeConstraint> m_range_constraints;
-
     // returns the curve the motion profile is using
     std::shared_ptr<geometry::Curve> getCurve();
 
+    Constraints getConstraints() const;
+    FLength getDeltaDistance() const;
+
+    const std::vector<debugInfo>& getDebugInfo() const;
+    const std::vector<MotionPoint>& getPoints() const;
+
+    const std::vector<PointConstraint>& getPointConstraints() const;
+    const std::vector<RangeConstraint>& getRangeConstraints() const;
+    bool getDebugEnabled() const;
+
+    FLinearVelocity getStartVelocity() const;
+    FLinearVelocity getEndVelocity() const;
+
     // returns the index of the point with a given distance, rounded to the
     // nearest index
-    int indexByDistance(FLength distance, int start_ind = 0);
+    int indexByDistance(FLength distance, int start_ind = 0) const;
 
     // returns the index of the point with a given time, rounded to the
     // nearest index
-    int indexByTime(FTime time, int start_ind = 0);
+    int indexByTime(FTime time, int start_ind = 0) const;
 
     // returns the index of the point on the curve closest to the given point.
     // The point found has an index greater than start_ind and at most a
@@ -138,21 +156,31 @@ class Trajectory {
     int indexByClosestPoint(geometry::Point point,
                             int start_ind = 0,
                             FLength max_dist = Length(INFINITY),
-                            FLength resolution = 1_in);
+                            FLength resolution = 1_in) const;
 
-    FLength getTotalDistance();
-    FTime getTotalTime();
+    // return total arc length of the path
+    FLength getTotalDistance() const;
 
-    size_t getNumPoints();
-    MotionPoint& getPoint(int index);
+    // return total calculated travel time of the path
+    FTime getTotalTime() const;
+
+    // returns total number of points
+    size_t getNumPoints() const;
+
+    // returns const reference to point at specified index
+    const MotionPoint& getPoint(int index) const;
 
     // sanitizes a given index to be within a valid range
-    size_t sanitizeIndex(int index);
+    size_t sanitizeIndex(int index) const;
 
-    MotionPoint& getMotionEndPoint();
-    MotionPoint& getMotionStartPoint();
+    // returns first motion point
+    const MotionPoint& getMotionStartPoint() const;
 
-    FDifferentialSpeeds differentialVelocitiesByIndex(int index);
+    // returns last motion point
+    const MotionPoint& getMotionEndPoint() const;
+
+    // returns the target linear/angular velocities at some index
+    FDifferentialSpeeds differentialVelocitiesByIndex(int index) const;
 
     Trajectory(std::shared_ptr<geometry::Curve> curve,
                Constraints constraints,
@@ -160,7 +188,8 @@ class Trajectory {
                std::vector<RangeConstraint> range_constraints,
                LinearVelocity start_vel,
                LinearVelocity end_vel,
-               Length change_in_distance);
+               Length change_in_distance,
+               bool debug_enabled = false);
 };
 } // namespace mp
 } // namespace lyfast
