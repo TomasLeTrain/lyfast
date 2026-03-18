@@ -107,9 +107,9 @@ class MotorGroupKalmanFilter {
     }
 
     void correctSingleMotor(std::uint8_t idx) {
-        AngularVelocity raw_motor_measurement =
-          motor_group->get_actual_velocity(idx) * rpm;
-        pros::MotorGears gearing = motor_group->get_gearing(idx);
+        // AngularVelocity raw_motor_measurement =
+        //   motor_group->get_actual_velocity(idx) * rpm;
+        // pros::MotorGears gearing = motor_group->get_gearing(idx);
 
         // AngularVelocity motor_measurement =
         //   (raw_motor_measurement / gearingToVelocity(gearing)) *

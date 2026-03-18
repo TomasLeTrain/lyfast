@@ -139,41 +139,43 @@ using AngularMotorGroupUtils = MotorGroupUtils<AngularVelocity>;
 
 class DifferentialUtils {
   public:
+    using VoltageCommandVector = std::vector<DifferentialVoltageCommand>;
     // gathers velocity data from robot by moving voltage_commands
     // does not collect actual voltage data, but rather commanded voltage
     static DifferentialData
-    createData(std::vector<DifferentialVoltageCommand> voltage_commands,
-               DifferentialDrivetrain& drivetrain,
-               Time delta_time);
-
-    static DifferentialData
-    gather_kv_ks_data(std::vector<DifferentialVoltageCommand> voltage_commands,
-                      DifferentialDrivetrain& drivetrain,
-                      Time delta_time,
-                      Time steady_state_time);
-
-    static DifferentialData
-    calculate_kv_ks(std::vector<DifferentialVoltageCommand> voltage_commands,
-                    DifferentialDrivetrain& drivetrain,
-                    Time delta_time = 10_msec,
-                    Time steady_state_time = 200_msec);
-
-    static DifferentialData
-    calculate_ka(std::vector<DifferentialVoltageCommand> voltage_commands,
+    generateData(const VoltageCommandVector& voltage_commands,
                  DifferentialDrivetrain& drivetrain,
+                 Time delta_time,
+                 bool use_measured_voltage = false);
+
+    static DifferentialData
+    generate_kv_ks_data(const VoltageCommandVector& voltage_commands,
+                        DifferentialDrivetrain& drivetrain,
+                        Time delta_time,
+                        Time steady_state_time,
+                        bool use_measured_voltage = false);
+
+    // return calculated [left,right] kv/ks. Also prints values
+    static std::pair<std::pair<KvUnits<LinearVelocity>, KsUnits>,
+                     std::pair<KvUnits<LinearVelocity>, KsUnits>>
+    calculate_kv_ks(const DifferentialData& data);
+
+    // return calculated [left,right] ka. Also prints values
+    static std::pair<KaUnits<LinearVelocity>, KaUnits<LinearVelocity>>
+    calculate_ka(const DifferentialData& data,
                  KvUnits<LinearVelocity> left_kv,
                  KsUnits left_ks,
                  KvUnits<LinearVelocity> right_kv,
                  KsUnits right_ks,
                  Time delta_time);
 
-    static void printData(DifferentialData data, Time delta_time);
-
-    static DifferentialData
-    calculate_ka_kp_ki_fopdt(DifferentialVoltageCommand voltage_command,
-                             DifferentialDrivetrain& drivetrain,
+    // return calculated [left,right] ka. Also prints values
+    static std::pair<KaUnits<LinearVelocity>, KaUnits<LinearVelocity>>
+    calculate_ka_kp_ki_fopdt(const DifferentialData& data,
                              Time delta_time,
                              double lambda_factor);
+
+    static void printData(const DifferentialData& data, Time delta_time);
 };
 } // namespace sysid
 } // namespace lyfast

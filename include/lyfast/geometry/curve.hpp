@@ -24,6 +24,14 @@ class Curve {
         return m_endpoints;
     }
 
+    virtual Point getFirstEndpoint() {
+        return m_endpoints[0];
+    }
+
+    virtual Point getLastEndpoint() {
+        return m_endpoints[1];
+    }
+
     /**
      * @brief sample point of curve at sample time t
      *

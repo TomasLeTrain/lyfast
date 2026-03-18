@@ -251,10 +251,11 @@ void MotorGroupUtils<T>::printDataAsLatex(const VectorDataT& data) {
 
 // gathers velocity data from robot by moving voltage_commands
 // does not collect actual voltage data, but rather commanded voltage
-DifferentialData DifferentialUtils::createData(
-  std::vector<DifferentialVoltageCommand> voltage_commands,
-  DifferentialDrivetrain& drivetrain,
-  Time delta_time) {
+DifferentialData
+DifferentialUtils::generateData(const VoltageCommandVector& voltage_commands,
+                                DifferentialDrivetrain& drivetrain,
+                                Time delta_time,
+                                bool use_measured_voltage) {
 
     DifferentialData data;
 
@@ -273,8 +274,18 @@ DifferentialData DifferentialUtils::createData(
                 auto [left_velocity, right_velocity] =
                   drivetrain.getDrivetrainVelocities();
 
-                data.left.emplace_back(left_velocity, left_voltage);
-                data.right.emplace_back(right_velocity, right_voltage);
+                if (use_measured_voltage) {
+                    auto [left_measured_voltage, right_measured_voltage] =
+                      drivetrain.getDrivetrainVoltages();
+
+                    data.left.emplace_back(left_velocity,
+                                           left_measured_voltage);
+                    data.right.emplace_back(right_velocity,
+                                            right_measured_voltage);
+                } else {
+                    data.left.emplace_back(left_velocity, left_voltage);
+                    data.right.emplace_back(right_velocity, right_voltage);
+                }
             }
 
             pros::c::task_delay_until(&prev_time, int_delta_time);
@@ -283,11 +294,12 @@ DifferentialData DifferentialUtils::createData(
     return data;
 }
 
-DifferentialData DifferentialUtils::gather_kv_ks_data(
-  std::vector<DifferentialVoltageCommand> voltage_commands,
+DifferentialData DifferentialUtils::generate_kv_ks_data(
+  const VoltageCommandVector& voltage_commands,
   DifferentialDrivetrain& drivetrain,
   Time delta_time,
-  Time steady_state_time) {
+  Time steady_state_time,
+  bool use_measured_voltage) {
     DifferentialData data;
 
     uint32_t int_delta_time = std::lround(to_msec(delta_time));
@@ -311,15 +323,22 @@ DifferentialData DifferentialUtils::gather_kv_ks_data(
               units::max(0_Fsec, target_time - steady_state_time);
 
             if (timeoutDone(threshold_time, start_time)) {
-
                 auto [curr_left_vel, curr_right_vel] =
                   drivetrain.getDrivetrainVelocities();
 
-                left_averageVelocities += curr_left_vel;
-                left_averageVoltages += left_voltage;
+                auto [left_measured_voltage, right_measured_voltage] =
+                  drivetrain.getDrivetrainVoltages();
 
+                left_averageVelocities += curr_left_vel;
                 right_averageVelocities += curr_right_vel;
-                right_averageVoltages += right_voltage;
+
+                if (use_measured_voltage) {
+                    left_averageVoltages += left_measured_voltage;
+                    right_averageVoltages += right_measured_voltage;
+                } else {
+                    left_averageVoltages += left_voltage;
+                    right_averageVoltages += right_voltage;
+                }
 
                 samples++;
             }
@@ -344,18 +363,11 @@ DifferentialData DifferentialUtils::gather_kv_ks_data(
     return data;
 }
 
-DifferentialData DifferentialUtils::calculate_kv_ks(
-  std::vector<DifferentialVoltageCommand> voltage_commands,
-  DifferentialDrivetrain& drivetrain,
-  Time delta_time,
-  Time steady_state_time) {
-    // figure out kv and ks from this data
-
-    DifferentialData data = gather_kv_ks_data(voltage_commands,
-                                              drivetrain,
-                                              delta_time,
-                                              steady_state_time);
-
+// return calculated [left,right] kv/ks. Also prints values
+std::pair<std::pair<KvUnits<LinearVelocity>, KsUnits>,
+          std::pair<KvUnits<LinearVelocity>, KsUnits>>
+DifferentialUtils::calculate_kv_ks(const DifferentialData& data) {
+    // figure out kv and ks from the data
     auto [left_kv, left_ks] = LinearMotorGroupUtils::fit_kv_ks_data(data.left);
     auto [right_kv, right_ks] =
       LinearMotorGroupUtils::fit_kv_ks_data(data.right);
@@ -377,22 +389,19 @@ DifferentialData DifferentialUtils::calculate_kv_ks(
               << ".right_Ks = " << right_ks.internal() << " * volt,\n"
               << std::endl;
     // clang-format on
-
-    return data;
+    return {
+        { left_kv,  left_ks  },
+        { right_kv, right_ks }
+    };
 }
 
-DifferentialData DifferentialUtils::calculate_ka(
-  std::vector<DifferentialVoltageCommand> voltage_commands,
-  DifferentialDrivetrain& drivetrain,
-  KvUnits<LinearVelocity> left_kv,
-  KsUnits left_ks,
-  KvUnits<LinearVelocity> right_kv,
-  KsUnits right_ks,
-  Time delta_time) {
-
-    DifferentialData data =
-      createData(voltage_commands, drivetrain, delta_time);
-
+std::pair<KaUnits<LinearVelocity>, KaUnits<LinearVelocity>>
+DifferentialUtils::calculate_ka(const DifferentialData& data,
+                                KvUnits<LinearVelocity> left_kv,
+                                KsUnits left_ks,
+                                KvUnits<LinearVelocity> right_kv,
+                                KsUnits right_ks,
+                                Time delta_time) {
     // figure out kv and ks from this data
 
     auto left_ka = LinearMotorGroupUtils::fit_ka_data(data.left,
@@ -410,30 +419,13 @@ DifferentialData DifferentialUtils::calculate_ka(
     std::cout << "right: " << std::endl;
     std::cout << "ka: " << right_ka << std::endl;
 
-    return data;
+    return { left_ka, right_ka };
 }
 
-void DifferentialUtils::printData(DifferentialData data, Time delta_time) {
-    std::cout << "delta time of " << to_msec(delta_time) << " msec\n";
-
-    std::cout << "left motor data (voltage, velocity):\n";
-    LinearMotorGroupUtils::printDataAsLatex(data.left);
-
-    std::cout << "right motor data(voltage, velocity):\n ";
-    LinearMotorGroupUtils::printDataAsLatex(data.right);
-}
-
-DifferentialData DifferentialUtils::calculate_ka_kp_ki_fopdt(
-  DifferentialVoltageCommand voltage_command,
-  DifferentialDrivetrain& drivetrain,
-  Time delta_time,
-  double lambda_factor) {
-
-    DifferentialData data =
-      createData(std::vector<DifferentialVoltageCommand> { voltage_command },
-                 drivetrain,
-                 delta_time);
-
+std::pair<KaUnits<LinearVelocity>, KaUnits<LinearVelocity>>
+calculate_ka_kp_ki_fopdt(const DifferentialData& data,
+                         Time delta_time,
+                         double lambda_factor) {
     auto [left_T, left_K, left_ka, left_kp, left_ki] =
       LinearMotorGroupUtils::fit_ka_kp_ki_data_both_models(data.left,
                                                            delta_time,
@@ -470,7 +462,18 @@ DifferentialData DifferentialUtils::calculate_ka_kp_ki_fopdt(
               << ".right_Ki = " << right_ki.internal() << " * volt / m," << std::endl;
     // clang-format on
 
-    return data;
+    return { left_ka, right_ka };
+}
+
+void DifferentialUtils::printData(const DifferentialData& data,
+                                  Time delta_time) {
+    std::cout << "delta time of " << to_msec(delta_time) << " msec\n";
+
+    std::cout << "left motor data (voltage, velocity):\n";
+    LinearMotorGroupUtils::printDataAsLatex(data.left);
+
+    std::cout << "right motor data(voltage, velocity):\n ";
+    LinearMotorGroupUtils::printDataAsLatex(data.right);
 }
 
 } // namespace sysid

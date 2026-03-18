@@ -20,7 +20,7 @@ void Trajectory::compute() {
 
     float t = 0;
 
-    for (FLength curr_dist = 0_Fm; curr_dist < curve->m_total_distance;
+    for (FLength curr_dist = 0_Fm; curr_dist < curve->getTotalDistance();
          curr_dist += m_delta_distance) {
 
         // reused for getting heading and calculating curvature

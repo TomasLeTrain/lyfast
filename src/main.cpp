@@ -303,110 +303,11 @@ ChainedExecutor chain(100_msec);
 
 // allows running tuning routine multiple times
 // press A to run routine, X to get raw data
-void kv_ks_tuner(
-  std::string type,
-  std::vector<lyfast::sysid::DifferentialVoltageCommand> voltage_commands,
-  Time delta_time = 10_msec) {
-    lyfast::sysid::DifferentialData data;
-
-    while (true) {
-        drivetrain.moveTank(0_volt, 0_volt);
-
-        if (master.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_A)) {
-
-            std::cout << "type: " << type << std::endl;
-
-            data = lyfast::sysid::DifferentialUtils::calculate_kv_ks(
-              voltage_commands,
-              drivetrain);
-        }
-
-        if (master.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_X)) {
-            std::cout << "kv/ks type: " << type << std::endl;
-            lyfast::sysid::DifferentialUtils::printData(data, delta_time);
-        }
-        pros::delay(10);
-    }
-}
-
-// allows running tuning routine multiple times
-// press A to run routine, X to get raw data
-void raw_ka_tuner(
-  std::string type,
-  std::vector<lyfast::sysid::DifferentialVoltageCommand> voltage_commands,
-  lyfast::KvUnits<LinearVelocity> left_Kv,
-  lyfast::KsUnits left_Ks,
-  lyfast::KvUnits<LinearVelocity> right_Kv,
-  lyfast::KsUnits right_Ks) {
-    lyfast::sysid::DifferentialData data;
-
-    Time delta_time = 10_msec;
-
-    while (true) {
-        drivetrain.moveTank(0_volt, 0_volt);
-
-        if (master.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_A)) {
-            std::cout << "type: " << type << std::endl;
-
-            data =
-              lyfast::sysid::DifferentialUtils::calculate_ka(voltage_commands,
-                                                             drivetrain,
-                                                             left_Kv,
-                                                             left_Ks,
-                                                             right_Kv,
-                                                             right_Ks,
-                                                             delta_time);
-        }
-
-        if (master.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_X)) {
-            std::cout << "type: " << type << std::endl;
-            std::cout << "data" << std::endl;
-            lyfast::sysid::DifferentialUtils::printData(data, delta_time);
-        }
-        pros::delay(10);
-    }
-}
-
-void create_accel_data(
-  lyfast::sysid::DifferentialVoltageCommand voltage_command,
-  std::string type) {
-    Time delta_time = 10_msec;
-
-    std::vector<lyfast::sysid::DifferentialVoltageCommand>
-      accel_voltage_commands = { // linear movements
-                                 // { u_step, u_step, 2_sec },
-                                 voltage_command
-      };
-
-    lyfast::sysid::DifferentialData accel_data;
-
-    while (true) {
-        drivetrain.moveTank(0_volt, 0_volt);
-
-        if (master.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_A)) {
-            std::cout << "type: " << type << std::endl;
-
-            accel_data = lyfast::sysid::DifferentialUtils::createData(
-              accel_voltage_commands,
-              drivetrain,
-              delta_time);
-        }
-
-        if (master.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_X)) {
-            std::cout << "type: " << type << std::endl;
-            std::cout << "accel_data: " << std::endl;
-            std::cout << "u_step (l,r): " << voltage_command.left_voltage
-                      << ", " << voltage_command.right_voltage << std::endl;
-            lyfast::sysid::DifferentialUtils::printData(accel_data, delta_time);
-        }
-        pros::delay(10);
-    }
-}
-
-void ka_kp_ki_tuner(std::string type,
-                    lyfast::sysid::DifferentialVoltageCommand voltage_command,
-                    double lambda_factor,
-                    Time delta_time = 10_msec) {
+void genericTuner(
+  const std::string& type,
+  Time delta_time,
+  std::function<lyfast::sysid::DifferentialData()> gatherData,
+  std::function<void(lyfast::sysid::DifferentialData&)> processData) {
     lyfast::sysid::DifferentialData data;
 
     while (true) {
@@ -415,11 +316,9 @@ void ka_kp_ki_tuner(std::string type,
         if (master.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_A)) {
             std::cout << "type: " << type << std::endl;
 
-            data = lyfast::sysid::DifferentialUtils::calculate_ka_kp_ki_fopdt(
-              voltage_command,
-              drivetrain,
-              delta_time,
-              lambda_factor);
+            data = gatherData();
+
+            processData(data);
         }
 
         if (master.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_X)) {
@@ -431,11 +330,106 @@ void ka_kp_ki_tuner(std::string type,
     }
 }
 
+void kv_ks_tuner(const std::string& type,
+                 const std::vector<lyfast::sysid::DifferentialVoltageCommand>&
+                   voltage_commands,
+                 Time steady_state_time = 150_msec,
+                 Time delta_time = 10_msec) {
+    using namespace lyfast::sysid;
+    // function params outlive the genericTuner function, so capturing
+    // them by reference should fine
+    genericTuner(
+      type,
+      delta_time,
+      [&] {
+          return DifferentialUtils::generate_kv_ks_data(voltage_commands,
+                                                        drivetrain,
+                                                        delta_time,
+                                                        steady_state_time,
+                                                        false);
+      },
+      [](DifferentialData& data) {
+          DifferentialUtils::calculate_kv_ks(data);
+      });
+}
+
+// allows running tuning routine multiple times
+// press A to run routine, X to get raw data
+void raw_ka_tuner(const std::string& type,
+                  const std::vector<lyfast::sysid::DifferentialVoltageCommand>&
+                    voltage_commands,
+                  lyfast::KvUnits<LinearVelocity> left_Kv,
+                  lyfast::KsUnits left_Ks,
+                  lyfast::KvUnits<LinearVelocity> right_Kv,
+                  lyfast::KsUnits right_Ks,
+                  Time delta_time = 10_msec) {
+    using namespace lyfast::sysid;
+    // function params outlive the genericTuner function, so capturing
+    // them by reference should fine
+    genericTuner(
+      type,
+      delta_time,
+      [&] {
+          return DifferentialUtils::generateData(voltage_commands,
+                                                 drivetrain,
+                                                 delta_time,
+                                                 false);
+      },
+      [&](DifferentialData& data) {
+          DifferentialUtils::calculate_ka(data,
+                                          left_Kv,
+                                          left_Ks,
+                                          right_Kv,
+                                          right_Ks,
+                                          delta_time);
+      });
+}
+
+void create_accel_data(
+  const lyfast::sysid::DifferentialVoltageCommand& voltage_command,
+  const std::string& type,
+  Time delta_time = 10_msec) {
+    using namespace lyfast::sysid;
+    // function params outlive the genericTuner function, so capturing
+    // them by reference should fine
+    genericTuner(
+      type,
+      delta_time,
+      [&] {
+          return DifferentialUtils::generateData({ voltage_command },
+                                                 drivetrain,
+                                                 delta_time);
+      },
+      [](DifferentialData& data) {});
+}
+
+void ka_kp_ki_tuner(
+  const std::string& type,
+  const lyfast::sysid::DifferentialVoltageCommand& voltage_command,
+  double lambda_factor,
+  Time delta_time = 10_msec) {
+    using namespace lyfast::sysid;
+    // function params outlive the genericTuner function, so capturing
+    // them by reference should fine
+    genericTuner(
+      type,
+      delta_time,
+      [&] {
+          return DifferentialUtils::generateData({ voltage_command },
+                                                 drivetrain,
+                                                 delta_time);
+      },
+      [&](DifferentialData& data) {
+          DifferentialUtils::calculate_ka_kp_ki_fopdt(data,
+                                                      delta_time,
+                                                      lambda_factor);
+      });
+}
+
 void linear_ka_kp_ki_tuner(Voltage u_step = 0.5_volt,
                            double lambda_factor = 0.6,
                            Time accel_time = 2_sec,
                            Time delta_time = 10_msec) {
-
     ka_kp_ki_tuner("LINEAR",
                    { u_step, u_step, accel_time },
                    lambda_factor,
@@ -591,6 +585,7 @@ void path_follow_test() {
                        //                              .vel = 10_inps,
                        //                              },
                      },
+                     {},
                      // some initial velocity for it to move?
                      // TODO: could there be a place on the curve that also has
                      // a velof zero? if so this would also have the same issue?
@@ -884,7 +879,7 @@ void test_motor_kv_ks_tuner() {
         { 1.0_volt,   800_msec },
     };
 
-    AngularVelocity final_rpm = 200_rpm;
+    // AngularVelocity final_rpm = 200_rpm;
 
     auto vel_func = [&]() -> AngularVelocity {
         // return get_group_velocity(&test_motor, final_rpm);

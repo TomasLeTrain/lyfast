@@ -100,26 +100,27 @@ float Spline::t_by_s(FLength target) {
 }
 
 Spline::Spline(std::vector<std::shared_ptr<Curve>> curves)
-    : Curve(curves.front()->m_endpoints[0], curves.back()->m_endpoints[1]),
+    : Curve(curves.front()->getFirstEndpoint(),
+            curves.back()->getLastEndpoint()),
       m_curves(curves) {
     num_curves = static_cast<float>(m_curves.size());
 
     // check that endpoints between curves match
     for (size_t i = 1; i < m_curves.size(); i++) {
-        assert(
-          (
-            // distance from one endpoint to another
-            m_curves[i - 1]->m_endpoints[1].distanceTo(m_curves[i]->m_endpoints[0])
-            // is bigger than some epsilon
-            < 1_cm) &&
-          "curve endpoints do not match");
+        assert((
+                 // distance from one endpoint to another
+                 m_curves[i - 1]->getLastEndpoint().distanceTo(
+                   m_curves[i]->getFirstEndpoint())
+                 // is bigger than some epsilon
+                 < 1_cm) &&
+               "curve endpoints do not match");
     }
 
     Length distance = 0_m;
 
     // sets the distances to each curve
     for (std::shared_ptr<Curve>& curve : m_curves) {
-        distance += curve->m_total_distance;
+        distance += curve->getTotalDistance();
         distance_to_curve.emplace_back(distance);
     }
 
