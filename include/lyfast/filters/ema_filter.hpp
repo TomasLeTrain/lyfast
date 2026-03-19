@@ -34,6 +34,8 @@ class EMAVelocityFilter {
 
         // minimum alpha
         float Koffset = 0.1;
+        // multiplied by the voltage delta to determine how much more to trust
+        // velocity measurements
         float KalphaFactor = 0.1;
     };
 
@@ -95,12 +97,15 @@ class EMAVelocityFilter {
         AngularVelocity tick_based_measurement =
           angular_position_delta / from_msec(motor_dt);
 
+        // std::cout << "(" << int(idx) << ", "
+        //           << tick_based_measurement.convert(radps) << "), ";
         if (std::abs(motor_dt) <= 1e-5 ||
             units::abs(tick_based_measurement) >
               // if measurement is impossibly fast
               m_constants.final_gearing_rpm * 1.25) {
             // Motor position was likely reset, reset manually or dc'd
             // again don't have any new information, return
+            std::cout << "disregarding measuremnt:" << int(idx) << std::endl;
         } else {
             // we do have good measurement, use
             correctVelocity(tick_based_measurement);
@@ -109,14 +114,7 @@ class EMAVelocityFilter {
 
     // update input (voltage) based on motor data
     void updateInput() {
-        int motor_count = 0;
-
-        m_input = 0_volt;
-        for (auto voltage : motor_group->get_voltage_all()) {
-            m_input += from_mvolt(voltage) / 12.0;
-            motor_count++;
-        }
-        m_input /= static_cast<float>(motor_count);
+        m_input = get_group_voltage(motor_group);
     }
 
   public:

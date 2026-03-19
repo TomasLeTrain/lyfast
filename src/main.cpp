@@ -1,5 +1,6 @@
 #include "main.h"
 #include "blazing/api.hpp"
+#include "blazing/latex_utils.hpp"
 #include "blazing/utils.hpp"
 #include "lyfast/api.hpp"
 #include "lyfast/drivetrains/velocity_differential.hpp"
@@ -9,6 +10,7 @@
 #include "pros/apix.h"
 #include "pros/imu.h"
 #include "pros/motor_group.hpp"
+#include "pros/motors.h"
 #include "pros/optical.h"
 #include "pros/rtos.h"
 #include "pros/rtos.hpp"
@@ -22,6 +24,7 @@
 #include <memory>
 #include <mutex>
 #include <numeric>
+#include <tuple>
 #include <utility>
 
 void disabled() {}
@@ -98,9 +101,6 @@ int8_t right_front = -17;
 int8_t right_middle = 16;
 int8_t right_back = 19;
 
-bool vexmaps_logging_enabled = true;
-bool custom_particling = true;
-
 pros::MotorGroup left_motors({ left_front, left_middle, left_back }, pros::MotorGears::blue, pros::MotorEncoderUnits::rotations);
 pros::MotorGroup right_motors({ right_front, right_middle, right_back }, pros::MotorGears::blue, pros::MotorEncoderUnits::rotations);
 // clang-format on
@@ -121,8 +121,8 @@ Length wheel_diameter = 3.25_in;
 AngularVelocity final_rpm = 450_rpm;
 
 // tracker stuff
-DifferentialDrivetrain
-  drivetrain(&left_motors, &right_motors, wheel_diameter, final_rpm);
+// DifferentialDrivetrain
+//   drivetrain(&left_motors, &right_motors, wheel_diameter, final_rpm);
 
 lyfast::DifferentialVelocityControllerParams params {
 	.linear = {
@@ -164,7 +164,8 @@ lyfast::DifferentialVelocityController vel_controller { params,
 
 lyfast::EMAVelocityFilter::Constants drivetrain_ema_filter_constants {
     .final_gearing_rpm = 450_rpm,
-    .Koffset = 0.1,
+    .Koffset = 0.1, // guaranteed to trust velocity measurements always
+    // .Koffset = 0.1,
     .KalphaFactor = 0.1,
 };
 
@@ -252,7 +253,7 @@ normalLargeChainTolerances tolerances(linearTolerances,
                                       chainLinearTolerances,
                                       chainAngularTolerances);
 
-Chassis chassis(drivetrain, arc_pose_tracker, tolerances);
+// Chassis chassis(drivetrain, arc_pose_tracker, tolerances);
 Chassis velocity_chassis(velocity_drivetrain, arc_pose_tracker, tolerances);
 
 RunExecutor run;
@@ -302,17 +303,23 @@ MotionBuilder vel_mb(velocity_chassis, controllers);
 
 ChainedExecutor chain(100_msec);
 
+std::vector<std::array<LinearVelocity, 3>> left_tick_velocity;
+std::vector<std::array<LinearVelocity, 3>> right_tick_velocity;
+
+std::vector<lyfast::sysid::LinearSysidEntry> left_filtered_data,
+  right_filtered_data;
+
 // allows running tuning routine multiple times
 // press A to run routine, X to get raw data
 void genericTuner(
   const std::string& type,
   Time delta_time,
   std::function<lyfast::sysid::DifferentialData()> gatherData,
-  std::function<void(lyfast::sysid::DifferentialData&)> processData) {
+  std::function<void(const lyfast::sysid::DifferentialData&)> processData) {
     lyfast::sysid::DifferentialData data;
 
     while (true) {
-        drivetrain.moveTank(0_volt, 0_volt);
+        velocity_drivetrain.moveTank(0_volt, 0_volt);
 
         if (master.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_A)) {
             std::cout << "type: " << type << std::endl;
@@ -326,6 +333,30 @@ void genericTuner(
             std::cout << "type: " << type << std::endl;
             std::cout << "data: " << std::endl;
             lyfast::sysid::DifferentialUtils::printData(data, delta_time);
+
+            std::cout << "left filtered data: " << std::endl;
+            lyfast::sysid::LinearMotorGroupUtils::printDataAsLatex(
+              left_filtered_data);
+
+            std::cout << "right filtered data: " << std::endl;
+            lyfast::sysid::LinearMotorGroupUtils::printDataAsLatex(
+              right_filtered_data);
+
+            std::cout << "left tick data: " << std::endl;
+            for (int i = 0; i < 3; i++)
+                printListAsLatex(size(left_tick_velocity),
+                                 [&](size_t idx) -> float {
+                                     return left_tick_velocity[idx][i].convert(
+                                       mps);
+                                 });
+
+            std::cout << "right tick data: " << std::endl;
+            for (int i = 0; i < 3; i++)
+                printListAsLatex(size(right_tick_velocity),
+                                 [&](size_t idx) -> float {
+                                     return right_tick_velocity[idx][i].convert(
+                                       mps);
+                                 });
         }
         pros::delay(10);
     }
@@ -342,14 +373,14 @@ void kv_ks_tuner(const std::string& type,
     genericTuner(
       type,
       delta_time,
-      [&] {
+      [&] -> DifferentialData {
           return DifferentialUtils::generate_kv_ks_data(voltage_commands,
-                                                        drivetrain,
+                                                        velocity_drivetrain,
                                                         delta_time,
                                                         steady_state_time,
                                                         false);
       },
-      [](DifferentialData& data) {
+      [](const DifferentialData& data) {
           DifferentialUtils::calculate_kv_ks(data);
       });
 }
@@ -372,11 +403,11 @@ void raw_ka_tuner(const std::string& type,
       delta_time,
       [&] {
           return DifferentialUtils::generateData(voltage_commands,
-                                                 drivetrain,
+                                                 velocity_drivetrain,
                                                  delta_time,
                                                  false);
       },
-      [&](DifferentialData& data) {
+      [&](const DifferentialData& data) {
           DifferentialUtils::calculate_ka(data,
                                           left_Kv,
                                           left_Ks,
@@ -398,10 +429,10 @@ void create_accel_data(
       delta_time,
       [&] {
           return DifferentialUtils::generateData({ voltage_command },
-                                                 drivetrain,
+                                                 velocity_drivetrain,
                                                  delta_time);
       },
-      [](DifferentialData& data) {});
+      [](const DifferentialData& data) {});
 }
 
 void ka_kp_ki_tuner(
@@ -417,10 +448,10 @@ void ka_kp_ki_tuner(
       delta_time,
       [&] {
           return DifferentialUtils::generateData({ voltage_command },
-                                                 drivetrain,
+                                                 velocity_drivetrain,
                                                  delta_time);
       },
-      [&](DifferentialData& data) {
+      [&](const DifferentialData& data) {
           DifferentialUtils::calculate_ka_kp_ki_fopdt(data,
                                                       delta_time,
                                                       lambda_factor);
@@ -451,13 +482,20 @@ void linear_kv_ks_tuner(Time delta_time = 10_msec) {
     kv_ks_tuner("LINEAR",
                 std::vector<lyfast::sysid::DifferentialVoltageCommand> {
                   // linear movements
-                  { -0.1_volt, -0.1_volt, 600_msec  },
-                  { 0.2_volt,  0.2_volt,  1000_msec },
+                  { -0.1_volt, -0.1_volt, 600_msec },
+                  { 0.0_volt, 0.0_volt, 500_msec, false },
+                  { 0.2_volt, 0.2_volt, 1000_msec },
+                  { 0.0_volt, 0.0_volt, 500_msec, false },
                   { -0.3_volt, -0.3_volt, 1000_msec },
-                  { 0.4_volt,  0.4_volt,  1000_msec },
+                  { 0.0_volt, 0.0_volt, 500_msec, false },
+                  { 0.4_volt, 0.4_volt, 1000_msec },
+                  { 0.0_volt, 0.0_volt, 500_msec, false },
                   { -0.5_volt, -0.5_volt, 1000_msec },
-                  { 0.6_volt,  0.6_volt,  1000_msec },
+                  { 0.0_volt, 0.0_volt, 500_msec, false },
+                  { 0.6_volt, 0.6_volt, 1000_msec },
+                  { 0.0_volt, 0.0_volt, 500_msec, false },
                   { -0.7_volt, -0.7_volt, 1000_msec },
+                  { 0.0_volt, 0.0_volt, 500_msec, false },
     },
                 delta_time);
 }
@@ -787,6 +825,74 @@ void logInformation(Voltage commanded_voltage) {
     power_data.emplace_back(power);
 }
 
+AngularVelocity calculateMotorVel(int port, AngularVelocity max_vel) {
+    static uint32_t previousInternalMotorClock[22];
+    static int32_t oldMotorTicks[22];
+    // oldMotorTicks[port] =
+    //   test_motor.get_raw_position(&previousInternalMotorClock[port]);
+
+    uint32_t currentInternalMotorClock;
+    int32_t currentMotorTicks =
+      pros::c::motor_get_raw_position(port, &currentInternalMotorClock);
+
+    double dT = 5.0 * std::round((currentInternalMotorClock -
+                                  previousInternalMotorClock[port]) /
+                                 5.0);
+    double dN = currentMotorTicks - oldMotorTicks[port];
+    previousInternalMotorClock[port] = currentInternalMotorClock;
+    oldMotorTicks[port] = currentMotorTicks;
+
+    auto gearing_factor = (200_rpm / max_vel);
+
+    // 900 ticks / revolution for 200 rpm cart
+    // ticks decrease as final rpm increases
+    Divided<Number, Angle> conversion = (900.0 / rot) * gearing_factor;
+
+    Angle angular_position_delta = dN / conversion;
+    AngularVelocity estimated_angular_velocity =
+      angular_position_delta / from_msec(dT);
+
+    return estimated_angular_velocity;
+}
+
+void logDrivetrainInformation(Voltage left_commanded_voltage,
+                              Voltage right_commanded_voltage) {
+    left_tick_velocity.push_back(std::array<LinearVelocity, 3> {
+      toLinear(calculateMotorVel(left_back, final_rpm), wheel_diameter),
+      toLinear(calculateMotorVel(left_middle, final_rpm), wheel_diameter),
+      toLinear(calculateMotorVel(left_front, final_rpm), wheel_diameter) });
+
+    right_tick_velocity.push_back(std::array<LinearVelocity, 3> {
+      toLinear(calculateMotorVel(right_back, final_rpm), wheel_diameter),
+      toLinear(calculateMotorVel(right_middle, final_rpm), wheel_diameter),
+      toLinear(calculateMotorVel(right_front, final_rpm), wheel_diameter) });
+
+    Voltage left_filter_voltage = left_ema_filter.getInput();
+    AngularVelocity left_filter_velocity = left_ema_filter.getPredictedState();
+
+    Voltage right_filter_voltage = right_ema_filter.getInput();
+    AngularVelocity right_filter_velocity =
+      right_ema_filter.getPredictedState();
+
+    left_filtered_data.emplace_back(
+      toLinear(left_filter_velocity, wheel_diameter),
+      left_filter_voltage);
+    right_filtered_data.emplace_back(
+      toLinear(right_filter_velocity, wheel_diameter),
+      right_filter_voltage);
+    //
+    // AngularVelocity raw_vel = test_motor.get_actual_velocity() * rpm;
+
+    // Torque torque = test_motor.get_torque() * Nm; // calculated
+    // Current current = test_motor.get_current_draw() * mamp;
+    // Power power = test_motor.get_power() * watt;
+
+    // raw_data.emplace_back(raw_vel, commanded_voltage);
+    // filtered_data.emplace_back(filter_velocity, filter_voltage);
+    // extra_data.emplace_back(torque, current);
+    // power_data.emplace_back(power);
+}
+
 // task with critical timing that allows gathering consistent data
 void timeCriticalTask() {
     // code section taken from sylib:
@@ -835,35 +941,51 @@ void timeCriticalTask() {
                 uint32_t curr_time = pros::millis();
 
                 // predict the filter
-                test_motor_filter.predictToTimestamp(curr_time);
-                test_motor_filter.correct();
-                // update plant
-                test_plant.updateToTimestamp(curr_time);
-
-                Voltage test_plant_voltage = test_plant.getCommandedVoltage();
-
-                // actuate motor
-                test_motor.move_voltage(12 * to_mvolt(test_plant_voltage));
+                // test_motor_filter.predictToTimestamp(curr_time);
+                // test_motor_filter.correct();
+                // // update plant
+                // test_plant.updateToTimestamp(curr_time);
+                //
+                // Voltage test_plant_voltage =
+                // test_plant.getCommandedVoltage();
+                //
+                // // actuate motor
+                // test_motor.move_voltage(12 *
+                // to_mvolt(test_plant_voltage));
+                // logInformation(test_plant_voltage);
 
                 // update drivetrain filters
+                // std::cout << "left:";
                 left_ema_filter.predictToTimestamp(curr_time);
                 left_ema_filter.correct();
+                // std::cout << "\n";
 
+                // std::cout << "right: ";
                 right_ema_filter.predictToTimestamp(curr_time);
                 right_ema_filter.correct();
+                // std::cout << "\n";
 
                 // update plant
                 drivetrain_plant.updateToTimestamp(curr_time);
                 auto curr_drivetrain_voltages =
                   drivetrain_plant.getCommandedVoltages();
 
+                // std::cout
+                //   <<
+                //   velocity_drivetrain.getDrivetrainVelocities().left_vel
+                //   << " "
+                //   <<
+                //   velocity_drivetrain.getDrivetrainVelocities().right_vel
+                //   << "\n";
+
                 // actuate motors with desired voltages
                 left_motors.move_voltage(
                   12 * to_mvolt(curr_drivetrain_voltages.left_voltage));
                 right_motors.move_voltage(
                   12 * to_mvolt(curr_drivetrain_voltages.right_voltage));
-
-                logInformation(test_plant_voltage);
+                logDrivetrainInformation(
+                  curr_drivetrain_voltages.left_voltage,
+                  curr_drivetrain_voltages.right_voltage);
             }
 
             pros::Task::delay_until(&systemTime, 2);
@@ -875,7 +997,7 @@ void startTimeCriticalTask() {
     static bool daemonStarted = false;
     if (!daemonStarted) {
         pros::Task managerTask(timeCriticalTask,
-                               15,
+                               15, // very high priority
                                TASK_STACK_DEPTH_DEFAULT,
                                "time critical task");
         daemonStarted = true;
@@ -1149,5 +1271,6 @@ void opcontrol() {
     // pros::delay(2000);
     // motorPlantTest();
     linear_kv_ks_tuner();
+
     // angular_kv_ks_tuner();
 }

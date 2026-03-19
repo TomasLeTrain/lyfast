@@ -25,7 +25,7 @@ class AngularMotorGroupVelocityPlant {
     EMAVelocityFilter* m_filter;
     AngularSimpleVelocityController m_controller;
 
-    std::variant<Voltage, AngularVelocity> m_target;
+    std::variant<Voltage, AngularVelocity> m_target = 0_volt;
     Voltage m_commanded_voltage;
 
     uint32_t m_last_update_timestamp;
@@ -46,7 +46,7 @@ class AngularMotorGroupVelocityPlant {
         if (std::holds_alternative<Voltage>(m_target)) {
             auto voltage_target = std::get<Voltage>(m_target);
             m_commanded_voltage = voltage_target;
-        } else {
+        } else if (std::holds_alternative<AngularVelocity>(m_target)) {
             auto speed_target = std::get<AngularVelocity>(m_target);
             auto voltage_target = controllerUpdate(speed_target, dt);
 
@@ -107,7 +107,7 @@ class LinearMotorGroupVelocityPlant {
 
     Length m_wheel_diameter;
 
-    std::variant<Voltage, LinearVelocity> m_target;
+    std::variant<Voltage, LinearVelocity> m_target = 0_volt;
     Voltage m_commanded_voltage;
 
     uint32_t m_last_update_timestamp;
@@ -128,7 +128,7 @@ class LinearMotorGroupVelocityPlant {
         if (std::holds_alternative<Voltage>(m_target)) {
             auto voltage_target = std::get<Voltage>(m_target);
             m_commanded_voltage = voltage_target;
-        } else {
+        } else if (std::holds_alternative<LinearVelocity>(m_target)) {
             auto speed_target = std::get<LinearVelocity>(m_target);
             auto voltage_target = controllerUpdate(speed_target, dt);
 
@@ -194,7 +194,8 @@ class DrivetrainVelocityPlant {
 
     Length m_wheel_diameter;
 
-    std::variant<LeftRightVoltages, DifferentialSpeeds> m_target;
+    std::variant<LeftRightVoltages, DifferentialSpeeds> m_target =
+      LeftRightVoltages { 0_volt, 0_volt };
     LeftRightVoltages m_commanded_voltages;
 
     LeftRightVoltages controllerUpdate(DifferentialSpeeds target,
@@ -220,7 +221,7 @@ class DrivetrainVelocityPlant {
         if (std::holds_alternative<LeftRightVoltages>(m_target)) {
             auto voltage_target = std::get<LeftRightVoltages>(m_target);
             m_commanded_voltages = voltage_target;
-        } else {
+        } else if (std::holds_alternative<DifferentialSpeeds>(m_target)) {
             auto speed_target = std::get<DifferentialSpeeds>(m_target);
             auto voltage_target = controllerUpdate(speed_target, dt);
 
