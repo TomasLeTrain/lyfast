@@ -87,7 +87,7 @@ class PathFollow : public Motion<ControllersType,
         PathFollowState& state = m_state.value();
         motionExecutionResult result;
 
-        Time delta_time = deltaTime(state.last_time);
+        const Time delta_time = deltaTime(state.last_time);
         const Time elapsed_motion_time = now() - state.start_time;
 
         const units::V2Position position = this->tracker.getPosition();
@@ -96,20 +96,24 @@ class PathFollow : public Motion<ControllersType,
             return reversed ? reverseAngle(heading) : heading;
         }();
 
-        int reference_idx = -1, next_reference_idx = -1;
-
-        if (m_parameterization_type == time_based) {
-            // time based
-            reference_idx = target_trajectory->indexByTime(elapsed_motion_time);
-        } else if (m_parameterization_type == distance_based) {
-            // distance based
-            reference_idx = target_trajectory->indexByDistance(units::max(
-              0_in,
-              this->tracker.getForwardTravel() - state.start_distance));
-        } else if (m_parameterization_type == closest_point_based) {
-            // closest point based
-            reference_idx = target_trajectory->indexByClosestPoint(position);
-        }
+        int reference_idx = [&] {
+            if (m_parameterization_type == time_based) {
+                // time based
+                return target_trajectory->indexByTime(elapsed_motion_time);
+            } else if (m_parameterization_type == distance_based) {
+                // distance based
+                return target_trajectory->indexByDistance(units::max(
+                  0_in,
+                  this->tracker.getForwardTravel() - state.start_distance));
+            } else if (m_parameterization_type == closest_point_based) {
+                // closest point based
+                // TODO: add max lookahead dist to avoid skipping whole path
+                return target_trajectory->indexByClosestPoint(position);
+            } else {
+                // no parameterization method?
+                return -1;
+            }
+        }();
 
         // next direct point after current reference. used as fallback on
         // certain cases relating to lookahead
@@ -117,7 +121,7 @@ class PathFollow : public Motion<ControllersType,
           target_trajectory->sanitizeIndex(reference_idx + 1);
 
         // in case there is no lookahead we use the next index point
-        next_reference_idx = fixed_next_reference;
+        int next_reference_idx = fixed_next_reference;
 
         // performs the lookahead logic
         if (std::holds_alternative<Length>(m_lookahead)) {
@@ -253,9 +257,8 @@ class PathFollow : public Motion<ControllersType,
                   // << saturated_voltages.at(1).internal() << " "
                   << 0 << " " << 0 << " " << actual_volt_left.internal() << " "
                   << actual_volt_right.internal() << " "
-                  << position.x.convert(in) << " "
-                  << position.y.convert(in) << " "
-                  << heading.convert(deg) << " "
+                  << position.x.convert(in) << " " << position.y.convert(in)
+                  << " " << heading.convert(deg) << " "
                   << path_pose_reference.pose.x.convert(in) << " "
                   << path_pose_reference.pose.y.convert(in) << " "
                   << path_pose_reference.pose.orientation.convert(deg)

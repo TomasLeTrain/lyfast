@@ -56,11 +56,16 @@ struct FeedforwardVelocityControllerParams {
     KvUnits<VelUnit> Kv;
     KaUnits<VelUnit> Ka;
     Voltage Ks;
+    Time Ka_delta_time;
 };
 
 template<typename VelUnit>
 struct PIDVelocityControllerParams {
     KvUnits<VelUnit> Kp { 0 };
+    KvUnits<VelUnit> Kp_close { 0 };
+    KvUnits<VelUnit> Kp_low { 0 };
+    VelUnit low_threshold { 0 };
+    VelUnit close_threshold { 0 };
     Divided<Voltage, Multiplied<VelUnit, Time>> Ki { 0 };
 
     Voltage max_output { 1_volt };
@@ -80,7 +85,7 @@ class FeedforwardVelocityController {
           (target -
            // combines measurement and last_speeds
            last_speed.value_or(VelUnit(0))) /
-          duration;
+          m_params.Ka_delta_time;
 
         Voltage result { // kv
                          target * m_params.Kv +
@@ -158,9 +163,19 @@ class PIDVelocityController {
             integral = current_integral;
         }
 
+        auto curr_Kp = m_params.Kp;
+
+        // if the error is high then normal kp still applies
+        if (units::abs(target) <= m_params.low_threshold &&
+            units::abs(error) <= m_params.low_threshold) {
+            curr_Kp = m_params.Kp_low;
+        } else if (units::abs(error) < m_params.close_threshold) {
+            curr_Kp = m_params.Kp_close;
+        }
+
         Voltage result {
             // kp
-            m_params.Kp * error +
+            curr_Kp * error +
               // ki
               m_params.Ki * current_integral,
         };
@@ -309,16 +324,26 @@ struct FFLeftRightVelocityControllerParams {
     KvUnits<LinearVelocity> right_Kv;
     KaUnits<LinearVelocity> right_Ka;
     KsUnits right_Ks;
+
+    Time Ka_delta_time;
 };
 
 struct PIDLeftRightVelocityControllerParams {
     KvUnits<LinearVelocity> left_Kp { 0 };
+    KvUnits<LinearVelocity> left_Kp_close { 0 };
+    KvUnits<LinearVelocity> left_Kp_low { 0 };
+    LinearVelocity left_low_threshold { 0 };
+    LinearVelocity left_close_threshold { 0 };
     KiUnits<LinearVelocity> left_Ki { 0 };
 
     Voltage left_max_output { 1_volt };
     double left_tbh_factor { 0.0 };
 
     KvUnits<LinearVelocity> right_Kp { 0 };
+    KvUnits<LinearVelocity> right_Kp_close { 0 };
+    KvUnits<LinearVelocity> right_Kp_low { 0 };
+    LinearVelocity right_low_threshold { 0 };
+    LinearVelocity right_close_threshold { 0 };
     KiUnits<LinearVelocity> right_Ki { 0 };
 
     Voltage right_max_output { 1_volt };
@@ -337,14 +362,20 @@ struct DifferentialVelocityControllerParams {
                    .Kv = linear.left_Kv,
                    .Ka = linear.left_Ka,
                    .Ks = linear.left_Ks,
+                   .Ka_delta_time = linear.Ka_delta_time,
                  }),
                  FeedforwardVelocityController<LinearVelocity>({
                    .Kv = angular.left_Kv,
                    .Ka = angular.left_Ka,
                    .Ks = angular.left_Ks,
+                   .Ka_delta_time = angular.Ka_delta_time,
                  }),
                  PIDVelocityController<LinearVelocity>({
                    .Kp = pid.left_Kp,
+                   .Kp_close = pid.left_Kp_close,
+                   .Kp_low = pid.left_Kp_low,
+                   .low_threshold = pid.left_low_threshold,
+                   .close_threshold = pid.left_close_threshold,
                    .Ki = pid.left_Ki,
                    .max_output = pid.left_max_output,
                    .tbh_factor = pid.left_tbh_factor,
@@ -356,14 +387,20 @@ struct DifferentialVelocityControllerParams {
                    .Kv = linear.right_Kv,
                    .Ka = linear.right_Ka,
                    .Ks = linear.right_Ks,
+                   .Ka_delta_time = linear.Ka_delta_time,
                  }),
                  FeedforwardVelocityController<LinearVelocity>({
                    .Kv = angular.right_Kv,
                    .Ka = angular.right_Ka,
                    .Ks = angular.right_Ks,
+                   .Ka_delta_time = angular.Ka_delta_time,
                  }),
                  PIDVelocityController<LinearVelocity>({
                    .Kp = pid.right_Kp,
+                   .Kp_close = pid.right_Kp_close,
+                   .Kp_low = pid.right_Kp_low,
+                   .low_threshold = pid.right_low_threshold,
+                   .close_threshold = pid.right_close_threshold,
                    .Ki = pid.right_Ki,
                    .max_output = pid.right_max_output,
                    .tbh_factor = pid.right_tbh_factor,

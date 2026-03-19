@@ -26,6 +26,7 @@
 #include <numeric>
 #include <tuple>
 #include <utility>
+#include <variant>
 
 void disabled() {}
 
@@ -126,33 +127,49 @@ AngularVelocity final_rpm = 450_rpm;
 
 lyfast::DifferentialVelocityControllerParams vel_controller_params {
 	.linear = {
+
+		// TODO: ka should only apply if we aren't saturating (if we are acceling to the target velocity and the target has negative accel, that accel should be ignored since we are low enough for it to not matter)
+
 		.left_Kv = 0.4275235 * volt / mps,
-		.left_Ka = 0.09 * volt / mps2,
+		// .left_Ka = 0.09 * volt / mps2,
+		.left_Ka = 0.02 * volt / mps2,
 		.left_Ks = 0.0465021 * volt,
 
 		.right_Kv = 0.4367265 * volt / mps,
-		.right_Ka = 0.09 * volt / mps2,
+		// .right_Ka = 0.09 * volt / mps2,
+		.right_Ka = 0.02 * volt / mps2,
 		.right_Ks = 0.0472844 * volt,
 
-
+		.Ka_delta_time = 20_msec,
 	},
 	.angular = {
 		.left_Kv = 0.457 * volt / mps,
-		.left_Ka = 0.09 * volt / mps2,
+		// .left_Ka = 0.09 * volt / mps2,
+		.left_Ka = 0.02 * volt / mps2,
 		.left_Ks = 0.10 * volt,
 
 		.right_Kv = 0.50 * volt / mps,
-		.right_Ka = 0.09 * volt / mps2,
+		// .right_Ka = 0.09 * volt / mps2,
+		.right_Ka = 0.02 * volt / mps2,
 		.right_Ks = 0.10 * volt,
+		.Ka_delta_time = 20_msec,
 	},
 	.pid = {
-		.left_Kp = 0.7 * volt / mps,
+		.left_Kp = 0.4 * volt / mps,
+		.left_Kp_close = 0.1 * volt / mps,
+		.left_Kp_low = 0.0 * volt / mps,
+		.left_low_threshold = 5_inps,
+		.left_close_threshold = 3_inps,
 		.left_Ki = 0.0 * volt / m,
 
 		.left_max_output =  1_volt,
 		.left_tbh_factor =  1.0,
 
-		.right_Kp = 0.7 * volt / mps,
+		.right_Kp = 0.4 * volt / mps,
+		.right_Kp_close = 0.1 * volt / mps,
+		.right_Kp_low = 0.0 * volt / mps,
+		.right_low_threshold = 5_inps,
+		.right_close_threshold = 3_inps,
 		.right_Ki = 0.0 * volt / m,
 
 		.right_max_output =  1_volt,
@@ -310,12 +327,61 @@ MotionBuilder vel_mb(velocity_chassis, controllers);
 
 ChainedExecutor chain(100_msec);
 
-std::vector<std::array<LinearVelocity, 3>> left_tick_velocity;
-std::vector<std::array<LinearVelocity, 3>> right_tick_velocity;
+std::vector<std::array<FLinearVelocity, 3>> left_tick_velocity;
+std::vector<std::array<FLinearVelocity, 3>> right_tick_velocity;
+std::vector<FDifferentialSpeeds> target_velocities;
+std::vector<FVoltage> left_target_voltage;
+std::vector<FVoltage> right_target_voltage;
 
 std::vector<lyfast::sysid::LinearSysidEntry> left_filtered_data,
   right_filtered_data;
-bool drivetrain_tick_logging = false;
+bool drivetrain_tick_logging = true;
+
+void printDrivetrainData() {
+    // only print data if logging is enabled
+    if (drivetrain_tick_logging) {
+        // disable so data doesnt get logged as data is being printed
+        drivetrain_tick_logging = false;
+        std::cout << "targets: " << std::endl;
+        printPairListAsLatex(
+          size(target_velocities),
+          [&](size_t idx) -> std::pair<float, float> {
+              return { target_velocities[idx].linear_velocity.internal(),
+                       target_velocities[idx].angular_velocity.internal() };
+          });
+
+        std::cout << "left target voltage:" << std::endl;
+        printQuantityVectorAsLatex(left_target_voltage);
+        std::cout << "right target voltage:" << std::endl;
+        printQuantityVectorAsLatex(right_target_voltage);
+
+        std::cout << "left filtered data: " << std::endl;
+        lyfast::sysid::LinearMotorGroupUtils::printDataAsLatex(
+          left_filtered_data);
+
+        std::cout << "right filtered data: " << std::endl;
+        lyfast::sysid::LinearMotorGroupUtils::printDataAsLatex(
+          right_filtered_data);
+
+        std::cout << "left tick data: " << std::endl;
+        for (int i = 0; i < 3; i++)
+            printListAsLatex(size(left_tick_velocity),
+                             [&](size_t idx) -> float {
+                                 return left_tick_velocity[idx][i].convert(mps);
+                             });
+
+        std::cout << "right tick data: " << std::endl;
+        for (int i = 0; i < 3; i++)
+            printListAsLatex(size(right_tick_velocity),
+                             [&](size_t idx) -> float {
+                                 return right_tick_velocity[idx][i].convert(
+                                   mps);
+                             });
+
+        // enable again in case more data is gonna be collected
+        drivetrain_tick_logging = true;
+    }
+}
 
 // allows running tuning routine multiple times
 // press A to run routine, X to get raw data
@@ -341,30 +407,7 @@ void genericTuner(
             std::cout << "type: " << type << std::endl;
             std::cout << "data: " << std::endl;
             lyfast::sysid::DifferentialUtils::printData(data, delta_time);
-
-            std::cout << "left filtered data: " << std::endl;
-            lyfast::sysid::LinearMotorGroupUtils::printDataAsLatex(
-              left_filtered_data);
-
-            std::cout << "right filtered data: " << std::endl;
-            lyfast::sysid::LinearMotorGroupUtils::printDataAsLatex(
-              right_filtered_data);
-
-            std::cout << "left tick data: " << std::endl;
-            for (int i = 0; i < 3; i++)
-                printListAsLatex(size(left_tick_velocity),
-                                 [&](size_t idx) -> float {
-                                     return left_tick_velocity[idx][i].convert(
-                                       mps);
-                                 });
-
-            std::cout << "right tick data: " << std::endl;
-            for (int i = 0; i < 3; i++)
-                printListAsLatex(size(right_tick_velocity),
-                                 [&](size_t idx) -> float {
-                                     return right_tick_velocity[idx][i].convert(
-                                       mps);
-                                 });
+            printDrivetrainData();
         }
         pros::delay(10);
     }
@@ -887,16 +930,17 @@ AngularVelocity calculateMotorVel(int port, AngularVelocity max_vel) {
     return estimated_angular_velocity;
 }
 
-void logDrivetrainInformation(Voltage left_commanded_voltage,
+void logDrivetrainInformation(FDifferentialSpeeds curr_target_vels,
+                              Voltage left_commanded_voltage,
                               Voltage right_commanded_voltage) {
     if (!drivetrain_tick_logging) return;
 
-    left_tick_velocity.push_back(std::array<LinearVelocity, 3> {
+    left_tick_velocity.push_back(std::array<FLinearVelocity, 3> {
       toLinear(calculateMotorVel(left_back, final_rpm), wheel_diameter),
       toLinear(calculateMotorVel(left_middle, final_rpm), wheel_diameter),
       toLinear(calculateMotorVel(left_front, final_rpm), wheel_diameter) });
 
-    right_tick_velocity.push_back(std::array<LinearVelocity, 3> {
+    right_tick_velocity.push_back(std::array<FLinearVelocity, 3> {
       toLinear(calculateMotorVel(right_back, final_rpm), wheel_diameter),
       toLinear(calculateMotorVel(right_middle, final_rpm), wheel_diameter),
       toLinear(calculateMotorVel(right_front, final_rpm), wheel_diameter) });
@@ -914,6 +958,10 @@ void logDrivetrainInformation(Voltage left_commanded_voltage,
     right_filtered_data.emplace_back(
       toLinear(right_filter_velocity, wheel_diameter),
       right_filter_voltage);
+    target_velocities.push_back(curr_target_vels);
+
+    left_target_voltage.push_back(left_commanded_voltage);
+    right_target_voltage.push_back(right_commanded_voltage);
     //
     // AngularVelocity raw_vel = test_motor.get_actual_velocity() * rpm;
 
@@ -1004,6 +1052,12 @@ void timeCriticalTask() {
                 auto curr_drivetrain_voltages =
                   drivetrain_plant.getCommandedVoltages();
 
+                DifferentialSpeeds speeds =
+                  std::holds_alternative<DifferentialSpeeds>(
+                    drivetrain_plant.getTarget()) ?
+                    std::get<DifferentialSpeeds>(drivetrain_plant.getTarget()) :
+                    DifferentialSpeeds { 0_inps, 0_radps };
+
                 // std::cout
                 //   <<
                 //   velocity_drivetrain.getDrivetrainVelocities().left_vel
@@ -1013,13 +1067,20 @@ void timeCriticalTask() {
                 //   << "\n";
 
                 // actuate motors with desired voltages
-                left_motors.move_voltage(
-                  12 * to_mvolt(curr_drivetrain_voltages.left_voltage));
-                right_motors.move_voltage(
-                  12 * to_mvolt(curr_drivetrain_voltages.right_voltage));
+                int discretized_left_voltage = round(
+                  curr_drivetrain_voltages.left_voltage.internal() * 100.0);
+                int discretized_right_voltage = round(
+                  curr_drivetrain_voltages.right_voltage.internal() * 100.0);
+
+                left_motors.move_voltage((12000 / 100) *
+                                         discretized_left_voltage);
+                right_motors.move_voltage((12000 / 100) *
+                                          discretized_right_voltage);
                 logDrivetrainInformation(
-                  curr_drivetrain_voltages.left_voltage,
-                  curr_drivetrain_voltages.right_voltage);
+                  FDifferentialSpeeds { speeds.linear_velocity,
+                                        speeds.angular_velocity },
+                  volt * discretized_left_voltage / 100.0,
+                  volt * discretized_right_voltage / 100.0);
             }
 
             pros::Task::delay_until(&systemTime, 2);
@@ -1315,5 +1376,33 @@ void opcontrol() {
     // angular_ka_kp_ki_tuner(0.5_volt, 0.6, 2_sec);
 
     // angular_kv_ks_tuner();
-    path_follow_test();
+    // path_follow_test();
+
+    // TODO: add left/right control to vel controller directly
+
+    while (true) {
+        // pros::lcd::print(0,
+        //                  "%d %d %d",
+        //                  (pros::lcd::read_buttons() & LCD_BTN_LEFT) >> 2,
+        //                  (pros::lcd::read_buttons() & LCD_BTN_CENTER) >> 1,
+        //                  (pros::lcd::read_buttons() & LCD_BTN_RIGHT) >>
+        //                    0); // Prints status of the emulated screen LCDs
+
+        // Arcade control scheme
+        // velocity_drivetrain.setBrakeMode(pros::MotorBrake::hold);
+
+        double dir = master.get_analog(ANALOG_LEFT_Y) / 127.0;
+        double turn = -master.get_analog(ANALOG_RIGHT_X) / 127.0;
+
+        DifferentialSpeeds target { dir * max_velocity,
+                                    turn * (max_velocity / 5.25_in) * rad };
+        velocity_drivetrain.moveArcade(target.linear_velocity,
+                                       target.angular_velocity);
+
+        if (master.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_X)) {
+            printDrivetrainData();
+        }
+
+        pros::delay(20); // Run for 20 ms then update
+    }
 }
