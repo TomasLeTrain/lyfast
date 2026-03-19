@@ -84,7 +84,6 @@ class Trajectory {
   private:
     std::vector<debugInfo> m_debug_info;
 
-    // TODO: make all private?
     std::shared_ptr<geometry::Curve> curve;
     Constraints m_constraints;
     FLinearVelocity m_start_vel, m_end_vel;

@@ -530,6 +530,7 @@ Trajectory::Trajectory(std::shared_ptr<geometry::Curve> curve,
     m_points.reserve(estimatedNumPoints);
 
     if (m_debug_enabled) {
+        std::cout << "debug enabled!" << std::endl;
         m_debug_info.reserve(estimatedNumPoints);
     }
 

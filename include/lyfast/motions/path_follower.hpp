@@ -236,31 +236,30 @@ class PathFollow : public Motion<ControllersType,
         // linear and angular should be references for the velocity
         // controller
 
-        // auto [left_vel, right_vel] =
-        // this->drivetrain.getDrivetrainVelocities(); auto [actual_volt_left,
-        // actual_volt_right] =
-        //   this->drivetrain.getDrivetrainVoltages();
+        auto [left_vel, right_vel] = this->drivetrain.getDrivetrainVelocities();
+        auto [actual_volt_left, actual_volt_right] =
+          this->drivetrain.getDrivetrainVoltages();
 
-        // std::cout << std::fixed;
-        // std::cout << std::setprecision(5);
-        //
-        // std::cout << "lin/ang/drive_left/drive_right/tv_l/tv_r/"
-        //              "av_l/av_r/x/y/theta/tx/ty/ttheta: "
-        //           << new_speeds.linear_velocity.internal() << " "
-        //           << new_speeds.angular_velocity.internal() << " "
-        //           << left_vel.internal() << " " << right_vel.internal() << "
-        //           "
-        //           << saturated_voltages.at(0).internal() << " "
-        //           << saturated_voltages.at(1).internal() << " "
-        //           << actual_volt_left.internal() << " "
-        //           << actual_volt_right.internal() << " "
-        //           << position.x.convert(in) << " " //
-        //           << position.y.convert(in) << " " //
-        //           << heading.convert(deg) << " "
-        //           << path_pose_reference.pose.x.convert(in) << " "
-        //           << path_pose_reference.pose.y.convert(in) << " "
-        //           << path_pose_reference.pose.orientation.convert(deg)
-        //           << std::endl;
+        std::cout << std::fixed;
+        std::cout << std::setprecision(5);
+
+        std::cout << "lin/ang/drive_left/drive_right/tv_l/tv_r/"
+                     "av_l/av_r/x/y/theta/tx/ty/ttheta: "
+                  << new_speeds.linear_velocity.internal() << " "
+                  << new_speeds.angular_velocity.internal() << " "
+                  << left_vel.internal() << " " << right_vel.internal()
+                  << " "
+                  // << saturated_voltages.at(0).internal() << " "
+                  // << saturated_voltages.at(1).internal() << " "
+                  << 0 << " " << 0 << " " << actual_volt_left.internal() << " "
+                  << actual_volt_right.internal() << " "
+                  << position.x.convert(in) << " "
+                  << position.y.convert(in) << " "
+                  << heading.convert(deg) << " "
+                  << path_pose_reference.pose.x.convert(in) << " "
+                  << path_pose_reference.pose.y.convert(in) << " "
+                  << path_pose_reference.pose.orientation.convert(deg)
+                  << std::endl;
 
         this->drivetrain.moveArcade(new_speeds.linear_velocity,
                                     new_speeds.angular_velocity);

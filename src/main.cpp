@@ -124,24 +124,26 @@ AngularVelocity final_rpm = 450_rpm;
 // DifferentialDrivetrain
 //   drivetrain(&left_motors, &right_motors, wheel_diameter, final_rpm);
 
-lyfast::DifferentialVelocityControllerParams params {
+lyfast::DifferentialVelocityControllerParams vel_controller_params {
 	.linear = {
-		.left_Kv = 0.43 * volt / mps,
+		.left_Kv = 0.4275235 * volt / mps,
 		.left_Ka = 0.09 * volt / mps2,
-		.left_Ks = 0.04 * volt,
+		.left_Ks = 0.0465021 * volt,
 
-		.right_Kv = 0.43 * volt / mps,
+		.right_Kv = 0.4367265 * volt / mps,
 		.right_Ka = 0.09 * volt / mps2,
-		.right_Ks = 0.04 * volt,
+		.right_Ks = 0.0472844 * volt,
+
+
 	},
 	.angular = {
-		.left_Kv = 0.47 * volt / mps,
+		.left_Kv = 0.457 * volt / mps,
 		.left_Ka = 0.09 * volt / mps2,
-		.left_Ks = 0.06 * volt,
+		.left_Ks = 0.10 * volt,
 
-		.right_Kv = 0.47 * volt / mps,
+		.right_Kv = 0.50 * volt / mps,
 		.right_Ka = 0.09 * volt / mps2,
-		.right_Ks = 0.06 * volt,
+		.right_Ks = 0.10 * volt,
 	},
 	.pid = {
 		.left_Kp = 0.7 * volt / mps,
@@ -157,7 +159,7 @@ lyfast::DifferentialVelocityControllerParams params {
 		.right_tbh_factor =  1.0,
 	}
 };
-lyfast::DifferentialVelocityController vel_controller { params,
+lyfast::DifferentialVelocityController vel_controller { vel_controller_params,
                                                         76_inps,
                                                         track_width,
                                                         false };
@@ -169,7 +171,12 @@ lyfast::EMAVelocityFilter::Constants drivetrain_ema_filter_constants {
     .KalphaFactor = 0.1,
 };
 
-lyfast::EMAVelocityFilter left_ema_filter { &left_motors,
+// left back motor ime doesnt work well
+pros::MotorGroup ema_left_motors({ left_front, left_middle },
+                                 pros::MotorGears::blue,
+                                 pros::MotorEncoderUnits::rotations);
+
+lyfast::EMAVelocityFilter left_ema_filter { &ema_left_motors,
                                             drivetrain_ema_filter_constants };
 lyfast::EMAVelocityFilter right_ema_filter { &right_motors,
                                              drivetrain_ema_filter_constants };
@@ -193,7 +200,7 @@ ForwardsTracker right_motor_tracker(&right_motors,
                                     final_rpm);
 
 // TODO: update since now sideways might be zero
-ForwardsTracker forwards_tracker(&forwards_odom_rotation, 0.5_in, 1.991_in);
+ForwardsTracker forwards_tracker(&forwards_odom_rotation, 0.0_in, 1.991_in);
 SidewaysTracker sideways_tracker(&sideways_odom_rotation, -2.6_in, 1.991_in);
 
 TrackingImu tracking_imu(&imu);
@@ -308,6 +315,7 @@ std::vector<std::array<LinearVelocity, 3>> right_tick_velocity;
 
 std::vector<lyfast::sysid::LinearSysidEntry> left_filtered_data,
   right_filtered_data;
+bool drivetrain_tick_logging = false;
 
 // allows running tuning routine multiple times
 // press A to run routine, X to get raw data
@@ -365,6 +373,7 @@ void genericTuner(
 void kv_ks_tuner(const std::string& type,
                  const std::vector<lyfast::sysid::DifferentialVoltageCommand>&
                    voltage_commands,
+                 bool use_measured_voltage = false,
                  Time steady_state_time = 150_msec,
                  Time delta_time = 10_msec) {
     using namespace lyfast::sysid;
@@ -378,7 +387,7 @@ void kv_ks_tuner(const std::string& type,
                                                         velocity_drivetrain,
                                                         delta_time,
                                                         steady_state_time,
-                                                        false);
+                                                        use_measured_voltage);
       },
       [](const DifferentialData& data) {
           DifferentialUtils::calculate_kv_ks(data);
@@ -394,6 +403,7 @@ void raw_ka_tuner(const std::string& type,
                   lyfast::KsUnits left_Ks,
                   lyfast::KvUnits<LinearVelocity> right_Kv,
                   lyfast::KsUnits right_Ks,
+                  bool use_measured_voltage = true,
                   Time delta_time = 10_msec) {
     using namespace lyfast::sysid;
     // function params outlive the genericTuner function, so capturing
@@ -405,7 +415,7 @@ void raw_ka_tuner(const std::string& type,
           return DifferentialUtils::generateData(voltage_commands,
                                                  velocity_drivetrain,
                                                  delta_time,
-                                                 false);
+                                                 use_measured_voltage);
       },
       [&](const DifferentialData& data) {
           DifferentialUtils::calculate_ka(data,
@@ -439,6 +449,7 @@ void ka_kp_ki_tuner(
   const std::string& type,
   const lyfast::sysid::DifferentialVoltageCommand& voltage_command,
   double lambda_factor,
+  bool use_measured_voltage = false,
   Time delta_time = 10_msec) {
     using namespace lyfast::sysid;
     // function params outlive the genericTuner function, so capturing
@@ -449,7 +460,8 @@ void ka_kp_ki_tuner(
       [&] {
           return DifferentialUtils::generateData({ voltage_command },
                                                  velocity_drivetrain,
-                                                 delta_time);
+                                                 delta_time,
+                                                 use_measured_voltage);
       },
       [&](const DifferentialData& data) {
           DifferentialUtils::calculate_ka_kp_ki_fopdt(data,
@@ -461,46 +473,56 @@ void ka_kp_ki_tuner(
 void linear_ka_kp_ki_tuner(Voltage u_step = 0.5_volt,
                            double lambda_factor = 0.6,
                            Time accel_time = 2_sec,
+                           bool use_measured_voltage = false,
                            Time delta_time = 10_msec) {
     ka_kp_ki_tuner("LINEAR",
                    { u_step, u_step, accel_time },
                    lambda_factor,
+                   use_measured_voltage,
                    delta_time);
 }
 
 void angular_ka_kp_ki_tuner(Voltage u_step = 0.5_volt,
                             double lambda_factor = 0.6,
                             Time accel_time = 2_sec,
+                            bool use_measured_voltage = false,
                             Time delta_time = 10_msec) {
     ka_kp_ki_tuner("ANGULAR",
                    { u_step, -u_step, accel_time },
                    lambda_factor,
+                   use_measured_voltage,
                    delta_time);
 }
 
-void linear_kv_ks_tuner(Time delta_time = 10_msec) {
+void linear_kv_ks_tuner(bool use_measured_voltage = false,
+                        Time steady_state_time = 100_msec,
+                        Time delta_time = 10_msec) {
     kv_ks_tuner("LINEAR",
                 std::vector<lyfast::sysid::DifferentialVoltageCommand> {
                   // linear movements
                   { -0.1_volt, -0.1_volt, 600_msec },
                   { 0.0_volt, 0.0_volt, 500_msec, false },
-                  { 0.2_volt, 0.2_volt, 1000_msec },
+                  { 0.2_volt, 0.2_volt, 1300_msec },
                   { 0.0_volt, 0.0_volt, 500_msec, false },
-                  { -0.3_volt, -0.3_volt, 1000_msec },
+                  { -0.3_volt, -0.3_volt, 1300_msec },
                   { 0.0_volt, 0.0_volt, 500_msec, false },
-                  { 0.4_volt, 0.4_volt, 1000_msec },
+                  { 0.4_volt, 0.4_volt, 1300_msec },
                   { 0.0_volt, 0.0_volt, 500_msec, false },
-                  { -0.5_volt, -0.5_volt, 1000_msec },
+                  { -0.5_volt, -0.5_volt, 1300_msec },
                   { 0.0_volt, 0.0_volt, 500_msec, false },
-                  { 0.6_volt, 0.6_volt, 1000_msec },
+                  { 0.6_volt, 0.6_volt, 1300_msec },
                   { 0.0_volt, 0.0_volt, 500_msec, false },
-                  { -0.7_volt, -0.7_volt, 1000_msec },
+                  { -0.7_volt, -0.7_volt, 1300_msec },
                   { 0.0_volt, 0.0_volt, 500_msec, false },
     },
+                use_measured_voltage,
+                steady_state_time,
                 delta_time);
 }
 
-void angular_kv_ks_tuner(Time delta_time = 10_msec) {
+void angular_kv_ks_tuner(bool use_measured_voltage = false,
+                         Time steady_state_time = 100_msec,
+                         Time delta_time = 10_msec) {
     kv_ks_tuner("ANGULAR",
                 std::vector<lyfast::sysid::DifferentialVoltageCommand> {
                   // linear movements
@@ -512,13 +534,17 @@ void angular_kv_ks_tuner(Time delta_time = 10_msec) {
                   { -0.6_volt, 0.6_volt,  1000_msec },
                   { 0.7_volt,  -0.7_volt, 1000_msec },
     },
+                use_measured_voltage,
+                steady_state_time,
                 delta_time);
 }
 
 void linear_raw_ka_tuner(lyfast::KvUnits<LinearVelocity> left_Kv,
                          lyfast::KsUnits left_Ks,
                          lyfast::KvUnits<LinearVelocity> right_Kv,
-                         lyfast::KsUnits right_Ks) {
+                         lyfast::KsUnits right_Ks,
+                         bool use_measured_voltage = false,
+                         Time delta_time = 10_msec) {
     std::vector<lyfast::sysid::DifferentialVoltageCommand>
       mixed_voltage_commands = {
           // linear movements
@@ -543,13 +569,17 @@ void linear_raw_ka_tuner(lyfast::KvUnits<LinearVelocity> left_Kv,
                  left_Kv,
                  left_Ks,
                  right_Kv,
-                 right_Ks);
+                 right_Ks,
+                 use_measured_voltage,
+                 delta_time);
 }
 
 void angular_raw_ka_tuner(lyfast::KvUnits<LinearVelocity> left_Kv,
                           lyfast::KsUnits left_Ks,
                           lyfast::KvUnits<LinearVelocity> right_Kv,
-                          lyfast::KsUnits right_Ks) {
+                          lyfast::KsUnits right_Ks,
+                          bool use_measured_voltage = false,
+                          Time delta_time = 10_msec) {
     std::vector<lyfast::sysid::DifferentialVoltageCommand>
       mixed_voltage_commands = {
           { 0.5_volt,  -0.5_volt, 500_msec },
@@ -566,12 +596,14 @@ void angular_raw_ka_tuner(lyfast::KvUnits<LinearVelocity> left_Kv,
           { -1.0_volt, 1.0_volt,  400_msec },
           { 0.2_volt,  -0.2_volt, 300_msec },
     };
-    raw_ka_tuner("LINEAR",
+    raw_ka_tuner("ANGULAR",
                  mixed_voltage_commands,
                  left_Kv,
                  left_Ks,
                  right_Kv,
-                 right_Ks);
+                 right_Ks,
+                 use_measured_voltage,
+                 delta_time);
 }
 
 void trajectoryDebugPrint(const lyfast::mp::Trajectory* trajectory) {
@@ -857,6 +889,8 @@ AngularVelocity calculateMotorVel(int port, AngularVelocity max_vel) {
 
 void logDrivetrainInformation(Voltage left_commanded_voltage,
                               Voltage right_commanded_voltage) {
+    if (!drivetrain_tick_logging) return;
+
     left_tick_velocity.push_back(std::array<LinearVelocity, 3> {
       toLinear(calculateMotorVel(left_back, final_rpm), wheel_diameter),
       toLinear(calculateMotorVel(left_middle, final_rpm), wheel_diameter),
@@ -1270,7 +1304,16 @@ void motorPlantTest() {
 void opcontrol() {
     // pros::delay(2000);
     // motorPlantTest();
-    linear_kv_ks_tuner();
+    // linear_kv_ks_tuner(true);
+    // linear_raw_ka_tuner(vel_controller_params.linear.left_Kv,
+    //                     vel_controller_params.linear.left_Ks,
+    //                     vel_controller_params.linear.right_Kv,
+    //                     vel_controller_params.linear.right_Ks,
+    //                     true);
+    // angular_kv_ks_tuner();
+    // linear_ka_kp_ki_tuner(0.5_volt, 0.6, 2_sec);
+    // angular_ka_kp_ki_tuner(0.5_volt, 0.6, 2_sec);
 
     // angular_kv_ks_tuner();
+    path_follow_test();
 }

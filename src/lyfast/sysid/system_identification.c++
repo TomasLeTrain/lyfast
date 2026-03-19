@@ -308,9 +308,9 @@ DifferentialUtils::calculate_ka(const DifferentialData& data,
 }
 
 std::pair<KaUnits<LinearVelocity>, KaUnits<LinearVelocity>>
-calculate_ka_kp_ki_fopdt(const DifferentialData& data,
-                         Time delta_time,
-                         double lambda_factor) {
+DifferentialUtils::calculate_ka_kp_ki_fopdt(const DifferentialData& data,
+                                            Time delta_time,
+                                            double lambda_factor) {
     auto [left_T, left_K, left_ka, left_kp, left_ki] =
       LinearMotorGroupUtils::fit_ka_kp_ki_data_both_models(data.left,
                                                            delta_time,
