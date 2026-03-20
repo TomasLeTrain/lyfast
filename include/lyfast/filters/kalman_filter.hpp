@@ -311,6 +311,5 @@ class MotorGroupKalmanFilter {
           m_covariance(initial_covariance),
           m_last_predict_timestamp(pros::millis()) {}
 };
-
 } // namespace lyfast
 } // namespace blazing

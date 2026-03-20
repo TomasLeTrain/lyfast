@@ -121,10 +121,21 @@ class EMAVelocityFilter {
     // take measurements from the motor(s) and correct model based on them
     void correct() {
         std::lock_guard lock(m_mutex);
+        AngularVelocity last_estimate = m_state_estimate;
+
         // apply correction for each motor
         for (int i = 0; i < motor_group->size(); i++) {
             correctSingleMotor(i);
         }
+
+        // apply slew only after applying ema
+        // TODO: change to final impl
+        Time dt = 10_msec;
+        AngularAcceleration accel = (m_state_estimate - last_estimate) / dt;
+        AngularAcceleration max_accel = 242_radps2;
+        AngularAcceleration applied_accel =
+          units::clamp(accel, -max_accel, max_accel);
+        m_state_estimate = last_estimate + dt * applied_accel;
     }
 
     // uses input to calculate gain for the current iteration

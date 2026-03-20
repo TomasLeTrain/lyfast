@@ -255,7 +255,10 @@ class PathFollow : public Motion<ControllersType,
                   << " "
                   // << saturated_voltages.at(0).internal() << " "
                   // << saturated_voltages.at(1).internal() << " "
-                  << 0 << " " << 0 << " " << actual_volt_left.internal() << " "
+                  // << 0 << " " << 0 << " "
+                  << actual_volt_left.internal() << " "
+                  << actual_volt_right.internal() << " "
+                  << actual_volt_left.internal() << " "
                   << actual_volt_right.internal() << " "
                   << position.x.convert(in) << " " << position.y.convert(in)
                   << " " << heading.convert(deg) << " "

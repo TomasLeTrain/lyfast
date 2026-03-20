@@ -314,8 +314,8 @@ class ArcOdomTracker {
     void update() {
         bool first_update = !last_time;
 
-        // should never equal zero since first update is ommited
-        // const Time delta_time = deltaTime(last_time);
+        // NOTE: DON'T REMOVE!!! this updates last time to not be std::nullopt
+        deltaTime(last_time);
 
         for (auto& tracker : imus) {
             tracker->update();

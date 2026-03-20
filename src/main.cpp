@@ -2,6 +2,7 @@
 #include "blazing/api.hpp"
 #include "blazing/latex_utils.hpp"
 #include "blazing/utils.hpp"
+#include "liblvgl/llemu.hpp"
 #include "lyfast/api.hpp"
 #include "lyfast/drivetrains/velocity_differential.hpp"
 #include "lyfast/motion_profiling/mp.hpp"
@@ -132,12 +133,15 @@ lyfast::DifferentialVelocityControllerParams vel_controller_params {
 
 		.left_Kv = 0.4275235 * volt / mps,
 		// .left_Ka = 0.09 * volt / mps2,
-		.left_Ka = 0.02 * volt / mps2,
+		// .left_Ka = 0.04 * volt / mps2,
+		.left_Ka = 0.00 * volt / mps2,
 		.left_Ks = 0.0465021 * volt,
 
-		.right_Kv = 0.4367265 * volt / mps,
+		// .right_Kv = 0.4367265 * volt / mps,
+		.right_Kv = 0.46 * volt / mps,
 		// .right_Ka = 0.09 * volt / mps2,
-		.right_Ka = 0.02 * volt / mps2,
+		// .right_Ka = 0.04 * volt / mps2,
+		.right_Ka = 0.00 * volt / mps2,
 		.right_Ks = 0.0472844 * volt,
 
 		.Ka_delta_time = 20_msec,
@@ -145,32 +149,35 @@ lyfast::DifferentialVelocityControllerParams vel_controller_params {
 	.angular = {
 		.left_Kv = 0.457 * volt / mps,
 		// .left_Ka = 0.09 * volt / mps2,
-		.left_Ka = 0.02 * volt / mps2,
+		// .left_Ka = 0.04 * volt / mps2,
+		.left_Ka = 0.00 * volt / mps2,
 		.left_Ks = 0.10 * volt,
 
 		.right_Kv = 0.50 * volt / mps,
 		// .right_Ka = 0.09 * volt / mps2,
-		.right_Ka = 0.02 * volt / mps2,
+		// .right_Ka = 0.04 * volt / mps2,
+		.right_Ka = 0.00 * volt / mps2,
 		.right_Ks = 0.10 * volt,
+
 		.Ka_delta_time = 20_msec,
 	},
 	.pid = {
-		.left_Kp = 0.4 * volt / mps,
-		.left_Kp_close = 0.1 * volt / mps,
+		.left_Kp = 1.0 * volt / mps,
+		.left_Kp_close = 1.0 * volt / mps,
 		.left_Kp_low = 0.0 * volt / mps,
-		.left_low_threshold = 5_inps,
-		.left_close_threshold = 3_inps,
+		.left_low_threshold = 10_inps,
+		.left_close_threshold = 0_inps,
 		.left_Ki = 0.0 * volt / m,
-
+		//
 		.left_max_output =  1_volt,
 		.left_tbh_factor =  1.0,
 
-		.right_Kp = 0.4 * volt / mps,
-		.right_Kp_close = 0.1 * volt / mps,
+		.right_Kp = 1.0 * volt / mps,
+		.right_Kp_close = 1.0 * volt / mps,
 		.right_Kp_low = 0.0 * volt / mps,
-		.right_low_threshold = 5_inps,
-		.right_close_threshold = 3_inps,
-		.right_Ki = 0.0 * volt / m,
+		.right_low_threshold = 10_inps,
+		.right_close_threshold = 0_inps,
+		.right_Ki = 0.00 * volt / m,
 
 		.right_max_output =  1_volt,
 		.right_tbh_factor =  1.0,
@@ -217,8 +224,8 @@ ForwardsTracker right_motor_tracker(&right_motors,
                                     final_rpm);
 
 // TODO: update since now sideways might be zero
-ForwardsTracker forwards_tracker(&forwards_odom_rotation, 0.0_in, 1.991_in);
-SidewaysTracker sideways_tracker(&sideways_odom_rotation, -2.6_in, 1.991_in);
+ForwardsTracker forwards_tracker(&forwards_odom_rotation, 0.04_in, 1.991_in);
+SidewaysTracker sideways_tracker(&sideways_odom_rotation, -1.1_in, 1.991_in);
 
 TrackingImu tracking_imu(&imu);
 
@@ -335,7 +342,7 @@ std::vector<FVoltage> right_target_voltage;
 
 std::vector<lyfast::sysid::LinearSysidEntry> left_filtered_data,
   right_filtered_data;
-bool drivetrain_tick_logging = true;
+bool drivetrain_tick_logging = false;
 
 void printDrivetrainData() {
     // only print data if logging is enabled
@@ -738,18 +745,18 @@ void path_follow_test() {
     using namespace blazing::lyfast::geometry;
     using namespace blazing::lyfast::mp;
     arc_pose_tracker.setPose({ -23.6_in, 0_in, 0_stDeg });
-
+    //
     std::shared_ptr<Line> line(new Line({ -23.6_in, 0_in }, { 0_in, 0_in }));
     std::shared_ptr<CubicBezier> bezier(new CubicBezier({ 0_in, 0_in },
                                                         { 23.6_in, 0_in },
                                                         { 23.6_in, 23.6_in },
                                                         { 47.2_in, 23.6_in }));
 
-    // TODO: fix whatever is wrong with spline thingy
+    // // TODO: fix whatever is wrong with spline thingy
     std::shared_ptr<geometry::Spline> spline_ptr { new Spline(
       { line, bezier }) };
     //   { bezier }) };
-
+    //
     RobotConstraints robot_constraints(
       10.5_in, // track with
       0.9, // friction coeff - should tune?
@@ -764,18 +771,16 @@ void path_follow_test() {
       10000.0_inps2, // max accel - for testing
       100_inps2 // max decel - for testing also
     );
-
-    // TODO: what is the difference between angular accel/decel?
+    //
+    // // TODO: what is the difference between angular accel/decel?
     AngularConstraints angular_constraints(2.0_radps, 1.3_radps2, 1.3_radps2);
-
+    //
     Constraints constraints(robot_constraints,
                             linear_constraints,
                             angular_constraints);
-
-    // std::make_shared<geometry::Curve>(spline);
-
+    //
     bool debug = true;
-
+    //
     std::shared_ptr<Trajectory> test_trajectory(
       new Trajectory(spline_ptr,
                      constraints,
@@ -794,14 +799,6 @@ void path_follow_test() {
     // print out final trajectory and debug info
 
     // drivetrain.setBrakeMode(pros::v5::MotorBrake::hold);
-
-    // run spline on ramsette
-    // blazing::lyfast::Ramsete(controllers,
-    //                          chassis,
-    //                          &cubic_trajectory,
-    //                          0.7,
-    //                          35.0) |
-    //   run;
 
     std::cout << "running path!" << std::endl;
     // use path follow to follow the path
@@ -840,7 +837,7 @@ lyfast::FeedforwardVelocityController<AngularVelocity> feedforward {
                                                                   .Kv = motor_voltage_Kv,
                                                                   .Ka = motor_voltage_Ka,
                                                                   .Ks = motor_voltage_Ks,
-                                                                  }
+                                                                  .Ka_delta_time = 10_msec }
 };
 lyfast::PIDVelocityController<AngularVelocity> feedback {
     lyfast::PIDVelocityControllerParams<AngularVelocity> {
@@ -1101,6 +1098,8 @@ void startTimeCriticalTask() {
 
 void initialize() {
     // pros::c::serctl(SERCTL_DISABLE_COBS, NULL);
+    pros::lcd::initialize();
+
     imu.reset(true);
 
     pros::Task([&] {
@@ -1362,6 +1361,70 @@ void motorPlantTest() {
     printQuantityVectorAsLatex(tick_based_vel_data);
 }
 
+void odom_offset_tuning() {
+    sideways_odom_rotation.set_position(0);
+    forwards_odom_rotation.set_position(0);
+    pros::delay(10);
+
+    float pct = 0.5;
+
+    double last_sideways_rotation = sideways_odom_rotation.get_position();
+    double last_forwards_rotation = forwards_odom_rotation.get_position();
+    Angle last_angle = arc_pose_tracker.getAngle();
+
+    auto get_offset =
+      [](double distance_delta, Length wheel_diameter, Angle angle_delta) {
+          const double rotations = (distance_delta * deg / 100.0) / rot;
+
+          const Length measured = rotations * (wheel_diameter * M_PI);
+          return measured / to_stRad(angle_delta);
+      };
+
+    Time last_measurement_time = now();
+
+    while (true) {
+        velocity_drivetrain.moveArcade(0_inps, 3.0_radps);
+        // left_motors.move_voltage(-12000 * pct);
+        // right_motors.move_voltage(12000 * pct);
+
+        // units::V2Position deltas = { forwards_tracker.getDelta(),
+        //                              sideways_tracker.getDelta() };
+        // Angle delta_theta = imu_tracker.getDelta();
+        //
+        // units::V2Position offsets = deltas / to_stRad(delta_theta);
+
+        // gets offsets every 0.2 seconds
+        if (blazing::timeoutDone(0.2_sec, last_measurement_time)) {
+            last_measurement_time = now();
+            Angle angle_delta = arc_pose_tracker.getAngle() - last_angle;
+            last_angle = arc_pose_tracker.getAngle();
+
+            double curr_forwards_rotation =
+              forwards_odom_rotation.get_position();
+            double curr_sideways_rotation =
+              sideways_odom_rotation.get_position();
+
+            double forwards_delta =
+              curr_forwards_rotation - last_forwards_rotation;
+            double sideways_delta =
+              curr_sideways_rotation - last_sideways_rotation;
+
+            last_forwards_rotation = curr_forwards_rotation;
+            last_sideways_rotation = curr_sideways_rotation;
+
+            units::V2Position offsets = {
+                get_offset(forwards_delta, 1.991_in, angle_delta),
+                get_offset(sideways_delta, 1.991_in, angle_delta)
+            };
+
+            std::cout << offsets.x.convert(in) << " " << offsets.y.convert(in)
+                      << std::endl;
+        }
+
+        pros::delay(20);
+    }
+}
+
 void opcontrol() {
     // pros::delay(2000);
     // motorPlantTest();
@@ -1375,34 +1438,55 @@ void opcontrol() {
     // linear_ka_kp_ki_tuner(0.5_volt, 0.6, 2_sec);
     // angular_ka_kp_ki_tuner(0.5_volt, 0.6, 2_sec);
 
+    arc_pose_tracker.setPose({ -23.6_in, 0_in, 0_stDeg });
+    pros::Task([] {
+        while (true) {
+            auto pos = arc_pose_tracker.getPosition();
+            auto theta = arc_pose_tracker.getAngle();
+
+            pros::lcd::print(0,
+                             "%.2f %.2f %.2f",
+                             pos.x.convert(in),
+                             pos.y.convert(in),
+                             theta.convert(deg));
+            pros::delay(30);
+        }
+    });
+
+    // pros::delay(5000);
     // angular_kv_ks_tuner();
-    // path_follow_test();
+    path_follow_test();
 
     // TODO: add left/right control to vel controller directly
+    // arc_pose_tracker.setPose({ -23.6_in, 0_in, 0_stDeg });
 
-    while (true) {
-        // pros::lcd::print(0,
-        //                  "%d %d %d",
-        //                  (pros::lcd::read_buttons() & LCD_BTN_LEFT) >> 2,
-        //                  (pros::lcd::read_buttons() & LCD_BTN_CENTER) >> 1,
-        //                  (pros::lcd::read_buttons() & LCD_BTN_RIGHT) >>
-        //                    0); // Prints status of the emulated screen LCDs
+    // odom_offset_tuning();
 
-        // Arcade control scheme
-        // velocity_drivetrain.setBrakeMode(pros::MotorBrake::hold);
-
-        double dir = master.get_analog(ANALOG_LEFT_Y) / 127.0;
-        double turn = -master.get_analog(ANALOG_RIGHT_X) / 127.0;
-
-        DifferentialSpeeds target { dir * max_velocity,
-                                    turn * (max_velocity / 5.25_in) * rad };
-        velocity_drivetrain.moveArcade(target.linear_velocity,
-                                       target.angular_velocity);
-
-        if (master.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_X)) {
-            printDrivetrainData();
-        }
-
-        pros::delay(20); // Run for 20 ms then update
-    }
+    // while (true) {
+    //     // pros::lcd::print(0,
+    //     //                  "%d %d %d",
+    //     //                  (pros::lcd::read_buttons() & LCD_BTN_LEFT) >> 2,
+    //     //                  (pros::lcd::read_buttons() & LCD_BTN_CENTER) >>
+    //     1,
+    //     //                  (pros::lcd::read_buttons() & LCD_BTN_RIGHT) >>
+    //     //                    0); // Prints status of the emulated screen
+    //     LCDs
+    //
+    //     // Arcade control scheme
+    //     // velocity_drivetrain.setBrakeMode(pros::MotorBrake::hold);
+    //
+    //     double dir = master.get_analog(ANALOG_LEFT_Y) / 127.0;
+    //     double turn = -master.get_analog(ANALOG_RIGHT_X) / 127.0;
+    //
+    //     DifferentialSpeeds target { dir * max_velocity,
+    //                                 turn * (max_velocity / 5.25_in) * rad };
+    //     velocity_drivetrain.moveArcade(target.linear_velocity,
+    //                                    target.angular_velocity);
+    //
+    //     if (master.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_X)) {
+    //         printDrivetrainData();
+    //     }
+    //
+    //     pros::delay(20); // Run for 20 ms then update
+    // }
 }
