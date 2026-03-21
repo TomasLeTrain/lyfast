@@ -68,6 +68,7 @@ struct PIDVelocityControllerParams {
     VelUnit low_threshold { 0 };
     VelUnit close_threshold { 0 };
     Divided<Voltage, Multiplied<VelUnit, Time>> Ki { 0 };
+    std::optional<VelUnit> Ki_windup = std::nullopt;
 
     Voltage max_output { 1_volt };
     double tbh_factor { 0.0 };
@@ -79,14 +80,16 @@ class FeedforwardVelocityController {
     FeedforwardVelocityControllerParams<VelUnit> m_params;
 
     std::optional<VelUnit> last_speed = std::nullopt;
+    std::optional<VelUnit> last_different_speed = std::nullopt;
+    std::optional<Time> last_different_speed_time = std::nullopt;
 
   public:
     Voltage updateKvKa(VelUnit target, Time duration) {
-        Divided<VelUnit, Time> target_accel =
-          (target -
-           // combines measurement and last_speeds
-           last_speed.value_or(VelUnit(0))) /
-          m_params.Ka_delta_time;
+        Divided<VelUnit, Time> target_accel;
+        target_accel = (target -
+                        // combines measurement and last_speeds
+                        last_different_speed.value_or(VelUnit(0))) /
+                       m_params.Ka_delta_time;
 
         // target low enough that accel is basically instant
         if (units::abs(target) < m_params.low_target_threshold) {
@@ -99,6 +102,24 @@ class FeedforwardVelocityController {
                          target_accel * m_params.Ka
         };
 
+        if (!last_different_speed.has_value() ||
+            last_different_speed.value() != target) {
+            last_different_speed = target;
+            last_different_speed_time = now();
+        }
+
+        // if (!last_different_speed.has_value()) {
+        //     last_different_speed = target;
+        //     last_different_speed_time = now();
+        // } else {
+        //     bool timeout_done = timeoutDone(m_params.Ka_delta_time,
+        //                                     last_different_speed_time.value());
+        //     if (timeout_done) {
+        //         last_different_speed = target;
+        //         last_different_speed_time = now();
+        //     }
+        // }
+
         last_speed = { target };
 
         return result;
@@ -107,6 +128,7 @@ class FeedforwardVelocityController {
     // allows applying ks later in the chain if other processes are done in
     // between
     Voltage applyKs(Voltage output) {
+
         // apply ks at the end
         return output + units::sgn(output) * m_params.Ks;
     }
@@ -156,8 +178,8 @@ class PIDVelocityController {
         // we apply to pid to the current desired target (meaning the target we
         // were given before) if available
         VelUnit curr_target = target;
-        if (last_target.has_value()) curr_target = last_target.value();
-        last_target = target;
+        // if (last_target.has_value()) curr_target = last_target.value();
+        // last_target = target;
 
         error = curr_target - measurement;
 
@@ -186,6 +208,12 @@ class PIDVelocityController {
             curr_Kp = m_params.Kp_low;
         } else if (units::abs(error) < m_params.close_threshold) {
             curr_Kp = m_params.Kp_close;
+        }
+
+        // dont use integral if outside ki windup range
+        if (m_params.Ki_windup.has_value() &&
+            m_params.Ki_windup.value() < units::abs(error)) {
+            current_integral = Multiplied<VelUnit, Time> { 0 };
         }
 
         Voltage result {
@@ -351,6 +379,7 @@ struct PIDLeftRightVelocityControllerParams {
     LinearVelocity left_low_threshold { 0 };
     LinearVelocity left_close_threshold { 0 };
     KiUnits<LinearVelocity> left_Ki { 0 };
+    std::optional<LinearVelocity> left_Ki_windup = std::nullopt;
 
     Voltage left_max_output { 1_volt };
     double left_tbh_factor { 0.0 };
@@ -361,6 +390,7 @@ struct PIDLeftRightVelocityControllerParams {
     LinearVelocity right_low_threshold { 0 };
     LinearVelocity right_close_threshold { 0 };
     KiUnits<LinearVelocity> right_Ki { 0 };
+    std::optional<LinearVelocity> right_Ki_windup = std::nullopt;
 
     Voltage right_max_output { 1_volt };
     double right_tbh_factor { 0.0 };
@@ -395,6 +425,7 @@ struct DifferentialVelocityControllerParams {
                    .low_threshold = pid.left_low_threshold,
                    .close_threshold = pid.left_close_threshold,
                    .Ki = pid.left_Ki,
+                   .Ki_windup = pid.left_Ki_windup,
                    .max_output = pid.left_max_output,
                    .tbh_factor = pid.left_tbh_factor,
                  }) };
@@ -422,6 +453,7 @@ struct DifferentialVelocityControllerParams {
                    .low_threshold = pid.right_low_threshold,
                    .close_threshold = pid.right_close_threshold,
                    .Ki = pid.right_Ki,
+                   .Ki_windup = pid.right_Ki_windup,
                    .max_output = pid.right_max_output,
                    .tbh_factor = pid.right_tbh_factor,
                  }) };

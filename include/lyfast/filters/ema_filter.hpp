@@ -50,6 +50,7 @@ class EMAVelocityFilter {
 
     // calculated during predict
     float m_alpha_gain = 1.0;
+    float last_derivative = 0.0;
 
     struct motorState {
         uint32_t prev_motor_clock;
@@ -131,7 +132,7 @@ class EMAVelocityFilter {
         // TODO: change to final impl
         Time dt = 10_msec;
         AngularAcceleration accel = (m_state_estimate - last_estimate) / dt;
-        AngularAcceleration max_accel = 250_radps2;
+        AngularAcceleration max_accel = 242_radps2;
         // AngularAcceleration max_accel = 1000_radps2;
         AngularAcceleration applied_accel =
           units::clamp(accel, -max_accel, max_accel);
@@ -151,12 +152,20 @@ class EMAVelocityFilter {
 
         float voltage_derivative = ((curr_V - last_V) / dt).internal();
 
-        m_alpha_gain =
-          m_constants.Koffset +
-          // uses sqrt as scaling function for the derivative, could test others
-          // like ln
-          // sqrt(units::abs(voltage_derivative)) * m_constants.KalphaFactor;
-          units::abs(voltage_derivative) * m_constants.KalphaFactor;
+        // derivative in opposite direction of last derivative
+        // this is guaranteed to result in velocity noise, so dont up gain
+        if (units::sgn(last_derivative) != units::sgn(voltage_derivative)) {
+            m_alpha_gain = m_constants.Koffset;
+        } else {
+            m_alpha_gain =
+              m_constants.Koffset +
+              // uses sqrt as scaling function for the derivative, could test
+              // others like ln sqrt(units::abs(voltage_derivative)) *
+              // m_constants.KalphaFactor;
+              units::abs(voltage_derivative) * m_constants.KalphaFactor;
+        }
+
+        last_derivative = voltage_derivative;
 
         m_alpha_gain = units::clamp(m_alpha_gain, 0, 1);
 
@@ -165,6 +174,7 @@ class EMAVelocityFilter {
 
     // predicts to match the timestamp, as a time in pros::millis()
     void predictToTimestamp(uint32_t timestamp) {
+
         // NOTE: no lockguard since predict uses it
         if (timestamp <= m_last_predict_timestamp) {
             // timestamp before the latest prediction timestamp, can't predict
