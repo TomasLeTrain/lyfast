@@ -7,6 +7,7 @@
 #include "lyfast/drivetrains/velocity_differential.hpp"
 #include "lyfast/motion_profiling/mp.hpp"
 #include "lyfast/plants/velocity_plants.hpp"
+#include "lyfast/sysid/system_identification.hpp"
 #include "pros/abstract_motor.hpp"
 #include "pros/apix.h"
 #include "pros/imu.h"
@@ -131,53 +132,59 @@ lyfast::DifferentialVelocityControllerParams vel_controller_params {
 
 		// TODO: ka should only apply if we aren't saturating (if we are acceling to the target velocity and the target has negative accel, that accel should be ignored since we are low enough for it to not matter)
 
-		.left_Kv = 0.4275235 * volt / mps,
-		// .left_Ka = 0.09 * volt / mps2,
-		// .left_Ka = 0.04 * volt / mps2,
-		.left_Ka = 0.00 * volt / mps2,
-		.left_Ks = 0.0465021 * volt,
+		// .left_Kv = 0.4275235 * volt / mps,
+		// .left_Kv = 0.425 * volt / mps,
+		.left_Kv = 0.46 * volt / mps,
+		.left_Ka = 0.11 * volt / mps2,
+		// .left_Ka = 0.00 * volt / mps2,
+		.left_Ks = 0.05 * volt,
 
 		// .right_Kv = 0.4367265 * volt / mps,
-		.right_Kv = 0.46 * volt / mps,
-		// .right_Ka = 0.09 * volt / mps2,
+		// .right_Kv = 0.46 * volt / mps,
+		.right_Kv = 0.49 * volt / mps,
+		.right_Ka = 0.123 * volt / mps2,
 		// .right_Ka = 0.04 * volt / mps2,
-		.right_Ka = 0.00 * volt / mps2,
-		.right_Ks = 0.0472844 * volt,
+		// .right_Ka = 0.00 * volt / mps2,
+		.right_Ks = 0.05 * volt,
 
 		.Ka_delta_time = 20_msec,
+		.low_target_threshold = 2_inps
 	},
 	.angular = {
-		.left_Kv = 0.457 * volt / mps,
-		// .left_Ka = 0.09 * volt / mps2,
+		.left_Kv = 0.46 * volt / mps,
+		.left_Ka = 0.11 * volt / mps2,
 		// .left_Ka = 0.04 * volt / mps2,
-		.left_Ka = 0.00 * volt / mps2,
+		// .left_Ka = 0.00 * volt / mps2,
 		.left_Ks = 0.10 * volt,
 
 		.right_Kv = 0.50 * volt / mps,
-		// .right_Ka = 0.09 * volt / mps2,
+		.right_Ka = 0.123 * volt / mps2,
 		// .right_Ka = 0.04 * volt / mps2,
-		.right_Ka = 0.00 * volt / mps2,
+		// .right_Ka = 0.00 * volt / mps2,
 		.right_Ks = 0.10 * volt,
 
 		.Ka_delta_time = 20_msec,
+		.low_target_threshold = 2_inps
 	},
 	.pid = {
-		.left_Kp = 1.0 * volt / mps,
-		.left_Kp_close = 1.0 * volt / mps,
+		// .left_Kp = 1.0 * volt / mps,
+		.left_Kp = 1.5 * volt / mps,
+		.left_Kp_close = 1.5 * volt / mps,
 		.left_Kp_low = 0.0 * volt / mps,
-		.left_low_threshold = 10_inps,
+		.left_low_threshold = 8_inps,
 		.left_close_threshold = 0_inps,
-		.left_Ki = 0.0 * volt / m,
+		.left_Ki = 2.0 * volt / m,
 		//
 		.left_max_output =  1_volt,
 		.left_tbh_factor =  1.0,
 
-		.right_Kp = 1.0 * volt / mps,
-		.right_Kp_close = 1.0 * volt / mps,
+		// .right_Kp = 1.0 * volt / mps,
+		.right_Kp = 1.5 * volt / mps,
+		.right_Kp_close = 1.5 * volt / mps,
 		.right_Kp_low = 0.0 * volt / mps,
-		.right_low_threshold = 10_inps,
+		.right_low_threshold = 8_inps,
 		.right_close_threshold = 0_inps,
-		.right_Ki = 0.00 * volt / m,
+		.right_Ki = 2.00 * volt / m,
 
 		.right_max_output =  1_volt,
 		.right_tbh_factor =  1.0,
@@ -190,9 +197,10 @@ lyfast::DifferentialVelocityController vel_controller { vel_controller_params,
 
 lyfast::EMAVelocityFilter::Constants drivetrain_ema_filter_constants {
     .final_gearing_rpm = 450_rpm,
-    .Koffset = 0.1, // guaranteed to trust velocity measurements always
+    .Koffset = 0.3, // guaranteed to trust velocity measurements always
     // .Koffset = 0.1,
-    .KalphaFactor = 0.1,
+    // .KalphaFactor = 0.1,
+    .KalphaFactor = 0.00000,
 };
 
 // left back motor ime doesnt work well
@@ -297,6 +305,7 @@ FLinearVelocity max_velocity = 76_Finps;
 FAngularVelocity max_angular_velocity = (max_velocity / track_radius) * Frad;
 
 std::array<float, 3> Q { (40_in).internal(),
+                         // (3_in).internal(),
                          (3_in).internal(),
                          (45_stDeg).internal() };
 
@@ -674,15 +683,16 @@ void trajectoryDebugPrint(const lyfast::mp::Trajectory* trajectory) {
       };
 
     if (trajectory->getDebugEnabled()) {
+        std::cout << std::fixed << std::setprecision(4);
         print("a_{kin}",
               trajectory->getDebugInfo(),
               &Trajectory::debugInfo::max_kin_decel,
               Finps2);
-
         print("a_{turn}",
               trajectory->getDebugInfo(),
               &Trajectory::debugInfo::max_turn_accel,
               Finps2);
+        //
         print("d_{kin}",
               trajectory->getDebugInfo(),
               &Trajectory::debugInfo::max_kin_decel,
@@ -698,8 +708,9 @@ void trajectoryDebugPrint(const lyfast::mp::Trajectory* trajectory) {
               Finps);
         print("v_{turn}",
               trajectory->getDebugInfo(),
-              &Trajectory::debugInfo::max_kin_vel,
+              &Trajectory::debugInfo::max_turn_vel,
               Finps);
+        //
         print("v_{friction}",
               trajectory->getDebugInfo(),
               &Trajectory::debugInfo::max_friction_vel,
@@ -759,21 +770,24 @@ void path_follow_test() {
     //
     RobotConstraints robot_constraints(
       10.5_in, // track with
-      0.9, // friction coeff - should tune?
+      0.03, // friction coeff - should tune?
       3.25_in, // wheel diameter
       389_rpm, // max ang vel - determined somewhat from data
       6.7_kg, // about 14.8 lbs
-      1.36f); // motor count - determined somewhat from data
+      // 1.36f); // motor count - determined somewhat from data
+      2.0f); // motor count - determined somewhat from data
 
     LinearConstraints linear_constraints(
-      60_inps, // max vel - for testing
+      50_inps, // max vel - for testing
       // 20.0_inps2, // max accel - for testing
       10000.0_inps2, // max accel - for testing
       100_inps2 // max decel - for testing also
     );
     //
     // // TODO: what is the difference between angular accel/decel?
-    AngularConstraints angular_constraints(2.0_radps, 1.3_radps2, 1.3_radps2);
+    // AngularConstraints
+    // angular_constraints(2.0_radps, 1.3_radps2, 1.3_radps2);
+    AngularConstraints angular_constraints(1.0_radps, 1.3_radps2, 1.3_radps2);
     //
     Constraints constraints(robot_constraints,
                             linear_constraints,
@@ -837,7 +851,8 @@ lyfast::FeedforwardVelocityController<AngularVelocity> feedforward {
                                                                   .Kv = motor_voltage_Kv,
                                                                   .Ka = motor_voltage_Ka,
                                                                   .Ks = motor_voltage_Ks,
-                                                                  .Ka_delta_time = 10_msec }
+                                                                  .Ka_delta_time = 10_msec,
+                                                                  .low_target_threshold = 0_radps }
 };
 lyfast::PIDVelocityController<AngularVelocity> feedback {
     lyfast::PIDVelocityControllerParams<AngularVelocity> {
@@ -1078,6 +1093,8 @@ void timeCriticalTask() {
                                         speeds.angular_velocity },
                   volt * discretized_left_voltage / 100.0,
                   volt * discretized_right_voltage / 100.0);
+
+                arc_pose_tracker.update();
             }
 
             pros::Task::delay_until(&systemTime, 2);
@@ -1102,12 +1119,12 @@ void initialize() {
 
     imu.reset(true);
 
-    pros::Task([&] {
-        while (true) {
-            arc_pose_tracker.update();
-            pros::delay(10);
-        }
-    });
+    // pros::Task([&] {
+    //     while (true) {
+    //         arc_pose_tracker.update();
+    //         pros::delay(10);
+    //     }
+    // });
 
     startTimeCriticalTask();
 }
@@ -1425,6 +1442,7 @@ void odom_offset_tuning() {
     }
 }
 
+// }
 void opcontrol() {
     // pros::delay(2000);
     // motorPlantTest();
@@ -1463,15 +1481,6 @@ void opcontrol() {
     // odom_offset_tuning();
 
     // while (true) {
-    //     // pros::lcd::print(0,
-    //     //                  "%d %d %d",
-    //     //                  (pros::lcd::read_buttons() & LCD_BTN_LEFT) >> 2,
-    //     //                  (pros::lcd::read_buttons() & LCD_BTN_CENTER) >>
-    //     1,
-    //     //                  (pros::lcd::read_buttons() & LCD_BTN_RIGHT) >>
-    //     //                    0); // Prints status of the emulated screen
-    //     LCDs
-    //
     //     // Arcade control scheme
     //     // velocity_drivetrain.setBrakeMode(pros::MotorBrake::hold);
     //
@@ -1489,4 +1498,80 @@ void opcontrol() {
     //
     //     pros::delay(20); // Run for 20 ms then update
     // }
+
+    // using namespace lyfast::sysid;
+    //
+    // std::vector<DifferentialVoltageCommand> test_commands = {
+    //     { 0.1_volt, 0.1_volt, 1000_msec },
+    //     { 0.0_volt, 0.0_volt, 2000_msec, false },
+    //     { -0.1_volt, -0.1_volt, 1000_msec },
+    //     { 0.0_volt, 0.0_volt, 2000_msec, false },
+    //     { 0.2_volt, 0.2_volt, 1000_msec },
+    //     { 0.0_volt, 0.0_volt, 2000_msec, false },
+    //     { -0.2_volt, -0.2_volt, 1000_msec },
+    //     { 0.0_volt, 0.0_volt, 2000_msec, false },
+    //     { 0.3_volt, 0.3_volt, 1000_msec },
+    //     { 0.0_volt, 0.0_volt, 2000_msec, false },
+    //     { -0.3_volt, -0.3_volt, 1000_msec },
+    //     { 0.0_volt, 0.0_volt, 2000_msec, false },
+    //     { 0.4_volt, 0.4_volt, 1000_msec },
+    //     { 0.0_volt, 0.0_volt, 2000_msec, false },
+    //     { -0.4_volt, -0.4_volt, 1000_msec },
+    //     { 0.0_volt, 0.0_volt, 2000_msec, false },
+    //     { 0.5_volt, 0.5_volt, 1000_msec },
+    //     { 0.0_volt, 0.0_volt, 2000_msec, false },
+    //     { -0.5_volt, -0.5_volt, 1000_msec },
+    //     { 0.0_volt, 0.0_volt, 2000_msec, false },
+    //     { 0.6_volt, 0.6_volt, 1000_msec },
+    //     { 0.0_volt, 0.0_volt, 2000_msec, false },
+    //     { -0.6_volt, -0.6_volt, 1000_msec },
+    //     { 0.0_volt, 0.0_volt, 2000_msec, false },
+    //     { 0.7_volt, 0.7_volt, 1000_msec },
+    //     { 0.0_volt, 0.0_volt, 2000_msec, false },
+    //     { -0.7_volt, -0.7_volt, 1000_msec },
+    //     { 0.0_volt, 0.0_volt, 2000_msec, false },
+    //     { 0.8_volt, 0.8_volt, 1000_msec },
+    //     { 0.0_volt, 0.0_volt, 2000_msec, false },
+    //     { -0.8_volt, -0.8_volt, 1000_msec },
+    //     { 0.0_volt, 0.0_volt, 2000_msec, false },
+    //     { 0.9_volt, 0.9_volt, 1000_msec },
+    //     { 0.0_volt, 0.0_volt, 2000_msec, false },
+    //     { -0.9_volt, -0.9_volt, 1000_msec },
+    //     { 0.0_volt, 0.0_volt, 2000_msec, false },
+    //     { 1.0_volt, 1.0_volt, 1000_msec },
+    //     { 0.0_volt, 0.0_volt, 2000_msec, false },
+    //     { -1.0_volt, -1.0_volt, 1000_msec },
+    //     { 0.0_volt, 0.0_volt, 2000_msec, false },
+    // };
+    // velocity_drivetrain.setBrakeMode(pros::MotorBrake::hold);
+    //
+    // auto data =
+    //   lyfast::sysid::DifferentialUtils::generateData(test_commands,
+    //                                                  velocity_drivetrain,
+    //                                                  10_msec,
+    //                                                  true);
+    // velocity_drivetrain.moveTank(0_volt, 0_volt);
+    // pros::delay(10000);
+    // lyfast::sysid::DifferentialUtils::printData(data, 10_msec);
+
+    // for (auto [left_voltage, right_voltage, duration, record] :
+    // test_commands) {
+    //     velocity_drivetrain.moveTank(left_voltage, right_voltage);
+    //
+    //     pros::delay(to_msec(duration));
+    // }
+    //
+    // std::cout << "raw data: " << std::endl;
+    // AngularMotorGroupUtils::printDataAsLatex(raw_data);
+    //
+    // std::cout << "filtered data: " << std::endl;
+    // AngularMotorGroupUtils::printDataAsLatex(filtered_data);
+    //
+    // std::cout << "extra data (torque, current): " << std::endl;
+    // printPairQuantitiesAsLatex(extra_data);
+    //
+    // std::cout << "power data: " << std::endl;
+    // printQuantityVectorAsLatex(power_data);
+    // std::cout << "tick based vel data: " << std::endl;
+    // printQuantityVectorAsLatex(tick_based_vel_data);
 }

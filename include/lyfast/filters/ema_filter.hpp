@@ -105,7 +105,6 @@ class EMAVelocityFilter {
               m_constants.final_gearing_rpm * 1.25) {
             // Motor position was likely reset, reset manually or dc'd
             // again don't have any new information, return
-            std::cout << "disregarding measuremnt:" << int(idx) << std::endl;
         } else {
             // we do have good measurement, use
             correctVelocity(tick_based_measurement);
@@ -132,7 +131,8 @@ class EMAVelocityFilter {
         // TODO: change to final impl
         Time dt = 10_msec;
         AngularAcceleration accel = (m_state_estimate - last_estimate) / dt;
-        AngularAcceleration max_accel = 242_radps2;
+        AngularAcceleration max_accel = 250_radps2;
+        // AngularAcceleration max_accel = 1000_radps2;
         AngularAcceleration applied_accel =
           units::clamp(accel, -max_accel, max_accel);
         m_state_estimate = last_estimate + dt * applied_accel;
