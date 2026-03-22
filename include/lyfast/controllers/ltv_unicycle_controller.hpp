@@ -32,11 +32,13 @@ struct LTVUnicycleController {
 
     std::array<float, 3> m_Q;
     std::array<float, 2> m_R;
+    FTime m_input_delay = 0_msec;
 
   public:
     void setState(State new_state);
     void setNextReference(State new_reference);
     void setDeltaTime(Time delta_time);
+    void setTimeDelay(Time time_delay);
 
     std::optional<DifferentialSpeeds> getInput();
 
@@ -52,7 +54,9 @@ struct LTVUnicycleController {
     update(PathPoseFeedbackT state, PathPoseFeedbackT reference, Time duration);
 
     LTVUnicycleController();
-    LTVUnicycleController(std::array<float, 3> Q, std::array<float, 2> R);
+    LTVUnicycleController(std::array<float, 3> Q,
+                          std::array<float, 2> R,
+                          Time input_delay = 0_msec);
 };
 
 } // namespace state_space

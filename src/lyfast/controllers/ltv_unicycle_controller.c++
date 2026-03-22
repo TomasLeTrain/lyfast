@@ -27,6 +27,10 @@ void LTVUnicycleController::setDeltaTime(Time delta_time) {
     m_delta_time = delta_time;
 }
 
+void LTVUnicycleController::setTimeDelay(Time input_delay) {
+    m_input_delay = input_delay;
+}
+
 std::optional<DifferentialSpeeds> LTVUnicycleController::getInput() {
     return m_input;
 }
@@ -89,9 +93,20 @@ void LTVUnicycleController::compute() {
     auto S = detail::DARE<3, 2>(discA, discB, Q, R_llt);
 
     // K = (BᵀSB + R)⁻¹(BᵀSA)
-    auto K_feedback = (discB.transpose() * S * discB + R)
-                        .llt()
-                        .solve(discB.transpose() * S * discA);
+    // auto K_feedback = (discB.transpose() * S * discB + R)
+    //                     .llt()
+    //                     .solve(discB.transpose() * S * discA);
+    //
+    Eigen::Matrix<float, 2, 3> K_feedback =
+      (discB.transpose() * S * discB + R)
+        .llt()
+        .solve(discB.transpose() * S * discA);
+
+    // apply delay compensation
+    if (m_input_delay > 2_msec)
+        K_feedback =
+          K_feedback *
+          (discA - discB * K_feedback).pow(m_input_delay / m_delta_time);
 
     const Eigen::Vector2f u_feedback = K_feedback * error;
 
@@ -123,9 +138,11 @@ DifferentialSpeeds LTVUnicycleController::update(PathPoseFeedbackT state,
 LTVUnicycleController::LTVUnicycleController() {}
 
 LTVUnicycleController::LTVUnicycleController(std::array<float, 3> Q,
-                                             std::array<float, 2> R)
+                                             std::array<float, 2> R,
+                                             Time input_delay)
     : m_Q(Q),
-      m_R(R) {}
+      m_R(R),
+      m_input_delay(input_delay) {}
 
 } // namespace state_space
 } // namespace lyfast

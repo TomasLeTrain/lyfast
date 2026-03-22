@@ -198,12 +198,47 @@ class DrivetrainVelocityPlant {
       LeftRightVoltages { 0_volt, 0_volt };
     LeftRightVoltages m_commanded_voltages;
 
+    uint32_t m_last_update_timestamp;
+
     LeftRightVoltages controllerUpdate(DifferentialSpeeds target,
                                        Time duration) {
         return m_controller.update(getEstimatedSpeeds(), target, duration);
     }
 
-    uint32_t m_last_update_timestamp;
+  public:
+    std::optional<LeftRightSpeeds> m_measurement = std::nullopt;
+
+    void setMeasurement(std::optional<LeftRightSpeeds> measurement) {
+        m_measurement = measurement;
+    }
+
+    // public:
+    // TODO: made for testing
+    // void manualUpdate(LeftRightSpeeds measurement, Time dt) {
+    //     m_measurement = measurement;
+    //     std::lock_guard lock(m_mutex);
+    //     if (std::holds_alternative<LeftRightVoltages>(m_target)) {
+    //         auto voltage_target = std::get<LeftRightVoltages>(m_target);
+    //         m_commanded_voltages = voltage_target;
+    //     } else if (std::holds_alternative<DifferentialSpeeds>(m_target)) {
+    //         auto speed_target = std::get<DifferentialSpeeds>(m_target);
+    //         auto voltage_target =
+    //           m_controller.update(measurement, speed_target, dt);
+    //
+    //         m_commanded_voltages = voltage_target;
+    //     }
+    //     m_last_update_timestamp = pros::millis();
+    // }
+    //
+    // void manualUpdateToTimestamp(LeftRightSpeeds measurement,
+    //                              uint32_t timestamp) {
+    //     // can't go back in time
+    //     if (timestamp < m_last_update_timestamp) return;
+    //
+    //     // if both are equal then still update, let the controller handle it
+    //     manualUpdate(measurement,
+    //                  from_msec(timestamp - m_last_update_timestamp));
+    // }
 
   public:
     const DifferentialVelocityController& getController() {
@@ -259,6 +294,7 @@ class DrivetrainVelocityPlant {
     }
 
     LeftRightSpeeds getEstimatedSpeeds() {
+        if (m_measurement.has_value()) return m_measurement.value();
         // no mutex since it does not interact with this object directly (filter
         // assumed to be thread safe)
         return {

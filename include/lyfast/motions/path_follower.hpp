@@ -128,13 +128,13 @@ class PathFollow : public Motion<ControllersType,
             next_reference_idx = target_trajectory->indexByDistance(
               target_trajectory->getPoint(reference_idx).arc_length +
                 std::get<Length>(m_lookahead),
-              // limit to fixed_next_reference
+              // limit to minimum fixed_next_reference
               fixed_next_reference);
         } else if (std::holds_alternative<Time>(m_lookahead)) {
             next_reference_idx = target_trajectory->indexByTime(
               target_trajectory->getPoint(reference_idx).travel_time +
                 std::get<Time>(m_lookahead),
-              // limit to fixed_next_reference
+              // limit to minimum fixed_next_reference
               fixed_next_reference);
         }
 
@@ -144,23 +144,43 @@ class PathFollow : public Motion<ControllersType,
         // units::Pose reference_pose = { reference_motion_point.point,
         //                                reference_motion_point.heading };
 
+        // used as the current state for the feedback controller
         DifferentialSpeeds reference_speeds = {
             reference_motion_point.vel,
             Frad * reference_motion_point.vel * reference_motion_point.curvature
         };
 
-        const mp::MotionPoint& next_reference_motion_point =
+        const mp::MotionPoint& lookahead_motion_point =
           target_trajectory->getPoint(next_reference_idx);
 
-        units::Pose next_reference_pose = {
-            next_reference_motion_point.point,
-            next_reference_motion_point.heading
+        // units::Pose lookahead_reference_pose = {
+        //     lookahead_motion_point.point,
+        //     lookahead_motion_point.heading
+        // };
+
+        // used as feedforward velocities
+        DifferentialSpeeds lookahead_reference_speeds = {
+            lookahead_motion_point.vel,
+            Frad * lookahead_motion_point.vel * lookahead_motion_point.curvature
         };
 
-        DifferentialSpeeds next_reference_speeds = {
-            next_reference_motion_point.vel,
-            Frad * next_reference_motion_point.vel *
-              next_reference_motion_point.curvature
+        // immediately next reference - target for the feedback control
+        int k1_reference_idx = target_trajectory->indexByTime(
+          target_trajectory->getPoint(reference_idx).travel_time +
+            from_msec(getLoopDelayTime()),
+          // limit to minimum fixed_next_reference
+          fixed_next_reference);
+
+        const mp::MotionPoint& k1_reference_motion_point =
+          target_trajectory->getPoint(k1_reference_idx);
+
+        units::Pose k1_reference_pose = { k1_reference_motion_point.point,
+                                          k1_reference_motion_point.heading };
+
+        DifferentialSpeeds k1_reference_speeds = {
+            k1_reference_motion_point.vel,
+            Frad * k1_reference_motion_point.vel *
+              k1_reference_motion_point.curvature
         };
 
         double reverse_multiplier = reversed ? -1.0 : 1.0;
@@ -170,7 +190,7 @@ class PathFollow : public Motion<ControllersType,
 
         // reverse linear_velocity if needed
         reference_speeds.linear_velocity *= reverse_multiplier;
-        next_reference_speeds.linear_velocity *= reverse_multiplier;
+        lookahead_reference_speeds.linear_velocity *= reverse_multiplier;
 
         // points used for tolerances
         const mp::MotionPoint& curve_endpoint =
@@ -221,25 +241,30 @@ class PathFollow : public Motion<ControllersType,
         PathPoseFeedbackT path_pose_state {
             .pose = units::Pose { position, heading },
             // use from current reference
-            // TODO: use actual speeds?
             .velocities = reference_speeds
         };
 
         // seeking the next reference
-        PathPoseFeedbackT path_pose_reference { .pose = next_reference_pose,
+        PathPoseFeedbackT path_pose_reference { .pose = k1_reference_pose,
                                                 // target next reference
                                                 .velocities =
-                                                  next_reference_speeds };
+                                                  k1_reference_speeds };
 
-        // use feedback control law to figure out new velocities
-        DifferentialSpeeds new_speeds =
+        // get purely feedback term of the feedback control velocities
+        DifferentialSpeeds feedback_velocities =
           this->controllers.path_pose_feedback.update(path_pose_state,
                                                       path_pose_reference,
-                                                      delta_time);
+                                                      delta_time) -
+          k1_reference_speeds;
+
+        // uses the lookahead reference
+        DifferentialSpeeds feedforward_velocities = lookahead_reference_speeds;
+
+        DifferentialSpeeds new_speeds =
+          feedback_velocities + feedforward_velocities;
 
         // linear and angular should be references for the velocity
         // controller
-
         auto [left_vel, right_vel] = this->drivetrain.getDrivetrainVelocities();
         auto [actual_volt_left, actual_volt_right] =
           this->drivetrain.getDrivetrainVoltages();

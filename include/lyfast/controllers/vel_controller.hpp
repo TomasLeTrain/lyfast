@@ -220,7 +220,8 @@ class PIDVelocityController {
             // kp
             curr_Kp * error +
               // ki
-              m_params.Ki * current_integral,
+              // TODO: temporary testing of kv integrator
+              m_params.Ki * current_integral * target.internal(),
         };
 
         last_error = error;

@@ -26,6 +26,12 @@ struct LeftRightSpeedsT {
         right_vel += rhs.right_vel;
         return *this;
     }
+
+    constexpr LeftRightSpeedsT& operator-=(const LeftRightSpeedsT& rhs) {
+        left_vel -= rhs.left_vel;
+        right_vel -= rhs.right_vel;
+        return *this;
+    }
 };
 
 template<typename floatType>
@@ -38,6 +44,12 @@ struct LeftRightVoltagesT {
         right_voltage += rhs.right_voltage;
         return *this;
     }
+
+    constexpr LeftRightVoltagesT& operator-=(const LeftRightVoltagesT& rhs) {
+        left_voltage -= rhs.left_voltage;
+        right_voltage -= rhs.right_voltage;
+        return *this;
+    }
 };
 
 template<typename floatType>
@@ -48,6 +60,12 @@ struct DifferentialSpeedsT {
     constexpr DifferentialSpeedsT& operator+=(const DifferentialSpeedsT& rhs) {
         linear_velocity += rhs.linear_velocity;
         angular_velocity += rhs.angular_velocity;
+        return *this;
+    }
+
+    constexpr DifferentialSpeedsT& operator-=(const DifferentialSpeedsT& rhs) {
+        linear_velocity -= rhs.linear_velocity;
+        angular_velocity -= rhs.angular_velocity;
         return *this;
     }
 };
@@ -63,35 +81,31 @@ struct DifferentialVoltagesT {
         angular_voltage += rhs.angular_voltage;
         return *this;
     }
+
+    constexpr DifferentialVoltagesT&
+    operator-=(const DifferentialVoltagesT& rhs) {
+        linear_voltage -= rhs.linear_voltage;
+        angular_voltage -= rhs.angular_voltage;
+        return *this;
+    }
 };
 
-template<typename floatType>
-constexpr LeftRightSpeedsT<floatType>
-operator+(LeftRightSpeedsT<floatType> lhs,
-          const LeftRightSpeedsT<floatType>& rhs) {
-    return lhs += rhs;
-}
+#define SpeedOps(T)                                             \
+    template<typename floatType>                                \
+    constexpr T<floatType> operator+(T<floatType> lhs,          \
+                                     const T<floatType>& rhs) { \
+        return lhs += rhs;                                      \
+    }                                                           \
+    template<typename floatType>                                \
+    constexpr T<floatType> operator-(T<floatType> lhs,          \
+                                     const T<floatType>& rhs) { \
+        return lhs -= rhs;                                      \
+    }
 
-template<typename floatType>
-constexpr LeftRightVoltagesT<floatType>
-operator+(LeftRightVoltagesT<floatType> lhs,
-          const LeftRightVoltagesT<floatType>& rhs) {
-    return lhs += rhs;
-}
-
-template<typename floatType>
-constexpr DifferentialSpeedsT<floatType>
-operator+(DifferentialSpeedsT<floatType> lhs,
-          const DifferentialSpeedsT<floatType>& rhs) {
-    return lhs += rhs;
-}
-
-template<typename floatType>
-constexpr DifferentialVoltagesT<floatType>
-operator+(DifferentialVoltagesT<floatType> lhs,
-          const DifferentialVoltagesT<floatType>& rhs) {
-    return lhs += rhs;
-}
+SpeedOps(LeftRightSpeedsT);
+SpeedOps(LeftRightVoltagesT);
+SpeedOps(DifferentialSpeedsT);
+SpeedOps(DifferentialVoltagesT);
 
 // TODO: could possibly explicitly instantiate?
 using LeftRightSpeeds = LeftRightSpeedsT<double>;

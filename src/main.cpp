@@ -138,7 +138,7 @@ lyfast::DifferentialVelocityControllerParams vel_controller_params {
 		// .left_Kv = 0.60 * volt / mps,
 		// .left_Ka = 0.11 * volt / mps2,
 		// .left_Ka = 0.15 * volt / mps2,
-		.left_Ka = 0.0 * volt / mps2,
+		.left_Ka = 0.09 * volt / mps2,
 		// .left_Ka = 0.00 * volt / mps2,
 		.left_Ks = 0.05 * volt,
 
@@ -148,7 +148,7 @@ lyfast::DifferentialVelocityControllerParams vel_controller_params {
 		// .right_Kv = 0.65 * volt / mps,
 		// .right_Ka = 0.123 * volt / mps2,
 		// .right_Ka = 0.17 * volt / mps2,
-		.right_Ka = 0.0 * volt / mps2,
+		.right_Ka = 0.09 * volt / mps2,
 		// .right_Ka = 0.04 * volt / mps2,
 		// .right_Ka = 0.00 * volt / mps2,
 		.right_Ks = 0.05 * volt,
@@ -161,7 +161,7 @@ lyfast::DifferentialVelocityControllerParams vel_controller_params {
 		// .left_Kv = 0.60 * volt / mps,
 		// .left_Ka = 0.11 * volt / mps2,
 		// .left_Ka = 0.15 * volt / mps2,
-		.left_Ka = 0.0 * volt / mps2,
+		.left_Ka = 0.09 * volt / mps2,
 		// .left_Ka = 0.04 * volt / mps2,
 		// .left_Ka = 0.00 * volt / mps2,
 		.left_Ks = 0.10 * volt,
@@ -170,7 +170,7 @@ lyfast::DifferentialVelocityControllerParams vel_controller_params {
 		// .right_Kv = 0.65 * volt / mps,
 		// .right_Ka = 0.123 * volt / mps2,
 		// .right_Ka = 0.17 * volt / mps2,
-		.right_Ka = 0.0 * volt / mps2,
+		.right_Ka = 0.09 * volt / mps2,
 		// .right_Ka = 0.04 * volt / mps2,
 		// .right_Ka = 0.00 * volt / mps2,
 		.right_Ks = 0.10 * volt,
@@ -179,25 +179,25 @@ lyfast::DifferentialVelocityControllerParams vel_controller_params {
 		.low_target_threshold = 2_inps
 	},
 	.pid = {
-		.left_Kp = 2.0 * volt / mps,
+		.left_Kp = 1.2 * volt / mps,
 		// .left_Kp = 1.5 * volt / mps,
 		.left_Kp_close = 0.0 * volt / mps,
 		.left_Kp_low = 0.0 * volt / mps,
 		.left_low_threshold = 8_inps,
 		.left_close_threshold = 0_inps,
-		.left_Ki = 2.0 * volt / m,
+		.left_Ki = 1.7 * volt / m,
 		.left_Ki_windup = 15_inps,
 		//
 		.left_max_output =  1_volt,
 		.left_tbh_factor =  1.0,
 
 		// .right_Kp = 1.0 * volt / mps,
-		.right_Kp = 2.0 * volt / mps,
+		.right_Kp = 1.2 * volt / mps,
 		.right_Kp_close = 0.0 * volt / mps,
 		.right_Kp_low = 0.0 * volt / mps,
 		.right_low_threshold = 8_inps,
 		.right_close_threshold = 0_inps,
-		.right_Ki = 2.00 * volt / m,
+		.right_Ki = 1.70 * volt / m,
 		.right_Ki_windup = 15_inps,
 
 		.right_max_output =  1_volt,
@@ -214,7 +214,7 @@ lyfast::EMAVelocityFilter::Constants drivetrain_ema_filter_constants {
     .Koffset = 0.15, // guaranteed to trust velocity measurements always
     // .Koffset = 0.1,
     // .KalphaFactor = 0.1,
-    .KalphaFactor = 0.00000,
+    .KalphaFactor = 0.005,
 };
 
 // left back motor ime doesnt work well
@@ -254,8 +254,8 @@ TrackingImu tracking_imu(&imu);
 ArcOdomTracker arc_pose_tracker({ &forwards_tracker,
                                   &left_motor_tracker,
                                   &right_motor_tracker },
-                                // { &sideways_tracker },
-                                {},
+                                { &sideways_tracker },
+                                // {},
                                 { &tracking_imu });
 
 // controller stuff
@@ -329,7 +329,10 @@ std::array<float, 2> R { // max velocity
                          max_angular_velocity.internal()
 };
 
-blazing::lyfast::state_space::LTVUnicycleController lqr_controller(Q, R);
+Time input_delay = 40_msec;
+
+blazing::lyfast::state_space::LTVUnicycleController
+  lqr_controller(Q, R, input_delay);
 
 lyfast::PathPoseFeedbackController<decltype(lqr_controller)>
   path_pose_feedback_controller(lqr_controller);
@@ -833,6 +836,7 @@ void path_follow_test() {
     lyfast::PathFollow(controllers, velocity_chassis, test_trajectory)
         .drive_toleranceDuration(100_sec)
         .drive_largeToleranceDuration(100_sec)
+        .lookahead(20_msec + input_delay)
         // .parameterization(blazing::lyfast::time_based)
         .timeout(5_sec) |
       run;
@@ -1073,7 +1077,26 @@ void timeCriticalTask() {
                 right_ema_filter.correct();
                 // std::cout << "\n";
 
+                Angle last_angle = arc_pose_tracker.getAngle();
+                arc_pose_tracker.update();
+                Angle angle = arc_pose_tracker.getAngle();
+
+                LinearVelocity forwards_velocity =
+                  arc_pose_tracker.getLocalVelocityVector().x;
+                AngularVelocity angular_velocity =
+                  (angle - last_angle) / 10_msec;
+
+                LinearVelocity left_vel =
+                  forwards_velocity - angular_velocity * 5.25_in / rad;
+                // LinearVelocity left_vel =
+                //   toLinear(left_ema_filter.getPredictedState(), 3.25_in);
+                LinearVelocity right_vel =
+                  forwards_velocity + angular_velocity * 5.25_in / rad;
+
+                LeftRightSpeeds measurement { left_vel, right_vel };
+
                 // update plant
+                drivetrain_plant.setMeasurement(measurement);
                 drivetrain_plant.updateToTimestamp(curr_time);
                 auto curr_drivetrain_voltages =
                   drivetrain_plant.getCommandedVoltages();
@@ -1107,8 +1130,6 @@ void timeCriticalTask() {
                                         speeds.angular_velocity },
                   volt * discretized_left_voltage / 100.0,
                   volt * discretized_right_voltage / 100.0);
-
-                arc_pose_tracker.update();
             }
 
             pros::Task::delay_until(&systemTime, 2);

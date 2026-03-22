@@ -121,7 +121,7 @@ class EMAVelocityFilter {
     // take measurements from the motor(s) and correct model based on them
     void correct() {
         std::lock_guard lock(m_mutex);
-        AngularVelocity last_estimate = m_state_estimate;
+        // AngularVelocity last_estimate = m_state_estimate;
 
         // apply correction for each motor
         for (int i = 0; i < motor_group->size(); i++) {
@@ -130,13 +130,14 @@ class EMAVelocityFilter {
 
         // apply slew only after applying ema
         // TODO: change to final impl
-        Time dt = 10_msec;
-        AngularAcceleration accel = (m_state_estimate - last_estimate) / dt;
-        AngularAcceleration max_accel = 242_radps2;
-        // AngularAcceleration max_accel = 1000_radps2;
-        AngularAcceleration applied_accel =
-          units::clamp(accel, -max_accel, max_accel);
-        m_state_estimate = last_estimate + dt * applied_accel;
+        // Time dt = 10_msec;
+        // AngularAcceleration accel = (m_state_estimate - last_estimate) / dt;
+        // AngularAcceleration max_accel = 242_radps2;
+        // // AngularAcceleration max_accel = 260_radps2;
+        // // AngularAcceleration max_accel = 1000_radps2;
+        // AngularAcceleration applied_accel =
+        //   units::clamp(accel, -max_accel, max_accel);
+        // m_state_estimate = last_estimate + dt * applied_accel;
     }
 
     // uses input to calculate gain for the current iteration
@@ -154,16 +155,29 @@ class EMAVelocityFilter {
 
         // derivative in opposite direction of last derivative
         // this is guaranteed to result in velocity noise, so dont up gain
-        if (units::sgn(last_derivative) != units::sgn(voltage_derivative)) {
-            m_alpha_gain = m_constants.Koffset;
-        } else {
-            m_alpha_gain =
-              m_constants.Koffset +
-              // uses sqrt as scaling function for the derivative, could test
-              // others like ln sqrt(units::abs(voltage_derivative)) *
-              // m_constants.KalphaFactor;
-              units::abs(voltage_derivative) * m_constants.KalphaFactor;
-        }
+
+        m_alpha_gain =
+          m_constants.Koffset -
+          units::clamp((units::abs(voltage_derivative) - 5) / 10.0, 0, 1) *
+            m_constants.Koffset;
+
+        // if (units::sgn(last_derivative) != units::sgn(voltage_derivative)) {
+        //     m_alpha_gain =
+        //       // voltage derivative of about 10+ is indicative of oscilation,
+        //       // therefore should be the lowest at that or greater
+        //       m_constants.Koffset -
+        //       units::clamp((units::abs(voltage_derivative) - 10) / 5.0, 0, 1)
+        //       *
+        //         0.1;
+        //     ;
+        // } else {
+        //     m_alpha_gain =
+        //       m_constants.Koffset +
+        //       // uses sqrt as scaling function for the derivative, could test
+        //       // others like ln sqrt(units::abs(voltage_derivative)) *
+        //       // m_constants.KalphaFactor;
+        //       units::abs(voltage_derivative) * m_constants.KalphaFactor;
+        // }
 
         last_derivative = voltage_derivative;
 
