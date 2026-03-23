@@ -880,10 +880,10 @@ lyfast::PIDVelocityController<AngularVelocity> feedback {
                                                           .tbh_factor = 1.0,
                                                           }
 };
-lyfast::SimpleVelocityController<AngularVelocity> controller { feedforward,
-                                                               feedback };
+lyfast::SimpleVelocityController<AngularVelocity> test_controller { feedforward,
+                                                                    feedback };
 lyfast::AngularMotorGroupVelocityPlant test_plant(&test_motor_filter,
-                                                  controller);
+                                                  test_controller);
 
 std::vector<FAngularVelocity> tick_based_vel_data;
 
@@ -916,7 +916,8 @@ void logInformation(Voltage commanded_voltage) {
     tick_based_vel_data.emplace_back(estimated_angular_velocity);
 
     Voltage filter_voltage = test_motor_filter.getInput();
-    AngularVelocity filter_velocity = test_motor_filter.getPredictedState();
+    AngularVelocity filter_velocity =
+      test_motor_filter.getPredictedState().velocity;
 
     AngularVelocity raw_vel = test_motor.get_actual_velocity() * rpm;
 
@@ -976,11 +977,12 @@ void logDrivetrainInformation(FDifferentialSpeeds curr_target_vels,
       toLinear(calculateMotorVel(right_front, final_rpm), wheel_diameter) });
 
     Voltage left_filter_voltage = left_ema_filter.getInput();
-    AngularVelocity left_filter_velocity = left_ema_filter.getPredictedState();
+    AngularVelocity left_filter_velocity =
+      left_ema_filter.getPredictedState().velocity;
 
     Voltage right_filter_voltage = right_ema_filter.getInput();
     AngularVelocity right_filter_velocity =
-      right_ema_filter.getPredictedState();
+      right_ema_filter.getPredictedState().velocity;
 
     left_filtered_data.emplace_back(
       toLinear(left_filter_velocity, wheel_diameter),
@@ -1096,8 +1098,10 @@ void timeCriticalTask() {
                 LeftRightSpeeds measurement { left_vel, right_vel };
 
                 // update plant
-                drivetrain_plant.setMeasurement(measurement);
-                drivetrain_plant.updateToTimestamp(curr_time);
+                drivetrain_plant.setMeasurement(
+                  TimestampedVelocity<LeftRightSpeeds> { measurement,
+                                                         curr_time });
+                drivetrain_plant.update();
                 auto curr_drivetrain_voltages =
                   drivetrain_plant.getCommandedVoltages();
 
@@ -1197,7 +1201,7 @@ void test_motor_kv_ks_tuner() {
     auto vel_func = [&]() -> AngularVelocity {
         // return get_group_velocity(&test_motor, final_rpm);
         // can use filtered data for kv/ks
-        return test_motor_filter.getPredictedState();
+        return test_motor_filter.getPredictedState().velocity;
     };
     auto voltage_func = [&](Voltage commanded_voltage) -> Voltage {
         // using either will return different values?
@@ -1393,7 +1397,9 @@ void motorPlantTest() {
     };
 
     for (auto [velocity, duration] : test_commands) {
-        test_plant.setTarget(velocity);
+        test_plant.addTarget(
+          velocity,
+          pros::millis() + test_controller.getFeedbackParams().lookahead_time);
 
         pros::delay(to_msec(duration));
     }

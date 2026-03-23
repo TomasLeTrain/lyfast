@@ -4,11 +4,13 @@
 #include "blazing/controllers/feedforward/feedforward.hpp"
 #include "blazing/drivetrains/differential.hpp"
 #include "blazing/utils.hpp"
+#include "lyfast/utils/timestamped_types.hpp"
 #include "pros/motors.hpp"
 #include "units/Angle.hpp"
 #include "units/Vector2D.hpp"
 #include "units/units.hpp"
 #include <cmath>
+#include <cstdint>
 #include <deque>
 #include <functional>
 #include <ios>
@@ -83,7 +85,7 @@ struct FeedforwardVelocityControllerParams {
     KaUnits<VelUnit> Ka;
     Voltage Ks;
     Time Ka_delta_time;
-    uint32_t lookahead_time;
+    uint32_t lookahead_time { 0 };
     VelUnit low_target_threshold { 0 };
 };
 
@@ -96,6 +98,7 @@ struct PIDVelocityControllerParams {
     VelUnit close_threshold { 0 };
     Divided<Voltage, Multiplied<VelUnit, Time>> Ki { 0 };
     std::optional<VelUnit> Ki_windup = std::nullopt;
+    uint32_t lookahead_time { 0 };
 
     Voltage max_output { 1_volt };
     double tbh_factor { 0.0 };
@@ -103,13 +106,11 @@ struct PIDVelocityControllerParams {
 
 template<typename VelUnit>
 class FeedforwardVelocityController {
+  public:
+    using target_t = TimestampedVelocity<VelUnit>;
+
   private:
     FeedforwardVelocityControllerParams<VelUnit> m_params;
-
-    struct target_t {
-        VelUnit velocity;
-        uint32_t timestamp;
-    };
 
     std::deque<target_t> m_target_queue;
 
@@ -184,7 +185,6 @@ class FeedforwardVelocityController {
     // allows applying ks later in the chain if other processes are done in
     // between
     Voltage applyKs(Voltage output) {
-
         // apply ks at the end
         return output + units::sgn(output) * m_params.Ks;
     }
@@ -221,39 +221,50 @@ class FeedforwardVelocityController {
 
 template<typename VelUnit>
 class PIDVelocityController {
+  public:
+    using target_t = TimestampedVelocity<VelUnit>;
+
   private:
     PIDVelocityControllerParams<VelUnit> m_params;
 
-    Multiplied<VelUnit, Time> integral { 0 };
+    Multiplied<VelUnit, Time> m_integral { 0 };
 
-    // local variables, membesr so they can be accessed between multiple methods
+    // local variables, members so they can be accessed between multiple methods
     Multiplied<VelUnit, Time> current_integral { 0 };
-
-    struct target_t {
-        VelUnit velocity;
-        uint32_t timestamp;
-    };
-
-    std::deque<target_t> m_target_queue;
-    target_t m_latest_measurement;
-    std::optional<target_t> last_error = std::nullopt;
     VelUnit error;
 
+    std::queue<target_t> m_target_queue;
+    target_t m_latest_measurement;
+    std::optional<target_t> last_error = std::nullopt;
+
     std::optional<target_t> getCurrentTarget() {
-        if (m_target_queue.empty()) return std::nullopt;
+        uint32_t target_time = pros::millis() - m_params.lookahead_time;
+
+        // want to find first target with timestamp >= target_time
+        for (; m_target_queue.size() > 1 &&
+               m_target_queue.front().timestamp < target_time;
+             m_target_queue.pop());
+
+        if (m_target_queue.empty()) {
+            std::cout << "PID: no queued targets!" << std::endl;
+            return std::nullopt;
+        }
+
+        // front has timestamp < target_time then no targets match target_time
+        // in this case its assumed its a constant command and its still used
+        return m_target_queue.front();
     }
 
   public:
     Voltage unclampedUpdate() {
         std::optional<target_t> curr_target = getCurrentTarget();
         if (!curr_target.has_value()) {
-            std::cout << "PID: no target!" << std::endl;
             return 0_volt;
         }
 
         error = curr_target->velocity - m_latest_measurement.velocity;
 
-        current_integral = integral;
+        current_integral = m_integral;
 
         if (last_error)
             // use trapezoidal approximation
@@ -271,7 +282,7 @@ class PIDVelocityController {
             units::sgn(error) != units::sgn(last_error->velocity)) {
             current_integral *= m_params.tbh_factor;
             // update integral even if saturating?
-            integral = current_integral;
+            m_integral = current_integral;
         }
 
         auto curr_Kp = m_params.Kp;
@@ -315,7 +326,7 @@ class PIDVelocityController {
             // no need to update integral to current integral
         } else {
             // not saturating, update integral
-            integral = current_integral;
+            m_integral = current_integral;
         }
 
         result =
@@ -330,24 +341,25 @@ class PIDVelocityController {
 
     // NOTE: targets should be queued in chronological order!
     void addTarget(VelUnit target, uint32_t timestamp) {
-        m_target_queue.emplace_back(target, timestamp);
+        m_target_queue.emplace(target, timestamp);
     }
 
     // supported for backwards compatibility
-    Voltage update(VelUnit measurement, VelUnit target, Time duration) {
-        setLatestMeasurement(measurement, now());
-        addTarget(target, now() + duration);
-
-        Voltage result = unclampedUpdate();
-        result = compensateForSaturation(result);
-
-        return result;
-    }
+    // Voltage update(VelUnit measurement, VelUnit target, Time duration) {
+    //     setLatestMeasurement(measurement, now());
+    //     addTarget(target, now() + duration);
+    //
+    //     Voltage result = unclampedUpdate();
+    //     result = compensateForSaturation(result);
+    //
+    //     return result;
+    // }
 
     void reset() {
-        integral = Multiplied<VelUnit, Time> { 0 };
+        m_integral = Multiplied<VelUnit, Time> { 0 };
         last_error = std::nullopt;
-        m_target_queue.clear();
+		// clear queue
+        m_target_queue = std::queue<target_t>();
     }
 
     PIDVelocityControllerParams<VelUnit> getParams() {
@@ -370,11 +382,18 @@ class SimpleVelocityController {
     PIDVelocityController<VelUnit> m_pid;
 
   public:
-    Voltage update(VelUnit measurement, VelUnit target, Time duration) {
-        Voltage u_feedforward = m_feedforward.updateKvKa(target, duration);
+    void addTarget(VelUnit target, uint32_t timestamp) {
+        m_feedforward.addTarget(target, timestamp);
+        m_pid.addTarget(target, timestamp);
+    }
 
-        Voltage u_feedback =
-          m_pid.unclampedUpdate(measurement, target, duration);
+    void setLatestMeasurement(VelUnit measurement, uint32_t timestamp) {
+        m_pid.setLatestMeasurement(measurement, timestamp);
+    }
+
+    Voltage update() {
+        Voltage u_feedforward = m_feedforward.updateKvKa();
+        Voltage u_feedback = m_pid.unclampedUpdate();
 
         Voltage result = u_feedforward + u_feedback;
 
@@ -390,6 +409,14 @@ class SimpleVelocityController {
     void reset() {
         m_feedforward.reset();
         m_pid.reset();
+    }
+
+    FeedforwardVelocityControllerParams<VelUnit> getFeedforwardParams() {
+        return m_feedforward.getParams();
+    }
+
+    PIDVelocityControllerParams<VelUnit> getFeedbackParams() {
+        return m_pid.getParams();
     }
 
     SimpleVelocityController(FeedforwardVelocityController<VelUnit> feedforward,
@@ -411,13 +438,10 @@ class DrivetrainSideVelocityController {
     PIDVelocityController<LinearVelocity> m_pid;
 
   public:
-    Voltage update(LinearVelocity measurement, TargetT target, Time duration) {
-        LinearVelocity v_target = target.linear + target.angular;
-        Voltage u_linear = m_linear.updateKvKa(target.linear, duration);
-        Voltage u_angular = m_angular.updateKvKa(target.angular, duration);
-
-        Voltage u_feedback =
-          m_pid.unclampedUpdate(measurement, v_target, duration);
+    Voltage update() {
+        Voltage u_linear = m_linear.updateKvKa();
+        Voltage u_angular = m_angular.updateKvKa();
+        Voltage u_feedback = m_pid.unclampedUpdate();
 
         Voltage result = u_linear + u_angular + u_feedback;
 
@@ -430,10 +454,34 @@ class DrivetrainSideVelocityController {
         return result;
     }
 
+    void addTarget(TargetT target, uint32_t timestamp) {
+        m_linear.addTarget(target.linear, timestamp);
+        m_angular.addTarget(target.angular, timestamp);
+        m_pid.addTarget(target.linear + target.angular, timestamp);
+    }
+
+    void setLatestMeasurement(LinearVelocity measurement, uint32_t timestamp) {
+        m_pid.setLatestMeasurement(measurement, timestamp);
+    }
+
     void reset() {
         m_linear.reset();
         m_angular.reset();
         m_pid.reset();
+    }
+
+    FeedforwardVelocityControllerParams<LinearVelocity>
+    getLinearFeedforwardParams() {
+        return m_linear.getParams();
+    }
+
+    FeedforwardVelocityControllerParams<LinearVelocity>
+    getAngularFeedforwardParams() {
+        return m_angular.getParams();
+    }
+
+    PIDVelocityControllerParams<LinearVelocity> getFeedbackParams() {
+        return m_pid.getParams();
     }
 
     DrivetrainSideVelocityController(
@@ -560,10 +608,12 @@ class DifferentialVelocityController {
     std::optional<LeftRightSpeeds> last_velocities = std::nullopt;
 
   public:
-    LeftRightVoltages update(LeftRightSpeeds measurement,
-                             DifferentialSpeeds target,
-                             Time duration) {
-        Length track_radius = m_track_width / 2.0;
+    LeftRightVoltages update() {
+        return { m_left_controller.update(), m_right_controller.update() };
+    }
+
+    void addTarget(DifferentialSpeeds target, uint32_t timestamp) {
+        const Length track_radius = m_track_width / 2.0;
 
         // desaturate target first
         if (m_prioritize_angular)
@@ -580,21 +630,19 @@ class DifferentialVelocityController {
         LinearVelocity converted_angular_velocity =
           (target.angular_velocity / rad) * track_radius;
 
-        Voltage left_voltage =
-          m_left_controller.update(measurement.left_vel,
-                                   { .linear = target_linear_velocity,
-                                     .angular = -converted_angular_velocity },
-                                   duration);
+        m_left_controller.addTarget({ .linear = target_linear_velocity,
+                                      .angular = -converted_angular_velocity },
+                                    timestamp);
 
-        Voltage right_voltage =
-          m_right_controller.update(measurement.right_vel,
-                                    { .linear = target_linear_velocity,
-                                      .angular = converted_angular_velocity },
-                                    duration);
+        m_right_controller.addTarget({ .linear = target_linear_velocity,
+                                       .angular = converted_angular_velocity },
+                                     timestamp);
+    }
 
-        LeftRightVoltages result = { left_voltage, right_voltage };
-
-        return result;
+    void setLatestMeasurement(LeftRightSpeeds measurement, uint32_t timestamp) {
+        m_left_controller.setLatestMeasurement(measurement.left_vel, timestamp);
+        m_right_controller.setLatestMeasurement(measurement.right_vel,
+                                                timestamp);
     }
 
     void reset() {
