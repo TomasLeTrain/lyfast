@@ -2,8 +2,6 @@
 
 #include "blazing/utils.hpp"
 #include "lyfast/controllers/vel_controller.hpp"
-#include "lyfast/filters/velocity_estimator.hpp"
-#include "lyfast/utils/timestamped_types.hpp"
 #include "pros/abstract_motor.hpp"
 #include "pros/motor_group.hpp"
 #include "pros/motors.hpp"
@@ -11,7 +9,6 @@
 #include "units/Angle.hpp"
 #include "units/units.hpp"
 #include <chrono>
-#include <cstdint>
 #include <map>
 #include <mutex>
 #include <queue>
@@ -19,7 +16,9 @@
 namespace blazing {
 namespace lyfast {
 
-class EMAVelocityFilter : public VelocityEstimator<AngularVelocity> {
+// returns -1 if gearing is invalid
+
+class EMAVelocityFilter {
   protected:
     pros::Mutex m_mutex;
 
@@ -47,7 +46,7 @@ class EMAVelocityFilter : public VelocityEstimator<AngularVelocity> {
     State m_state_estimate;
     Input m_input;
 
-    uint32_t m_estimate_timestamp;
+    uint32_t m_last_predict_timestamp;
 
     // calculated during predict
     float m_alpha_gain = 1.0;
@@ -184,19 +183,24 @@ class EMAVelocityFilter : public VelocityEstimator<AngularVelocity> {
 
         m_alpha_gain = units::clamp(m_alpha_gain, 0, 1);
 
-        m_estimate_timestamp = pros::millis();
+        m_last_predict_timestamp = pros::millis();
     }
 
     // predicts to match the timestamp, as a time in pros::millis()
     void predictToTimestamp(uint32_t timestamp) {
 
         // NOTE: no lockguard since predict uses it
-        if (timestamp <= m_estimate_timestamp) {
+        if (timestamp <= m_last_predict_timestamp) {
             // timestamp before the latest prediction timestamp, can't predict
             // into the past
             return;
         }
-        predict(from_msec(timestamp - m_estimate_timestamp));
+        predict(from_msec(timestamp - m_last_predict_timestamp));
+    }
+
+    uint32_t getLastPredictTimestamp() {
+        std::lock_guard lock(m_mutex);
+        return m_last_predict_timestamp;
     }
 
     Input getInput() {
@@ -204,16 +208,15 @@ class EMAVelocityFilter : public VelocityEstimator<AngularVelocity> {
         return m_input;
     }
 
-    TimestampedVelocity<State> getPredictedState() override {
+    State getPredictedState() {
         std::lock_guard lock(m_mutex);
-        return { .velocity = m_state_estimate,
-                 .timestamp = m_estimate_timestamp };
+        return m_state_estimate;
     }
 
     void setPredictedState(State new_state) {
         std::lock_guard lock(m_mutex);
         m_state_estimate = new_state;
-        m_estimate_timestamp = pros::millis();
+        m_last_predict_timestamp = pros::millis();
     }
 
     EMAVelocityFilter(pros::MotorGroup* motors,
@@ -223,7 +226,7 @@ class EMAVelocityFilter : public VelocityEstimator<AngularVelocity> {
           m_constants(constants),
           m_state_estimate(initial_state_estimate),
           m_input(0_volt),
-          m_estimate_timestamp(pros::millis()) {}
+          m_last_predict_timestamp(pros::millis()) {}
 };
 
 } // namespace lyfast

@@ -2,29 +2,22 @@
 
 #include "blazing/utils.hpp"
 #include "lyfast/controllers/vel_controller.hpp"
-#include "lyfast/filters/velocity_estimator.hpp"
 #include "pros/abstract_motor.hpp"
 #include "pros/motor_group.hpp"
 #include "pros/motors.hpp"
 #include "units/Angle.hpp"
 #include "units/units.hpp"
 #include <chrono>
-#include <cstdint>
 #include <map>
 #include <mutex>
 #include <queue>
 
 namespace blazing {
 namespace lyfast {
-
 // kalman filter for a motor group.
 // doesnt respond well to disturbances (excess load), ema seems to be good
 // enough
-struct KalmanState {
-    AngularVelocity velocity;
-};
-
-class MotorGroupKalmanFilter : public VelocityEstimator<KalmanState> {
+class MotorGroupKalmanFilter {
   protected:
     pros::Mutex m_mutex;
 
@@ -36,7 +29,9 @@ class MotorGroupKalmanFilter : public VelocityEstimator<KalmanState> {
         Voltage voltage;
     };
 
-    using State = KalmanState;
+    struct State {
+        AngularVelocity velocity;
+    };
 
     struct CorrectCovarianceGains {
         // cov = factor * measurement^2
@@ -77,7 +72,7 @@ class MotorGroupKalmanFilter : public VelocityEstimator<KalmanState> {
     Input m_input;
     CovarianceUnit m_covariance { 0 };
 
-    uint32_t m_estimate_timestamp;
+    uint32_t m_last_predict_timestamp;
     uint32_t m_disabled_torque_timestamp = 0;
 
     struct motorState {
@@ -270,22 +265,22 @@ class MotorGroupKalmanFilter : public VelocityEstimator<KalmanState> {
             std::cout << "spike detected" << std::endl;
         }
 
-        m_estimate_timestamp = curr_time;
+        m_last_predict_timestamp = curr_time;
     }
 
     // predicts to match the timestamp, as a time in pros::millis()
     void predictToTimestamp(uint32_t timestamp) {
-        if (timestamp <= m_estimate_timestamp) {
+        if (timestamp <= m_last_predict_timestamp) {
             // timestamp before the latest prediction timestamp, can't predict
             // into the past
             return;
         }
-        predict(from_msec(timestamp - m_estimate_timestamp));
+        predict(from_msec(timestamp - m_last_predict_timestamp));
     }
 
     uint32_t getLastPredictTimestamp() {
         std::lock_guard lock(m_mutex);
-        return m_estimate_timestamp;
+        return m_last_predict_timestamp;
     }
 
     Input getInput() {
@@ -293,17 +288,16 @@ class MotorGroupKalmanFilter : public VelocityEstimator<KalmanState> {
         return m_input;
     }
 
-    TimestampedVelocity<State> getPredictedState() override {
+    State getPredictedState() {
         std::lock_guard lock(m_mutex);
-        return { .velocity = m_state_estimate,
-                 .timestamp = m_estimate_timestamp };
+        return m_state_estimate;
     }
 
     void setPredictedState(State new_state, CovarianceUnit covariance) {
         std::lock_guard lock(m_mutex);
         m_state_estimate = new_state;
         m_covariance = covariance;
-        m_estimate_timestamp = pros::millis();
+        m_last_predict_timestamp = pros::millis();
     }
 
     MotorGroupKalmanFilter(pros::MotorGroup* motors,
@@ -315,7 +309,7 @@ class MotorGroupKalmanFilter : public VelocityEstimator<KalmanState> {
           m_state_estimate(initial_state_estimate),
           m_input({ .torque = 0_Nm, .voltage = 0_volt }),
           m_covariance(initial_covariance),
-          m_estimate_timestamp(pros::millis()) {}
+          m_last_predict_timestamp(pros::millis()) {}
 };
 } // namespace lyfast
 } // namespace blazing

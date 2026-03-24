@@ -41,9 +41,8 @@ class VelocityDifferentialDrivetrain : public ChainableDrivetrain {
         auto [new_left_voltage, new_right_voltage] =
           desaturate(saturated_voltages, 1_volt);
 
-        m_plant->addTarget(
-          LeftRightVoltages { new_left_voltage, new_right_voltage },
-          pros::millis());
+        m_plant->setTarget(
+          LeftRightVoltages { new_left_voltage, new_right_voltage });
     }
 
     void moveVoltages(std::vector<Voltage> voltages) override {
@@ -58,39 +57,24 @@ class VelocityDifferentialDrivetrain : public ChainableDrivetrain {
                  linear_output + angular_output);
     }
 
-    // timestamped version of moveArcade
+    // move robot based on left and right velocities
+    // positive angular -> turns left
     void moveArcade(LinearVelocity linear_velocity,
-                    AngularVelocity angular_velocity,
-                    uint32_t timestamp) {
+                    AngularVelocity angular_velocity) {
         // TODO: saturate here or offload to controller?
-        m_plant->addTarget(
-          DifferentialSpeeds { linear_velocity, angular_velocity },
-          timestamp);
+        m_plant->setTarget(
+          DifferentialSpeeds { linear_velocity, angular_velocity });
     }
 
-    // timestamped version of moveTank
-    void moveTank(LinearVelocity left_velocity,
-                  LinearVelocity right_velocity,
-                  uint32_t timestamp) {
+    // move robot based on left and right velocities
+    void moveTank(LinearVelocity left_velocity, LinearVelocity right_velocity) {
         // convert left and right velocities into linear and angular
         // v = (v_l + v_r) / 2
         // w = (v_r - v_l) / (track_width)
         LinearVelocity v = (left_velocity + right_velocity) / 2;
         AngularVelocity w =
           rad * (right_velocity - left_velocity) / (m_track_width);
-        moveArcade(v, w, timestamp);
-    }
-
-    // move robot based on left and right velocities
-    // positive angular -> turns left
-    void moveArcade(LinearVelocity linear_velocity,
-                    AngularVelocity angular_velocity) {
-        moveArcade(linear_velocity, angular_velocity, pros::millis());
-    }
-
-    // move robot based on left and right velocities
-    void moveTank(LinearVelocity left_velocity, LinearVelocity right_velocity) {
-        moveTank(left_velocity, right_velocity, pros::millis());
+        moveArcade(v, w);
     }
 
     void setBrakeMode(pros::MotorBrake brake_mode) {
