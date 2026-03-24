@@ -197,7 +197,7 @@ lyfast::DifferentialVelocityControllerParams vel_controller_params {
 		.right_Kp_low = 0.0 * volt / mps,
 		.right_low_threshold = 8_inps,
 		.right_close_threshold = 0_inps,
-		.right_Ki = 1.7 * volt / m,
+		.right_Ki = 1.70 * volt / m,
 		.right_Ki_windup = 15_inps,
 
 		.right_max_output =  1_volt,

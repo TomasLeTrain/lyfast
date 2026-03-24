@@ -9,37 +9,11 @@
 #include "units/Vector2D.hpp"
 #include "units/units.hpp"
 #include <cmath>
-#include <deque>
 #include <functional>
 #include <ios>
-#include <queue>
 
 namespace blazing {
 namespace lyfast {
-
-// new architecture:
-// update() -> calculates outputs from measurements and targets
-// addTarget(target, timestamp) -> add desired target at some timestamp
-// addMeasurement(target, timestamp) -> add measurement at some timestamp
-
-// new feedforward Concept
-template<typename Controller, typename Input, typename Output>
-concept NewFeedforward =
-  requires(Controller controller, Input target, Time timestamp) {
-      { controller.update() } -> std::same_as<Output>;
-      { controller.addTarget(target, timestamp) } -> std::same_as<void>;
-  };
-
-// new feedback Concept
-template<typename Controller, typename Input, typename Output>
-concept NewFeedback = requires(Controller controller,
-                               Input target,
-                               Input measurement,
-                               Time timestamp) {
-    { controller.update() } -> std::same_as<Output>;
-    { controller.addTarget(target, timestamp) } -> std::same_as<void>;
-    { controller.addMeasurement(measurement, timestamp) } -> std::same_as<void>;
-};
 
 // voltage is assumed to be in the range [0,1]
 
@@ -83,7 +57,6 @@ struct FeedforwardVelocityControllerParams {
     KaUnits<VelUnit> Ka;
     Voltage Ks;
     Time Ka_delta_time;
-    uint32_t lookahead_time;
     VelUnit low_target_threshold { 0 };
 };
 
@@ -106,77 +79,48 @@ class FeedforwardVelocityController {
   private:
     FeedforwardVelocityControllerParams<VelUnit> m_params;
 
-    struct target_t {
-        VelUnit velocity;
-        uint32_t timestamp;
-    };
-
-    std::deque<target_t> m_target_queue;
-
-    // searches for current_target a timestamp >= now + lookahead_time
-    // returns [last_target, current_target] or nullopt
-    std::optional<std::pair<target_t, target_t>> getCurrentTargets() {
-        uint32_t target_time = pros::millis() + m_params.lookahead_time;
-
-        // can't update due to no targets
-        if (m_target_queue.empty()) {
-            std::cout << "FF: queue is empty!" << std::endl;
-            return std::nullopt;
-        }
-
-        // pops elements from queue until second element (current target) has
-        // timestamp >= target_time
-        for (; m_target_queue.size() > 1 &&
-               m_target_queue[1].timestamp < target_time;
-             m_target_queue.pop_front());
-
-        // either all timestamps are >= or < target_time
-        // in > case: use for vel info, regardless of timestamp
-        // in <= case: use oldest for vel info, regardless of timestamp
-        if (m_target_queue.size() == 1 || // all timestamps < target_time
-            m_target_queue.front().timestamp >= target_time) {
-            return std::pair { m_target_queue.front(), m_target_queue.front() };
-        }
-
-        // get current target
-        // measurement from right before current measurement
-        target_t last_target = m_target_queue.front();
-        target_t current_target = m_target_queue[1];
-
-        return std::pair { last_target, current_target };
-    }
+    std::optional<VelUnit> last_speed = std::nullopt;
+    std::optional<VelUnit> last_different_speed = std::nullopt;
+    std::optional<Time> last_different_speed_time = std::nullopt;
 
   public:
-    Voltage updateKvKa() {
-        const auto targets = getCurrentTargets();
-
-        // no possible targets to follow
-        if (!targets.has_value()) {
-            return 0_volt;
-        }
-        const auto& [last_target, current_target] = targets.value();
-
-        VelUnit delta_velocity = current_target.velocity - last_target.velocity;
-        uint32_t discrete_delta_time =
-          current_target.timestamp - last_target.timestamp;
-        Time delta_time = from_msec(discrete_delta_time);
-
-        // in case delta time is zero assume no accel
-        Divided<VelUnit, Time> target_accel = discrete_delta_time == 0 ?
-                                                Divided<VelUnit, Time> { 0 } :
-                                                delta_velocity / delta_time;
+    Voltage updateKvKa(VelUnit target, Time duration) {
+        Divided<VelUnit, Time> target_accel;
+        target_accel = (target -
+                        // combines measurement and last_speeds
+                        last_different_speed.value_or(VelUnit(0))) /
+                       m_params.Ka_delta_time;
 
         // target low enough that accel is basically instant
-        if (units::abs(current_target.velocity) <
-            m_params.low_target_threshold) {
+        if (units::abs(target) < m_params.low_target_threshold) {
             target_accel = Divided<VelUnit, Time> { 0 };
         }
 
         Voltage result { // kv
-                         current_target.velocity * m_params.Kv +
+                         target * m_params.Kv +
                          // ka
                          target_accel * m_params.Ka
         };
+
+        if (!last_different_speed.has_value() ||
+            last_different_speed.value() != target) {
+            last_different_speed = target;
+            last_different_speed_time = now();
+        }
+
+        // if (!last_different_speed.has_value()) {
+        //     last_different_speed = target;
+        //     last_different_speed_time = now();
+        // } else {
+        //     bool timeout_done = timeoutDone(m_params.Ka_delta_time,
+        //                                     last_different_speed_time.value());
+        //     if (timeout_done) {
+        //         last_different_speed = target;
+        //         last_different_speed_time = now();
+        //     }
+        // }
+
+        last_speed = { target };
 
         return result;
     }
@@ -189,14 +133,8 @@ class FeedforwardVelocityController {
         return output + units::sgn(output) * m_params.Ks;
     }
 
-    // NOTE: targets should be queued in chronological order!
-    // TODO: could switch to priority queue to support out of order targets
-    void addTarget(VelUnit target, uint32_t timestamp) {
-        m_target_queue.emplace_back(target, timestamp);
-    }
-
-    Voltage update() {
-        Voltage result = updateKvKa();
+    Voltage update(VelUnit target, Time duration) {
+        Voltage result = updateKvKa(target, duration);
         result = applyKs(result);
 
         return result;
@@ -207,7 +145,7 @@ class FeedforwardVelocityController {
     }
 
     void reset() {
-        m_target_queue.clear();
+        last_speed = std::nullopt;
     }
 
     void setParams(FeedforwardVelocityControllerParams<VelUnit> new_params) {
@@ -225,50 +163,38 @@ class PIDVelocityController {
     PIDVelocityControllerParams<VelUnit> m_params;
 
     Multiplied<VelUnit, Time> integral { 0 };
+    std::optional<VelUnit> last_error = std::nullopt;
 
     // local variables, membesr so they can be accessed between multiple methods
     Multiplied<VelUnit, Time> current_integral { 0 };
-
-    struct target_t {
-        VelUnit velocity;
-        uint32_t timestamp;
-    };
-
-    std::deque<target_t> m_target_queue;
-    target_t m_latest_measurement;
-    std::optional<target_t> last_error = std::nullopt;
     VelUnit error;
 
-    std::optional<target_t> getCurrentTarget() {
-        if (m_target_queue.empty()) return std::nullopt;
-    }
+    std::optional<VelUnit> last_target = std::nullopt;
 
   public:
-    Voltage unclampedUpdate() {
-        std::optional<target_t> curr_target = getCurrentTarget();
-        if (!curr_target.has_value()) {
-            std::cout << "PID: no target!" << std::endl;
-            return 0_volt;
-        }
+    Voltage
+    unclampedUpdate(VelUnit measurement, VelUnit target, Time duration) {
+        // target here is the next desired position
+        // we apply to pid to the current desired target (meaning the target we
+        // were given before) if available
+        VelUnit curr_target = target;
+        // if (last_target.has_value()) curr_target = last_target.value();
+        // last_target = target;
 
-        error = curr_target->velocity - m_latest_measurement.velocity;
+        error = curr_target - measurement;
 
         current_integral = integral;
 
         if (last_error)
             // use trapezoidal approximation
-            current_integral += (error + last_error->velocity) *
-                                from_msec(m_latest_measurement.timestamp -
-                                          last_error->timestamp) *
-                                0.5;
-        // else
-        //     // use Riemann sum approximation
-        //     current_integral += error * 10_msec;
+            current_integral += (error + *last_error) * duration * 0.5;
+        else
+            // use Riemann sum approximation
+            current_integral += error * duration;
 
         // decrease integral by some amount when crossing error to minimize
         // overshooot due to the integral
-        if (last_error &&
-            units::sgn(error) != units::sgn(last_error->velocity)) {
+        if (last_error && units::sgn(error) != units::sgn(*last_error)) {
             current_integral *= m_params.tbh_factor;
             // update integral even if saturating?
             integral = current_integral;
@@ -277,7 +203,7 @@ class PIDVelocityController {
         auto curr_Kp = m_params.Kp;
 
         // if the error is high then normal kp still applies
-        if (units::abs(curr_target->velocity) <= m_params.low_threshold &&
+        if (units::abs(target) <= m_params.low_threshold &&
             units::abs(error) <= m_params.low_threshold) {
             curr_Kp = m_params.Kp_low;
         } else if (units::abs(error) < m_params.close_threshold) {
@@ -293,12 +219,12 @@ class PIDVelocityController {
         Voltage result {
             // kp
             curr_Kp * error +
-            // ki
-            // TODO: temporary testing of kv integrator (????)
-            m_params.Ki * current_integral * curr_target->velocity.internal()
+              // ki
+              // TODO: temporary testing of kv integrator
+              m_params.Ki * current_integral * target.internal(),
         };
 
-        last_error = { error, m_latest_measurement.timestamp };
+        last_error = error;
 
         return result;
     }
@@ -324,21 +250,9 @@ class PIDVelocityController {
         return result;
     }
 
-    void setLatestMeasurement(VelUnit measurement, uint32_t timestamp) {
-        m_latest_measurement = { measurement, timestamp };
-    }
-
-    // NOTE: targets should be queued in chronological order!
-    void addTarget(VelUnit target, uint32_t timestamp) {
-        m_target_queue.emplace_back(target, timestamp);
-    }
-
-    // supported for backwards compatibility
     Voltage update(VelUnit measurement, VelUnit target, Time duration) {
-        setLatestMeasurement(measurement, now());
-        addTarget(target, now() + duration);
+        Voltage result = unclampedUpdate(measurement, target, duration);
 
-        Voltage result = unclampedUpdate();
         result = compensateForSaturation(result);
 
         return result;
@@ -347,7 +261,6 @@ class PIDVelocityController {
     void reset() {
         integral = Multiplied<VelUnit, Time> { 0 };
         last_error = std::nullopt;
-        m_target_queue.clear();
     }
 
     PIDVelocityControllerParams<VelUnit> getParams() {
