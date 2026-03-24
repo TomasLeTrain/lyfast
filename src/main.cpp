@@ -127,10 +127,6 @@ AngularVelocity final_rpm = 450_rpm;
 // DifferentialDrivetrain
 //   drivetrain(&left_motors, &right_motors, wheel_diameter, final_rpm);
 
-// input delay
-Time input_delay = 40_msec;
-Time compensated_input_delay = input_delay + 20_msec;
-
 lyfast::DifferentialVelocityControllerParams vel_controller_params {
 	.linear = {
 
@@ -157,9 +153,8 @@ lyfast::DifferentialVelocityControllerParams vel_controller_params {
 		// .right_Ka = 0.00 * volt / mps2,
 		.right_Ks = 0.05 * volt,
 
-		.low_target_threshold = 2_inps,
-
-		.lookahead_time = (uint32_t)round(to_msec(compensated_input_delay)),
+		.Ka_delta_time = 20_msec,
+		.low_target_threshold = 2_inps
 	},
 	.angular = {
 		.left_Kv = 0.46 * volt / mps,
@@ -180,9 +175,8 @@ lyfast::DifferentialVelocityControllerParams vel_controller_params {
 		// .right_Ka = 0.00 * volt / mps2,
 		.right_Ks = 0.10 * volt,
 
-		.low_target_threshold = 2_inps,
-
-		.lookahead_time = (uint32_t)round(to_msec(compensated_input_delay)),
+		.Ka_delta_time = 20_msec,
+		.low_target_threshold = 2_inps
 	},
 	.pid = {
 		.left_Kp = 1.2 * volt / mps,
@@ -208,8 +202,6 @@ lyfast::DifferentialVelocityControllerParams vel_controller_params {
 
 		.right_max_output =  1_volt,
 		.right_tbh_factor =  1.0,
-
-		.lookahead_time = (uint32_t)round(to_msec(compensated_input_delay)),
 	}
 };
 lyfast::DifferentialVelocityController vel_controller { vel_controller_params,
@@ -328,7 +320,7 @@ FAngularVelocity max_angular_velocity = (max_velocity / track_radius) * Frad;
 
 std::array<float, 3> Q { (40_in).internal(),
                          // (3_in).internal(),
-                         (5_in).internal(),
+                         (3_in).internal(),
                          (45_stDeg).internal() };
 
 std::array<float, 2> R { // max velocity
@@ -337,8 +329,10 @@ std::array<float, 2> R { // max velocity
                          max_angular_velocity.internal()
 };
 
+Time input_delay = 40_msec;
+
 blazing::lyfast::state_space::LTVUnicycleController
-  lqr_controller(Q, R, 0_msec);
+  lqr_controller(Q, R, input_delay);
 
 lyfast::PathPoseFeedbackController<decltype(lqr_controller)>
   path_pose_feedback_controller(lqr_controller);
@@ -875,6 +869,7 @@ lyfast::FeedforwardVelocityController<AngularVelocity> feedforward {
                                                                   .Kv = motor_voltage_Kv,
                                                                   .Ka = motor_voltage_Ka,
                                                                   .Ks = motor_voltage_Ks,
+                                                                  .Ka_delta_time = 10_msec,
                                                                   .low_target_threshold = 0_radps }
 };
 lyfast::PIDVelocityController<AngularVelocity> feedback {

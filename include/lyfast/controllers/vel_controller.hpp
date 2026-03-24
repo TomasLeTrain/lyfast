@@ -84,6 +84,7 @@ struct FeedforwardVelocityControllerParams {
     KvUnits<VelUnit> Kv;
     KaUnits<VelUnit> Ka;
     Voltage Ks;
+    Time Ka_delta_time;
     uint32_t lookahead_time { 0 };
     VelUnit low_target_threshold { 0 };
 };
@@ -100,7 +101,7 @@ struct PIDVelocityControllerParams {
     uint32_t lookahead_time { 0 };
 
     Voltage max_output { 1_volt };
-    double tbh_factor { 1.0 };
+    double tbh_factor { 0.0 };
 };
 
 template<typename VelUnit>
@@ -140,7 +141,10 @@ class FeedforwardVelocityController {
 
         // get current target
         // measurement from right before current measurement
-        return std::pair { m_target_queue.front(), m_target_queue[1] };
+        target_t last_target = m_target_queue.front();
+        target_t current_target = m_target_queue[1];
+
+        return std::pair { last_target, current_target };
     }
 
   public:
@@ -151,7 +155,6 @@ class FeedforwardVelocityController {
         if (!targets.has_value()) {
             return 0_volt;
         }
-
         const auto& [last_target, current_target] = targets.value();
 
         VelUnit delta_velocity = current_target.velocity - last_target.velocity;
@@ -355,7 +358,7 @@ class PIDVelocityController {
     void reset() {
         m_integral = Multiplied<VelUnit, Time> { 0 };
         last_error = std::nullopt;
-        // clear queue
+		// clear queue
         m_target_queue = std::queue<target_t>();
     }
 
@@ -501,9 +504,8 @@ struct FFLeftRightVelocityControllerParams {
     KaUnits<LinearVelocity> right_Ka;
     KsUnits right_Ks;
 
+    Time Ka_delta_time;
     LinearVelocity low_target_threshold;
-
-    uint32_t lookahead_time { 0 };
 };
 
 struct PIDLeftRightVelocityControllerParams {
@@ -528,8 +530,6 @@ struct PIDLeftRightVelocityControllerParams {
 
     Voltage right_max_output { 1_volt };
     double right_tbh_factor { 0.0 };
-
-    uint32_t lookahead_time { 0 };
 };
 
 // makes it easier to construct entire drivetrain controller without
@@ -544,14 +544,14 @@ struct DifferentialVelocityControllerParams {
                    .Kv = linear.left_Kv,
                    .Ka = linear.left_Ka,
                    .Ks = linear.left_Ks,
-                   .lookahead_time = linear.lookahead_time,
+                   .Ka_delta_time = linear.Ka_delta_time,
                    .low_target_threshold = linear.low_target_threshold,
                  }),
                  FeedforwardVelocityController<LinearVelocity>({
                    .Kv = angular.left_Kv,
                    .Ka = angular.left_Ka,
                    .Ks = angular.left_Ks,
-                   .lookahead_time = angular.lookahead_time,
+                   .Ka_delta_time = angular.Ka_delta_time,
                    .low_target_threshold = angular.low_target_threshold,
                  }),
                  PIDVelocityController<LinearVelocity>({
@@ -562,7 +562,6 @@ struct DifferentialVelocityControllerParams {
                    .close_threshold = pid.left_close_threshold,
                    .Ki = pid.left_Ki,
                    .Ki_windup = pid.left_Ki_windup,
-                   .lookahead_time = pid.lookahead_time,
                    .max_output = pid.left_max_output,
                    .tbh_factor = pid.left_tbh_factor,
                  }) };
@@ -573,14 +572,14 @@ struct DifferentialVelocityControllerParams {
                    .Kv = linear.right_Kv,
                    .Ka = linear.right_Ka,
                    .Ks = linear.right_Ks,
-                   .lookahead_time = linear.lookahead_time,
+                   .Ka_delta_time = linear.Ka_delta_time,
                    .low_target_threshold = linear.low_target_threshold,
                  }),
                  FeedforwardVelocityController<LinearVelocity>({
                    .Kv = angular.right_Kv,
                    .Ka = angular.right_Ka,
                    .Ks = angular.right_Ks,
-                   .lookahead_time = angular.lookahead_time,
+                   .Ka_delta_time = angular.Ka_delta_time,
                    .low_target_threshold = angular.low_target_threshold,
                  }),
                  PIDVelocityController<LinearVelocity>({
@@ -591,7 +590,6 @@ struct DifferentialVelocityControllerParams {
                    .close_threshold = pid.right_close_threshold,
                    .Ki = pid.right_Ki,
                    .Ki_windup = pid.right_Ki_windup,
-                   .lookahead_time = pid.lookahead_time,
                    .max_output = pid.right_max_output,
                    .tbh_factor = pid.right_tbh_factor,
                  }) };

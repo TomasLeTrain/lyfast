@@ -64,9 +64,8 @@ class PathFollow : public Motion<ControllersType,
 
     PathFollowParameterizationType m_parameterization_type =
       closest_point_based;
-
     // look ahead one iteration at a time
-    Time m_lookahead = 20_msec;
+    std::variant<Length, Time> m_lookahead = 20_msec;
 
   public:
     int getLoopDelayTime() override {
@@ -125,10 +124,19 @@ class PathFollow : public Motion<ControllersType,
         int next_reference_idx = fixed_next_reference;
 
         // performs the lookahead logic
-        next_reference_idx = target_trajectory->indexByTime(
-          target_trajectory->getPoint(reference_idx).travel_time + m_lookahead,
-          // limit to minimum fixed_next_reference
-          fixed_next_reference);
+        if (std::holds_alternative<Length>(m_lookahead)) {
+            next_reference_idx = target_trajectory->indexByDistance(
+              target_trajectory->getPoint(reference_idx).arc_length +
+                std::get<Length>(m_lookahead),
+              // limit to minimum fixed_next_reference
+              fixed_next_reference);
+        } else if (std::holds_alternative<Time>(m_lookahead)) {
+            next_reference_idx = target_trajectory->indexByTime(
+              target_trajectory->getPoint(reference_idx).travel_time +
+                std::get<Time>(m_lookahead),
+              // limit to minimum fixed_next_reference
+              fixed_next_reference);
+        }
 
         const mp::MotionPoint& reference_motion_point =
           target_trajectory->getPoint(reference_idx);
@@ -285,9 +293,7 @@ class PathFollow : public Motion<ControllersType,
                   << std::endl;
 
         this->drivetrain.moveArcade(new_speeds.linear_velocity,
-                                    new_speeds.angular_velocity,
-                                    pros::millis() +
-                                      round(to_msec(m_lookahead)));
+                                    new_speeds.angular_velocity);
 
         return result;
     }
@@ -313,7 +319,8 @@ class PathFollow : public Motion<ControllersType,
         return *this;
     }
 
-    motionChangerMsg PathFollow& lookahead(Time lookahead) {
+    motionChangerMsg PathFollow&
+    lookahead(std::variant<Length, Time> lookahead) {
         this->m_lookahead = lookahead;
         return *this;
     }
