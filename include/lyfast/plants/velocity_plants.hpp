@@ -22,7 +22,7 @@ class AngularMotorGroupVelocityPlant {
     pros::Mutex m_mutex;
 
   private:
-    EMAVelocityFilter* m_filter;
+    VelocityEstimator<AngularVelocity>* m_filter;
     AngularSimpleVelocityController m_controller;
 
     std::variant<Voltage, AngularVelocity> m_target = 0_volt;
@@ -30,28 +30,26 @@ class AngularMotorGroupVelocityPlant {
 
     uint32_t m_last_update_timestamp;
 
-    Voltage controllerUpdate(AngularVelocity target, Time duration) {
-        return m_controller.update(getEstimatedSpeed(), target, duration);
+    Voltage controllerUpdate(Time duration) {
+        return m_controller.update(getEstimatedSpeed(), duration);
     }
 
   public:
     void resetController() {
         std::lock_guard lock(m_mutex);
+
         m_controller.reset();
-        m_last_update_timestamp = pros::millis();
     }
 
     void update(Time dt) {
         std::lock_guard lock(m_mutex);
-        if (std::holds_alternative<Voltage>(m_target)) {
-            auto voltage_target = std::get<Voltage>(m_target);
-            m_commanded_voltage = voltage_target;
-        } else if (std::holds_alternative<AngularVelocity>(m_target)) {
-            auto speed_target = std::get<AngularVelocity>(m_target);
-            auto voltage_target = controllerUpdate(speed_target, dt);
 
-            m_commanded_voltage = voltage_target;
+        if (std::holds_alternative<Voltage>(m_target)) {
+            m_commanded_voltage = std::get<Voltage>(m_target);
+        } else if (std::holds_alternative<AngularVelocity>(m_target)) {
+            m_commanded_voltage = controllerUpdate(dt);
         }
+
         m_last_update_timestamp = pros::millis();
     }
 
@@ -65,12 +63,19 @@ class AngularMotorGroupVelocityPlant {
 
     void setTarget(std::variant<Voltage, AngularVelocity> new_target) {
         std::lock_guard lock(m_mutex);
+
+        bool new_target_is_vel =
+          std::holds_alternative<AngularVelocity>(new_target);
+
         // if they differ in the type they hold
-        if (new_target.index() != m_target.index() &&
-            std::holds_alternative<AngularVelocity>(new_target)) {
+        if (new_target.index() != m_target.index() && new_target_is_vel) {
             // resets controller if we go from voltage to velocity
             m_controller.reset();
-            m_last_update_timestamp = pros::millis();
+        }
+
+        // update target for controller, if being used
+        if (new_target_is_vel) {
+            m_controller.setTarget(std::get<AngularVelocity>(new_target));
         }
 
         // update target
@@ -88,7 +93,7 @@ class AngularMotorGroupVelocityPlant {
         return m_commanded_voltage;
     }
 
-    AngularMotorGroupVelocityPlant(EMAVelocityFilter* filter,
+    AngularMotorGroupVelocityPlant(VelocityEstimator<AngularVelocity>* filter,
                                    AngularSimpleVelocityController controller)
         : m_filter(filter),
           m_controller(controller),
@@ -102,7 +107,7 @@ class LinearMotorGroupVelocityPlant {
     pros::Mutex m_mutex;
 
   private:
-    EMAVelocityFilter* m_filter;
+    VelocityEstimator<AngularVelocity>* m_filter;
     LinearSimpleVelocityController m_controller;
 
     Length m_wheel_diameter;
@@ -112,27 +117,22 @@ class LinearMotorGroupVelocityPlant {
 
     uint32_t m_last_update_timestamp;
 
-    Voltage controllerUpdate(LinearVelocity target, Time duration) {
-        return m_controller.update(getEstimatedSpeed(), target, duration);
+    Voltage controllerUpdate(Time duration) {
+        return m_controller.update(getEstimatedSpeed(), duration);
     }
 
   public:
     void resetController() {
         std::lock_guard lock(m_mutex);
         m_controller.reset();
-        m_last_update_timestamp = pros::millis();
     }
 
     void update(Time dt) {
         std::lock_guard lock(m_mutex);
         if (std::holds_alternative<Voltage>(m_target)) {
-            auto voltage_target = std::get<Voltage>(m_target);
-            m_commanded_voltage = voltage_target;
+            m_commanded_voltage = std::get<Voltage>(m_target);
         } else if (std::holds_alternative<LinearVelocity>(m_target)) {
-            auto speed_target = std::get<LinearVelocity>(m_target);
-            auto voltage_target = controllerUpdate(speed_target, dt);
-
-            m_commanded_voltage = voltage_target;
+            m_commanded_voltage = controllerUpdate(dt);
         }
         m_last_update_timestamp = pros::millis();
     }
@@ -152,7 +152,11 @@ class LinearMotorGroupVelocityPlant {
             std::holds_alternative<LinearVelocity>(new_target)) {
             // resets controller if we go from voltage to velocity
             m_controller.reset();
-            m_last_update_timestamp = pros::millis();
+        }
+
+        // update target for controller, if being used
+        if (std::holds_alternative<LinearVelocity>(new_target)) {
+            m_controller.setTarget(std::get<LinearVelocity>(new_target));
         }
 
         // update target
@@ -170,7 +174,7 @@ class LinearMotorGroupVelocityPlant {
         return m_commanded_voltage;
     }
 
-    LinearMotorGroupVelocityPlant(EMAVelocityFilter* filter,
+    LinearMotorGroupVelocityPlant(VelocityEstimator<AngularVelocity>* filter,
                                   LinearSimpleVelocityController controller,
                                   Length wheel_diameter)
         : m_filter(filter),
@@ -188,8 +192,8 @@ class DrivetrainVelocityPlant {
     pros::Mutex m_mutex;
 
   private:
-    EMAVelocityFilter* m_left_filter;
-    EMAVelocityFilter* m_right_filter;
+    VelocityEstimator<AngularVelocity>* m_left_filter;
+    VelocityEstimator<AngularVelocity>* m_right_filter;
     DifferentialVelocityController m_controller;
 
     Length m_wheel_diameter;
@@ -200,9 +204,8 @@ class DrivetrainVelocityPlant {
 
     uint32_t m_last_update_timestamp;
 
-    LeftRightVoltages controllerUpdate(DifferentialSpeeds target,
-                                       Time duration) {
-        return m_controller.update(getEstimatedSpeeds(), target, duration);
+    LeftRightVoltages controllerUpdate(Time duration) {
+        return m_controller.update(getEstimatedSpeeds(), duration);
     }
 
   public:
@@ -212,34 +215,6 @@ class DrivetrainVelocityPlant {
         m_measurement = measurement;
     }
 
-    // public:
-    // TODO: made for testing
-    // void manualUpdate(LeftRightSpeeds measurement, Time dt) {
-    //     m_measurement = measurement;
-    //     std::lock_guard lock(m_mutex);
-    //     if (std::holds_alternative<LeftRightVoltages>(m_target)) {
-    //         auto voltage_target = std::get<LeftRightVoltages>(m_target);
-    //         m_commanded_voltages = voltage_target;
-    //     } else if (std::holds_alternative<DifferentialSpeeds>(m_target)) {
-    //         auto speed_target = std::get<DifferentialSpeeds>(m_target);
-    //         auto voltage_target =
-    //           m_controller.update(measurement, speed_target, dt);
-    //
-    //         m_commanded_voltages = voltage_target;
-    //     }
-    //     m_last_update_timestamp = pros::millis();
-    // }
-    //
-    // void manualUpdateToTimestamp(LeftRightSpeeds measurement,
-    //                              uint32_t timestamp) {
-    //     // can't go back in time
-    //     if (timestamp < m_last_update_timestamp) return;
-    //
-    //     // if both are equal then still update, let the controller handle it
-    //     manualUpdate(measurement,
-    //                  from_msec(timestamp - m_last_update_timestamp));
-    // }
-
   public:
     const DifferentialVelocityController& getController() {
         return m_controller;
@@ -248,20 +223,17 @@ class DrivetrainVelocityPlant {
     void resetController() {
         std::lock_guard lock(m_mutex);
         m_controller.reset();
-        m_last_update_timestamp = pros::millis();
     }
 
     void update(Time dt) {
         std::lock_guard lock(m_mutex);
-        if (std::holds_alternative<LeftRightVoltages>(m_target)) {
-            auto voltage_target = std::get<LeftRightVoltages>(m_target);
-            m_commanded_voltages = voltage_target;
-        } else if (std::holds_alternative<DifferentialSpeeds>(m_target)) {
-            auto speed_target = std::get<DifferentialSpeeds>(m_target);
-            auto voltage_target = controllerUpdate(speed_target, dt);
 
-            m_commanded_voltages = voltage_target;
+        if (std::holds_alternative<LeftRightVoltages>(m_target)) {
+            m_commanded_voltages = std::get<LeftRightVoltages>(m_target);
+        } else if (std::holds_alternative<DifferentialSpeeds>(m_target)) {
+            m_commanded_voltages = controllerUpdate(dt);
         }
+
         m_last_update_timestamp = pros::millis();
     }
 
@@ -281,7 +253,11 @@ class DrivetrainVelocityPlant {
             std::holds_alternative<DifferentialSpeeds>(new_target)) {
             // resets controller if we go from voltage to velocity
             m_controller.reset();
-            m_last_update_timestamp = pros::millis();
+        }
+
+        // update target for controller, if being used
+        if (std::holds_alternative<DifferentialSpeeds>(new_target)) {
+            m_controller.setTarget(std::get<DifferentialSpeeds>(m_target));
         }
 
         // update target
@@ -308,8 +284,8 @@ class DrivetrainVelocityPlant {
         return m_commanded_voltages;
     }
 
-    DrivetrainVelocityPlant(EMAVelocityFilter* left_filter,
-                            EMAVelocityFilter* right_filter,
+    DrivetrainVelocityPlant(VelocityEstimator<AngularVelocity>* left_filter,
+                            VelocityEstimator<AngularVelocity>* right_filter,
                             DifferentialVelocityController controller,
                             Length wheel_diameter)
         : m_left_filter(left_filter),

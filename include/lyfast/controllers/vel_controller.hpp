@@ -42,11 +42,13 @@ using FKpUnits = ConvertFloatType<KpUnits<VelUnit>, float>;
 template<typename VelUnit>
 using FKiUnits = ConvertFloatType<KiUnits<VelUnit>, float>;
 
+// only lowers linear velocity to stop saturation
 DifferentialSpeeds
 desaturatePrioritizeAngularDiffSpeeds(DifferentialSpeeds target,
                                       Length track_width,
                                       LinearVelocity max_velocity);
 
+// normal desaturation of velocities
 DifferentialSpeeds desaturateDifferentialSpeeds(DifferentialSpeeds target,
                                                 Length track_width,
                                                 LinearVelocity max_velocity);
@@ -77,50 +79,35 @@ struct PIDVelocityControllerParams {
 template<typename VelUnit>
 class FeedforwardVelocityController {
   private:
+    using AccelT = Divided<VelUnit, Time>;
     FeedforwardVelocityControllerParams<VelUnit> m_params;
 
-    std::optional<VelUnit> last_speed = std::nullopt;
-    std::optional<VelUnit> last_different_speed = std::nullopt;
-    std::optional<Time> last_different_speed_time = std::nullopt;
+    VelUnit m_target_velocity { 0 };
+    AccelT m_target_acceleration { 0 };
 
   public:
-    Voltage updateKvKa(VelUnit target, Time duration) {
-        Divided<VelUnit, Time> target_accel;
-        target_accel = (target -
-                        // combines measurement and last_speeds
-                        last_different_speed.value_or(VelUnit(0))) /
-                       m_params.Ka_delta_time;
+    void setTarget(VelUnit target_velocity, AccelT target_acceleration) {
+        m_target_velocity = target_velocity;
+        m_target_acceleration = target_acceleration;
+    }
 
+    void setTarget(VelUnit target_velocity) {
+        setTarget(target_velocity,
+                  (target_velocity - m_target_velocity) /
+                    m_params.Ka_delta_time);
+    }
+
+    Voltage updateKvKa() {
         // target low enough that accel is basically instant
-        if (units::abs(target) < m_params.low_target_threshold) {
-            target_accel = Divided<VelUnit, Time> { 0 };
+        if (units::abs(m_target_velocity) < m_params.low_target_threshold) {
+            m_target_acceleration = Divided<VelUnit, Time> { 0 };
         }
 
         Voltage result { // kv
-                         target * m_params.Kv +
+                         m_target_velocity * m_params.Kv +
                          // ka
-                         target_accel * m_params.Ka
+                         m_target_acceleration * m_params.Ka
         };
-
-        if (!last_different_speed.has_value() ||
-            last_different_speed.value() != target) {
-            last_different_speed = target;
-            last_different_speed_time = now();
-        }
-
-        // if (!last_different_speed.has_value()) {
-        //     last_different_speed = target;
-        //     last_different_speed_time = now();
-        // } else {
-        //     bool timeout_done = timeoutDone(m_params.Ka_delta_time,
-        //                                     last_different_speed_time.value());
-        //     if (timeout_done) {
-        //         last_different_speed = target;
-        //         last_different_speed_time = now();
-        //     }
-        // }
-
-        last_speed = { target };
 
         return result;
     }
@@ -128,24 +115,25 @@ class FeedforwardVelocityController {
     // allows applying ks later in the chain if other processes are done in
     // between
     Voltage applyKs(Voltage output) {
-
         // apply ks at the end
         return output + units::sgn(output) * m_params.Ks;
     }
 
-    Voltage update(VelUnit target, Time duration) {
-        Voltage result = updateKvKa(target, duration);
-        result = applyKs(result);
+    Voltage update() {
+        return applyKs(updateKvKa());
+    }
 
-        return result;
+    void reset() {
+        m_target_velocity = VelUnit { 0 };
+        m_target_acceleration = AccelT { 0 };
+    }
+
+    std::pair<VelUnit, AccelT> getTarget() {
+        return { m_target_velocity, m_target_acceleration };
     }
 
     FeedforwardVelocityControllerParams<VelUnit> getParams() {
         return m_params;
-    }
-
-    void reset() {
-        last_speed = std::nullopt;
     }
 
     void setParams(FeedforwardVelocityControllerParams<VelUnit> new_params) {
@@ -165,21 +153,19 @@ class PIDVelocityController {
     Multiplied<VelUnit, Time> integral { 0 };
     std::optional<VelUnit> last_error = std::nullopt;
 
-    // local variables, membesr so they can be accessed between multiple methods
+    // local variables, members so they can be accessed between multiple methods
     Multiplied<VelUnit, Time> current_integral { 0 };
     VelUnit error;
 
-    std::optional<VelUnit> last_target = std::nullopt;
+    VelUnit m_target_velocity { 0 };
 
   public:
-    Voltage
-    unclampedUpdate(VelUnit measurement, VelUnit target, Time duration) {
-        // target here is the next desired position
-        // we apply to pid to the current desired target (meaning the target we
-        // were given before) if available
-        VelUnit curr_target = target;
-        // if (last_target.has_value()) curr_target = last_target.value();
-        // last_target = target;
+    void setTarget(VelUnit target_velocity) {
+        m_target_velocity = target_velocity;
+    }
+
+    Voltage unclampedUpdate(VelUnit measurement, Time duration) {
+        const VelUnit curr_target = m_target_velocity;
 
         error = curr_target - measurement;
 
@@ -203,7 +189,7 @@ class PIDVelocityController {
         auto curr_Kp = m_params.Kp;
 
         // if the error is high then normal kp still applies
-        if (units::abs(target) <= m_params.low_threshold &&
+        if (units::abs(m_target_velocity) <= m_params.low_threshold &&
             units::abs(error) <= m_params.low_threshold) {
             curr_Kp = m_params.Kp_low;
         } else if (units::abs(error) < m_params.close_threshold) {
@@ -221,7 +207,7 @@ class PIDVelocityController {
             curr_Kp * error +
               // ki
               // TODO: temporary testing of kv integrator
-              m_params.Ki * current_integral * target.internal(),
+              m_params.Ki * current_integral * m_target_velocity.internal(),
         };
 
         last_error = error;
@@ -250,17 +236,18 @@ class PIDVelocityController {
         return result;
     }
 
-    Voltage update(VelUnit measurement, VelUnit target, Time duration) {
-        Voltage result = unclampedUpdate(measurement, target, duration);
-
-        result = compensateForSaturation(result);
-
-        return result;
+    Voltage update(VelUnit measurement, Time duration) {
+        return compensateForSaturation(unclampedUpdate(measurement, duration));
     }
 
     void reset() {
         integral = Multiplied<VelUnit, Time> { 0 };
+        m_target_velocity = VelUnit { 0 };
         last_error = std::nullopt;
+    }
+
+    VelUnit getTarget() {
+        return m_target_velocity;
     }
 
     PIDVelocityControllerParams<VelUnit> getParams() {
@@ -282,12 +269,18 @@ class SimpleVelocityController {
     // single pid for both possibilities?
     PIDVelocityController<VelUnit> m_pid;
 
-  public:
-    Voltage update(VelUnit measurement, VelUnit target, Time duration) {
-        Voltage u_feedforward = m_feedforward.updateKvKa(target, duration);
+    VelUnit m_target;
 
-        Voltage u_feedback =
-          m_pid.unclampedUpdate(measurement, target, duration);
+  public:
+    void setTarget(VelUnit target) {
+        m_feedforward.setTarget(target);
+        m_pid.setTarget(target);
+        m_target = target;
+    }
+
+    Voltage update(VelUnit measurement, Time duration) {
+        Voltage u_feedforward = m_feedforward.updateKvKa();
+        Voltage u_feedback = m_pid.unclampedUpdate(measurement, duration);
 
         Voltage result = u_feedforward + u_feedback;
 
@@ -303,6 +296,10 @@ class SimpleVelocityController {
     void reset() {
         m_feedforward.reset();
         m_pid.reset();
+    }
+
+    VelUnit getTarget() {
+        return m_target;
     }
 
     SimpleVelocityController(FeedforwardVelocityController<VelUnit> feedforward,
@@ -322,15 +319,21 @@ class DrivetrainSideVelocityController {
 
     // single pid for both possibilities?
     PIDVelocityController<LinearVelocity> m_pid;
+    TargetT m_target;
 
   public:
-    Voltage update(LinearVelocity measurement, TargetT target, Time duration) {
+    void setTarget(TargetT target) {
         LinearVelocity v_target = target.linear + target.angular;
-        Voltage u_linear = m_linear.updateKvKa(target.linear, duration);
-        Voltage u_angular = m_angular.updateKvKa(target.angular, duration);
+        m_linear.setTarget(target.linear);
+        m_angular.setTarget(target.angular);
+        m_pid.setTarget(v_target);
+        m_target = target;
+    }
 
-        Voltage u_feedback =
-          m_pid.unclampedUpdate(measurement, v_target, duration);
+    Voltage update(LinearVelocity measurement, Time duration) {
+        Voltage u_linear = m_linear.updateKvKa();
+        Voltage u_angular = m_angular.updateKvKa();
+        Voltage u_feedback = m_pid.unclampedUpdate(measurement, duration);
 
         Voltage result = u_linear + u_angular + u_feedback;
 
@@ -341,6 +344,10 @@ class DrivetrainSideVelocityController {
         result = m_pid.compensateForSaturation(result);
 
         return result;
+    }
+
+    TargetT getTarget() {
+        return m_target;
     }
 
     void reset() {
@@ -469,13 +476,10 @@ class DifferentialVelocityController {
     Length m_track_width;
     bool m_prioritize_angular = false;
 
-    // used for getting and filtering velocity
-    std::optional<LeftRightSpeeds> last_velocities = std::nullopt;
+    DifferentialSpeeds m_target;
 
   public:
-    LeftRightVoltages update(LeftRightSpeeds measurement,
-                             DifferentialSpeeds target,
-                             Time duration) {
+    void setTarget(DifferentialSpeeds target) {
         Length track_radius = m_track_width / 2.0;
 
         // desaturate target first
@@ -487,23 +491,25 @@ class DifferentialVelocityController {
             target = desaturateDifferentialSpeeds(target,
                                                   m_track_width,
                                                   m_max_velocity);
+        m_target = target;
 
         LinearVelocity target_linear_velocity = target.linear_velocity;
         // angular velocity converted to linear velocity wheel speeds
         LinearVelocity converted_angular_velocity =
           (target.angular_velocity / rad) * track_radius;
 
-        Voltage left_voltage =
-          m_left_controller.update(measurement.left_vel,
-                                   { .linear = target_linear_velocity,
-                                     .angular = -converted_angular_velocity },
-                                   duration);
+        m_left_controller.setTarget({ .linear = target_linear_velocity,
+                                      .angular = -converted_angular_velocity });
 
+        m_right_controller.setTarget({ .linear = target_linear_velocity,
+                                       .angular = converted_angular_velocity });
+    }
+
+    LeftRightVoltages update(LeftRightSpeeds measurement, Time duration) {
+        Voltage left_voltage =
+          m_left_controller.update(measurement.left_vel, duration);
         Voltage right_voltage =
-          m_right_controller.update(measurement.right_vel,
-                                    { .linear = target_linear_velocity,
-                                      .angular = converted_angular_velocity },
-                                    duration);
+          m_right_controller.update(measurement.right_vel, duration);
 
         LeftRightVoltages result = { left_voltage, right_voltage };
 
@@ -511,9 +517,12 @@ class DifferentialVelocityController {
     }
 
     void reset() {
-        last_velocities = std::nullopt;
         m_left_controller.reset();
         m_right_controller.reset();
+    }
+
+    DifferentialSpeeds getTarget() {
+        return m_target;
     }
 
     const DrivetrainSideVelocityController& getLeftController() {

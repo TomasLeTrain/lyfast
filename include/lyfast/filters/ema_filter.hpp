@@ -2,6 +2,7 @@
 
 #include "blazing/utils.hpp"
 #include "lyfast/controllers/vel_controller.hpp"
+#include "lyfast/filters/velocity_estimator.hpp"
 #include "pros/abstract_motor.hpp"
 #include "pros/motor_group.hpp"
 #include "pros/motors.hpp"
@@ -18,7 +19,7 @@ namespace lyfast {
 
 // returns -1 if gearing is invalid
 
-class EMAVelocityFilter {
+class EMAVelocityFilter : public VelocityEstimator<AngularVelocity> {
   protected:
     pros::Mutex m_mutex;
 

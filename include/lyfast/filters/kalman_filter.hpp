@@ -2,6 +2,7 @@
 
 #include "blazing/utils.hpp"
 #include "lyfast/controllers/vel_controller.hpp"
+#include "lyfast/filters/velocity_estimator.hpp"
 #include "pros/abstract_motor.hpp"
 #include "pros/motor_group.hpp"
 #include "pros/motors.hpp"
@@ -14,23 +15,25 @@
 
 namespace blazing {
 namespace lyfast {
+
+struct KalmanFilterState {
+    AngularVelocity velocity;
+};
+
 // kalman filter for a motor group.
 // doesnt respond well to disturbances (excess load), ema seems to be good
 // enough
-class MotorGroupKalmanFilter {
+class MotorGroupKalmanFilter : public VelocityEstimator<KalmanFilterState> {
   protected:
     pros::Mutex m_mutex;
 
   public:
     using CovarianceUnit = Exponentiated<AngularVelocity, std::ratio<2>>;
+    using State = KalmanFilterState;
 
     struct Input {
         Torque torque;
         Voltage voltage;
-    };
-
-    struct State {
-        AngularVelocity velocity;
     };
 
     struct CorrectCovarianceGains {

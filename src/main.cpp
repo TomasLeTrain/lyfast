@@ -129,58 +129,32 @@ AngularVelocity final_rpm = 450_rpm;
 
 lyfast::DifferentialVelocityControllerParams vel_controller_params {
 	.linear = {
-
-		// TODO: ka should only apply if we aren't saturating (if we are acceling to the target velocity and the target has negative accel, that accel should be ignored since we are low enough for it to not matter)
-
-		// .left_Kv = 0.4275235 * volt / mps,
-		// .left_Kv = 0.425 * volt / mps,
+		// TODO: recalc angular?
 		.left_Kv = 0.46 * volt / mps,
-		// .left_Kv = 0.60 * volt / mps,
-		// .left_Ka = 0.11 * volt / mps2,
-		// .left_Ka = 0.15 * volt / mps2,
-		.left_Ka = 0.09 * volt / mps2,
-		// .left_Ka = 0.00 * volt / mps2,
-		.left_Ks = 0.05 * volt,
+		.left_Ka = 0.10 * volt / mps2,
+		.left_Ks = 0.033 * volt,
 
-		// .right_Kv = 0.4367265 * volt / mps,
-		// .right_Kv = 0.46 * volt / mps,
 		.right_Kv = 0.49 * volt / mps,
-		// .right_Kv = 0.65 * volt / mps,
-		// .right_Ka = 0.123 * volt / mps2,
-		// .right_Ka = 0.17 * volt / mps2,
-		.right_Ka = 0.09 * volt / mps2,
-		// .right_Ka = 0.04 * volt / mps2,
-		// .right_Ka = 0.00 * volt / mps2,
-		.right_Ks = 0.05 * volt,
+		.right_Ka = 0.10 * volt / mps2,
+		.right_Ks = 0.033 * volt,
 
 		.Ka_delta_time = 20_msec,
 		.low_target_threshold = 2_inps
 	},
 	.angular = {
 		.left_Kv = 0.46 * volt / mps,
-		// .left_Kv = 0.60 * volt / mps,
-		// .left_Ka = 0.11 * volt / mps2,
-		// .left_Ka = 0.15 * volt / mps2,
-		.left_Ka = 0.09 * volt / mps2,
-		// .left_Ka = 0.04 * volt / mps2,
-		// .left_Ka = 0.00 * volt / mps2,
-		.left_Ks = 0.10 * volt,
+		.left_Ka = 0.10 * volt / mps2,
+		.left_Ks = 0.08 * volt,
 
 		.right_Kv = 0.50 * volt / mps,
-		// .right_Kv = 0.65 * volt / mps,
-		// .right_Ka = 0.123 * volt / mps2,
-		// .right_Ka = 0.17 * volt / mps2,
-		.right_Ka = 0.09 * volt / mps2,
-		// .right_Ka = 0.04 * volt / mps2,
-		// .right_Ka = 0.00 * volt / mps2,
-		.right_Ks = 0.10 * volt,
+		.right_Ka = 0.10 * volt / mps2,
+		.right_Ks = 0.08 * volt,
 
 		.Ka_delta_time = 20_msec,
 		.low_target_threshold = 2_inps
 	},
 	.pid = {
 		.left_Kp = 1.2 * volt / mps,
-		// .left_Kp = 1.5 * volt / mps,
 		.left_Kp_close = 0.0 * volt / mps,
 		.left_Kp_low = 0.0 * volt / mps,
 		.left_low_threshold = 8_inps,
@@ -191,13 +165,12 @@ lyfast::DifferentialVelocityControllerParams vel_controller_params {
 		.left_max_output =  1_volt,
 		.left_tbh_factor =  1.0,
 
-		// .right_Kp = 1.0 * volt / mps,
 		.right_Kp = 1.2 * volt / mps,
 		.right_Kp_close = 0.0 * volt / mps,
 		.right_Kp_low = 0.0 * volt / mps,
 		.right_low_threshold = 8_inps,
 		.right_close_threshold = 0_inps,
-		.right_Ki = 1.70 * volt / m,
+		.right_Ki = 1.7 * volt / m,
 		.right_Ki_windup = 15_inps,
 
 		.right_max_output =  1_volt,
@@ -1088,8 +1061,6 @@ void timeCriticalTask() {
 
                 LinearVelocity left_vel =
                   forwards_velocity - angular_velocity * 5.25_in / rad;
-                // LinearVelocity left_vel =
-                //   toLinear(left_ema_filter.getPredictedState(), 3.25_in);
                 LinearVelocity right_vel =
                   forwards_velocity + angular_velocity * 5.25_in / rad;
 
