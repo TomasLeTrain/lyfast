@@ -35,11 +35,14 @@ void CubicBezier::compute_coefficient_matrices() {
 }
 
 Point CubicBezier::f(float t) {
-    Point t0 = (coeff_matrix[0] * t * t * t);
-    Point t1 = (coeff_matrix[1] * t * t);
-    Point t2 = (coeff_matrix[2] * t);
-    Point t3 = (coeff_matrix[3]);
-    return t0 + t1 + t2 + t3;
+    // Point t0 = (coeff_matrix[0] * t * t * t);
+    // Point t1 = (coeff_matrix[1] * t * t);
+    // Point t2 = (coeff_matrix[2] * t);
+    // Point t3 = (coeff_matrix[3]);
+
+    // return t0 + t1 + t2 + t3;
+    return ((coeff_matrix[0] * t + coeff_matrix[1]) * t + coeff_matrix[2]) * t +
+           coeff_matrix[3];
 }
 
 /**
@@ -49,10 +52,13 @@ Point CubicBezier::f(float t) {
  * @return derivative of bezier at time t
  */
 Point CubicBezier::df(float t) {
-    Point t0 = (der_coeff_matrix[0] * t * t);
-    Point t1 = (der_coeff_matrix[1] * t);
-    Point t2 = (der_coeff_matrix[2]);
-    return t0 + t1 + t2;
+    // Point t0 = (der_coeff_matrix[0] * t * t);
+    // Point t1 = (der_coeff_matrix[1] * t);
+    // Point t2 = (der_coeff_matrix[2]);
+    // return t0 + t1 + t2;
+
+    return (der_coeff_matrix[0] * t + der_coeff_matrix[1]) * t +
+           der_coeff_matrix[2];
 }
 
 Point CubicBezier::ddf(float t) {
