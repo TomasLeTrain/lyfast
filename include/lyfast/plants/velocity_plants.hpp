@@ -147,15 +147,18 @@ class LinearMotorGroupVelocityPlant {
 
     void setTarget(std::variant<Voltage, LinearVelocity> new_target) {
         std::lock_guard lock(m_mutex);
+
+        bool new_target_is_vel =
+          std::holds_alternative<LinearVelocity>(new_target);
+
         // if they differ in the type they hold
-        if (new_target.index() != m_target.index() &&
-            std::holds_alternative<LinearVelocity>(new_target)) {
+        if (new_target.index() != m_target.index() && new_target_is_vel) {
             // resets controller if we go from voltage to velocity
             m_controller.reset();
         }
 
         // update target for controller, if being used
-        if (std::holds_alternative<LinearVelocity>(new_target)) {
+        if (new_target_is_vel) {
             m_controller.setTarget(std::get<LinearVelocity>(new_target));
         }
 
@@ -248,16 +251,19 @@ class DrivetrainVelocityPlant {
     void
     setTarget(std::variant<LeftRightVoltages, DifferentialSpeeds> new_target) {
         std::lock_guard lock(m_mutex);
+
+        bool new_target_is_vel =
+          std::holds_alternative<DifferentialSpeeds>(new_target);
+
         // if they differ in the type they hold
-        if (new_target.index() != m_target.index() &&
-            std::holds_alternative<DifferentialSpeeds>(new_target)) {
+        if (new_target.index() != m_target.index() && new_target_is_vel) {
             // resets controller if we go from voltage to velocity
             m_controller.reset();
         }
 
         // update target for controller, if being used
-        if (std::holds_alternative<DifferentialSpeeds>(new_target)) {
-            m_controller.setTarget(std::get<DifferentialSpeeds>(m_target));
+        if (new_target_is_vel) {
+            m_controller.setTarget(std::get<DifferentialSpeeds>(new_target));
         }
 
         // update target

@@ -11,6 +11,7 @@
 #include <cmath>
 #include <functional>
 #include <ios>
+#include <queue>
 
 namespace blazing {
 namespace lyfast {
@@ -159,13 +160,25 @@ class PIDVelocityController {
 
     VelUnit m_target_velocity { 0 };
 
+    std::queue<VelUnit> m_targets;
+    int num_targets = 5;
+
   public:
     void setTarget(VelUnit target_velocity) {
-        m_target_velocity = target_velocity;
+        // m_target_velocity = target_velocity;
+        m_targets.push(target_velocity);
+        if (m_targets.size() > num_targets) m_targets.pop();
+        // 1. 60 msec  -  0 msec   -> went from 1 to two items
+        // 2. 80 msec  -  20 msec  -> went frmo 2 to 3 items
+        // 3. 100 msec  -  40 msec -> went frmo 3 to 4 items
+        // 4. 120 msec  -  60 msec -> went frmo 4 items to 5 items
+        // 5. 140 msec  -  80 msec -> went frmo 5 items to 6 items, start
+        // popping
     }
 
     Voltage unclampedUpdate(VelUnit measurement, Time duration) {
-        const VelUnit curr_target = m_target_velocity;
+        // const VelUnit curr_target = m_target_velocity;
+        const VelUnit curr_target = m_targets.front();
 
         error = curr_target - measurement;
 
@@ -243,6 +256,7 @@ class PIDVelocityController {
     void reset() {
         integral = Multiplied<VelUnit, Time> { 0 };
         m_target_velocity = VelUnit { 0 };
+        m_targets.push(VelUnit { 0 });
         last_error = std::nullopt;
     }
 
@@ -259,7 +273,9 @@ class PIDVelocityController {
     }
 
     PIDVelocityController(PIDVelocityControllerParams<VelUnit> params)
-        : m_params(params) {}
+        : m_params(params) {
+        m_targets.push(VelUnit { 0 });
+    }
 };
 
 template<typename VelUnit>

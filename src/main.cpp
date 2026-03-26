@@ -131,50 +131,54 @@ lyfast::DifferentialVelocityControllerParams vel_controller_params {
 	.linear = {
 		// TODO: recalc angular?
 		.left_Kv = 0.46 * volt / mps,
-		.left_Ka = 0.10 * volt / mps2,
-		.left_Ks = 0.033 * volt,
+		.left_Ka = 0.09 * volt / mps2,
+		.left_Ks = 0.06 * volt,
 
 		.right_Kv = 0.49 * volt / mps,
-		.right_Ka = 0.10 * volt / mps2,
-		.right_Ks = 0.033 * volt,
+		.right_Ka = 0.09 * volt / mps2,
+		.right_Ks = 0.06 * volt,
 
 		.Ka_delta_time = 20_msec,
+		// .low_target_threshold = 2_inps
 		.low_target_threshold = 2_inps
 	},
 	.angular = {
-		.left_Kv = 0.46 * volt / mps,
-		.left_Ka = 0.10 * volt / mps2,
+		.left_Kv = 0.50 * volt / mps,
+		.left_Ka = 0.09 * volt / mps2,
 		.left_Ks = 0.08 * volt,
 
-		.right_Kv = 0.50 * volt / mps,
-		.right_Ka = 0.10 * volt / mps2,
+		.right_Kv = 0.60 * volt / mps,
+		.right_Ka = 0.09 * volt / mps2,
 		.right_Ks = 0.08 * volt,
 
 		.Ka_delta_time = 20_msec,
+		// .low_target_threshold = 2_inps
 		.low_target_threshold = 2_inps
 	},
 	.pid = {
-		.left_Kp = 1.2 * volt / mps,
-		.left_Kp_close = 0.0 * volt / mps,
-		.left_Kp_low = 0.0 * volt / mps,
-		.left_low_threshold = 8_inps,
-		.left_close_threshold = 0_inps,
-		.left_Ki = 1.7 * volt / m,
-		.left_Ki_windup = 15_inps,
+		// .left_Kp = 1.0 * volt / mps,
+		// .left_Kp_close = 0.0 * volt / mps,
+		// .left_Kp_low = 0.0 * volt / mps,
+		// .left_low_threshold = 5_inps,
+		// .left_close_threshold = 0_inps,
+		// // .left_Ki = 1.5 * volt / m,
+		// .left_Ki = 1.0 * volt / m,
+		// .left_Ki_windup = 10_inps,
+		// //
+		// .left_max_output =  1_volt,
+		// .left_tbh_factor =  1.0,
 		//
-		.left_max_output =  1_volt,
-		.left_tbh_factor =  1.0,
-
-		.right_Kp = 1.2 * volt / mps,
-		.right_Kp_close = 0.0 * volt / mps,
-		.right_Kp_low = 0.0 * volt / mps,
-		.right_low_threshold = 8_inps,
-		.right_close_threshold = 0_inps,
-		.right_Ki = 1.7 * volt / m,
-		.right_Ki_windup = 15_inps,
-
-		.right_max_output =  1_volt,
-		.right_tbh_factor =  1.0,
+		// .right_Kp = 1.0 * volt / mps,
+		// .right_Kp_close = 0.0 * volt / mps,
+		// .right_Kp_low = 0.0 * volt / mps,
+		// .right_low_threshold = 5_inps,
+		// .right_close_threshold = 0_inps,
+		// // .right_Ki = 1.5 * volt / m,
+		// .right_Ki = 1.0 * volt / m,
+		// .right_Ki_windup = 10_inps,
+		//
+		// .right_max_output =  1_volt,
+		// .right_tbh_factor =  1.0,
 	}
 };
 lyfast::DifferentialVelocityController vel_controller { vel_controller_params,
@@ -760,18 +764,18 @@ void path_follow_test() {
     //
     RobotConstraints robot_constraints(
       10.5_in, // track with
-      0.03, // friction coeff - should tune?
+      0.05, // friction coeff - should tune?
       3.25_in, // wheel diameter
       389_rpm, // max ang vel - determined somewhat from data
       6.7_kg, // about 14.8 lbs
       // 1.36f); // motor count - determined somewhat from data
-      2.0f); // motor count - determined somewhat from data
+      2.5f); // motor count - determined somewhat from data
 
     LinearConstraints linear_constraints(
-      50_inps, // max vel - for testing
+      70_inps, // max vel - for testing
       // 20.0_inps2, // max accel - for testing
       10000.0_inps2, // max accel - for testing
-      100_inps2 // max decel - for testing also
+      150_inps2 // max decel - for testing also
     );
     //
     // // TODO: what is the difference between angular accel/decel?
@@ -1004,6 +1008,8 @@ void timeCriticalTask() {
 
     int frameCount = 0;
 
+    std::cout << "starting task: " << pros::micros() << std::endl;
+
     do {
         systemTimeMicros = pros::micros();
         detectorPreviousTime = systemTime;
@@ -1016,6 +1022,8 @@ void timeCriticalTask() {
     /*
     NOW WE'RE TIMED CORRECTLY, STARTING DAEMON
     */
+
+    std::cout << "timed correctly: " << pros::micros() << '\n';
 
     while (1) {
         {
@@ -1096,11 +1104,12 @@ void timeCriticalTask() {
                                          discretized_left_voltage);
                 right_motors.move_voltage((12000 / 100) *
                                           discretized_right_voltage);
-                logDrivetrainInformation(
-                  FDifferentialSpeeds { speeds.linear_velocity,
-                                        speeds.angular_velocity },
-                  volt * discretized_left_voltage / 100.0,
-                  volt * discretized_right_voltage / 100.0);
+
+                // logDrivetrainInformation(
+                //   FDifferentialSpeeds { speeds.linear_velocity,
+                //                         speeds.angular_velocity },
+                //   volt * discretized_left_voltage / 100.0,
+                //   volt * discretized_right_voltage / 100.0);
             }
 
             pros::Task::delay_until(&systemTime, 2);
