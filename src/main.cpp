@@ -144,63 +144,61 @@ lyfast::DifferentialVelocityControllerParams vel_controller_params {
 	},
 	.angular = {
 		.left_Kv = 0.70 * volt / mps,
-		.left_Ka = 0.09 * volt / mps2,
+		.left_Ka = 0.10 * volt / mps2,
 		.left_Ks = 0.08 * volt,
 
 		.right_Kv = 0.70 * volt / mps,
-		.right_Ka = 0.09 * volt / mps2,
+		.right_Ka = 0.10 * volt / mps2,
 		.right_Ks = 0.08 * volt,
 
 		.Ka_delta_time = 20_msec,
 		// .low_target_threshold = 2_inps
-		.low_target_threshold = 2_inps
+		.low_target_threshold = 7_inps
 	},
 	.linear_pid = {
 		.left_Kp = 1.5 * volt / mps,
-		// .left_Kp = 3.0 * volt / mps,
 		.left_Kp_close = 0.0 * volt / mps,
 		.left_Kp_low = 0.0 * volt / mps,
 		.left_low_threshold = 5_inps,
 		.left_close_threshold = 0_inps,
-		.left_Ki = 500.0 * volt / m,
-		.left_Ki_windup = 1005_inps,
+		.left_Ki = 1.0 * volt / m,
+		.left_Ki_windup = 12_inps,
 		//
 		.left_max_output =  1_volt,
 		.left_tbh_factor =  1.0,
 
-		// .right_Kp = 1.5 * volt / mps,
 		.right_Kp = 1.5 * volt / mps,
 		.right_Kp_close = 0.0 * volt / mps,
 		.right_Kp_low = 0.0 * volt / mps,
 		.right_low_threshold = 5_inps,
 		.right_close_threshold = 0_inps,
-		.right_Ki = 10.0 * volt / m,
-		.right_Ki_windup = 1005_inps,
+		.right_Ki = 1.0 * volt / m,
+		.right_Ki_windup = 12_inps,
 
 		.right_max_output =  1_volt,
 		.right_tbh_factor =  1.0,
 	},
 	.angular_pid = {
-		.left_Kp = 5.0 * volt / mps,
+		.left_Kp = 3.0 * volt / mps,
 		.left_Kp_close = 0.0 * volt / mps,
 		.left_Kp_low = 0.0 * volt / mps,
-		.left_low_threshold = 5_inps,
+		.left_low_threshold = 10_inps,
 		.left_close_threshold = 0_inps,
 		// .left_Ki = 1.5 * volt / m,
 		.left_Ki = 0.0 * volt / m,
-		.left_Ki_windup = 10_inps,
+		.left_Ki_windup = 12_inps,
 		//
 		.left_max_output =  1_volt,
 		.left_tbh_factor =  1.0,
 
-		.right_Kp = 5.0 * volt / mps,
+		.right_Kp = 3.0 * volt / mps,
 		.right_Kp_close = 0.0 * volt / mps,
 		.right_Kp_low = 0.0 * volt / mps,
-		.right_low_threshold = 5_inps,
+		.right_low_threshold = 10_inps,
 		.right_close_threshold = 0_inps,
 		// .right_Ki = 1.5 * volt / m,
 		.right_Ki = 0.0 * volt / m,
-		.right_Ki_windup = 10_inps,
+		.right_Ki_windup = 12_inps,
 
 		.right_max_output =  1_volt,
 		.right_tbh_factor =  1.0,
