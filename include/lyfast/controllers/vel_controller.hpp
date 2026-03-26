@@ -158,7 +158,7 @@ class PIDVelocityController {
     Multiplied<VelUnit, Time> current_integral { 0 };
     VelUnit error;
 
-    VelUnit m_target_velocity { 0 };
+    // VelUnit m_target_velocity { 0 };
 
     std::queue<VelUnit> m_targets;
     int num_targets = 5;
@@ -202,7 +202,7 @@ class PIDVelocityController {
         auto curr_Kp = m_params.Kp;
 
         // if the error is high then normal kp still applies
-        if (units::abs(m_target_velocity) <= m_params.low_threshold &&
+        if (units::abs(curr_target) <= m_params.low_threshold &&
             units::abs(error) <= m_params.low_threshold) {
             curr_Kp = m_params.Kp_low;
         } else if (units::abs(error) < m_params.close_threshold) {
@@ -220,7 +220,8 @@ class PIDVelocityController {
             curr_Kp * error +
               // ki
               // TODO: temporary testing of kv integrator
-              m_params.Ki * current_integral * m_target_velocity.internal(),
+              m_params.Ki * current_integral *
+                units::abs(curr_target.internal()),
         };
 
         last_error = error;
@@ -228,9 +229,7 @@ class PIDVelocityController {
         return result;
     }
 
-    // separated in case other components are added to the voltage (for example
-    // feedforward terms)
-    Voltage compensateForSaturation(Voltage result) {
+    Voltage updateIntegralWithSaturation(Voltage result) {
         if (
           // currently saturating
           units::abs(result) >= m_params.max_output &&
@@ -243,6 +242,12 @@ class PIDVelocityController {
             integral = current_integral;
         }
 
+        return result;
+    }
+
+    // separated in case other components are added to the voltage (for example
+    // feedforward terms)
+    Voltage clampVoltage(Voltage result) {
         result =
           units::clamp(result, -m_params.max_output, m_params.max_output);
 
@@ -250,18 +255,20 @@ class PIDVelocityController {
     }
 
     Voltage update(VelUnit measurement, Time duration) {
-        return compensateForSaturation(unclampedUpdate(measurement, duration));
+        return clampVoltage(
+          updateIntegralWithSaturation(unclampedUpdate(measurement, duration)));
     }
 
     void reset() {
         integral = Multiplied<VelUnit, Time> { 0 };
-        m_target_velocity = VelUnit { 0 };
+        // m_target_velocity = VelUnit { 0 };
         m_targets.push(VelUnit { 0 });
         last_error = std::nullopt;
     }
 
     VelUnit getTarget() {
-        return m_target_velocity;
+        // return m_target_velocity;
+        return m_targets.front();
     }
 
     PIDVelocityControllerParams<VelUnit> getParams() {
@@ -303,8 +310,9 @@ class SimpleVelocityController {
         // apply ks after adding both feedback and feedforward pid
         result = m_feedforward.applyKs(result);
 
-        // apply final pid step
-        result = m_pid.compensateForSaturation(result);
+        // apply final pid steps
+        result = m_pid.updateIntegralWithSaturation(result);
+        result = m_pid.clampVoltage(result);
 
         return result;
     }
@@ -334,30 +342,39 @@ class DrivetrainSideVelocityController {
     FeedforwardVelocityController<LinearVelocity> m_angular;
 
     // single pid for both possibilities?
-    PIDVelocityController<LinearVelocity> m_pid;
+    PIDVelocityController<LinearVelocity> m_linear_pid;
+    PIDVelocityController<LinearVelocity> m_angular_pid;
     TargetT m_target;
 
   public:
     void setTarget(TargetT target) {
-        LinearVelocity v_target = target.linear + target.angular;
+        // LinearVelocity v_target = target.linear + target.angular;
         m_linear.setTarget(target.linear);
         m_angular.setTarget(target.angular);
-        m_pid.setTarget(v_target);
+        m_linear_pid.setTarget(target.linear);
+        m_angular_pid.setTarget(target.angular);
         m_target = target;
     }
 
-    Voltage update(LinearVelocity measurement, Time duration) {
+    Voltage update(TargetT measurement, Time duration) {
         Voltage u_linear = m_linear.updateKvKa();
         Voltage u_angular = m_angular.updateKvKa();
-        Voltage u_feedback = m_pid.unclampedUpdate(measurement, duration);
+        Voltage u_linear_feedback =
+          m_linear_pid.unclampedUpdate(measurement.linear, duration);
+        Voltage u_angular_feedback =
+          m_angular_pid.unclampedUpdate(measurement.angular, duration);
 
-        Voltage result = u_linear + u_angular + u_feedback;
+        Voltage result =
+          u_linear + u_angular + u_linear_feedback + u_angular_feedback;
 
         // apply ks only from linear output
         result = m_linear.applyKs(result);
 
         // apply final pid step
-        result = m_pid.compensateForSaturation(result);
+        result = m_linear_pid.updateIntegralWithSaturation(result);
+        result = m_angular_pid.updateIntegralWithSaturation(result);
+        result = m_linear_pid.clampVoltage(result);
+        result = m_angular_pid.clampVoltage(result);
 
         return result;
     }
@@ -369,7 +386,8 @@ class DrivetrainSideVelocityController {
     void reset() {
         m_linear.reset();
         m_angular.reset();
-        m_pid.reset();
+        m_linear_pid.reset();
+        m_angular_pid.reset();
     }
 
     DrivetrainSideVelocityController(
@@ -377,10 +395,12 @@ class DrivetrainSideVelocityController {
       FeedforwardVelocityController<LinearVelocity> angular,
 
       // single pid for both possibilities?
-      PIDVelocityController<LinearVelocity> pid)
+      PIDVelocityController<LinearVelocity> linear_pid,
+      PIDVelocityController<LinearVelocity> angular_pid)
         : m_linear(linear),
           m_angular(angular),
-          m_pid(pid) {}
+          m_linear_pid(linear_pid),
+          m_angular_pid(angular_pid) {}
 };
 
 struct FFLeftRightVelocityControllerParams {
@@ -425,34 +445,48 @@ struct PIDLeftRightVelocityControllerParams {
 struct DifferentialVelocityControllerParams {
     FFLeftRightVelocityControllerParams linear;
     FFLeftRightVelocityControllerParams angular;
-    PIDLeftRightVelocityControllerParams pid;
+    PIDLeftRightVelocityControllerParams linear_pid;
+    PIDLeftRightVelocityControllerParams angular_pid;
 
     DrivetrainSideVelocityController constructLeftController() {
-        return { FeedforwardVelocityController<LinearVelocity>({
-                   .Kv = linear.left_Kv,
-                   .Ka = linear.left_Ka,
-                   .Ks = linear.left_Ks,
-                   .Ka_delta_time = linear.Ka_delta_time,
-                   .low_target_threshold = linear.low_target_threshold,
-                 }),
-                 FeedforwardVelocityController<LinearVelocity>({
-                   .Kv = angular.left_Kv,
-                   .Ka = angular.left_Ka,
-                   .Ks = angular.left_Ks,
-                   .Ka_delta_time = angular.Ka_delta_time,
-                   .low_target_threshold = angular.low_target_threshold,
-                 }),
-                 PIDVelocityController<LinearVelocity>({
-                   .Kp = pid.left_Kp,
-                   .Kp_close = pid.left_Kp_close,
-                   .Kp_low = pid.left_Kp_low,
-                   .low_threshold = pid.left_low_threshold,
-                   .close_threshold = pid.left_close_threshold,
-                   .Ki = pid.left_Ki,
-                   .Ki_windup = pid.left_Ki_windup,
-                   .max_output = pid.left_max_output,
-                   .tbh_factor = pid.left_tbh_factor,
-                 }) };
+        return {
+            FeedforwardVelocityController<LinearVelocity>({
+              .Kv = linear.left_Kv,
+              .Ka = linear.left_Ka,
+              .Ks = linear.left_Ks,
+              .Ka_delta_time = linear.Ka_delta_time,
+              .low_target_threshold = linear.low_target_threshold,
+            }),
+            FeedforwardVelocityController<LinearVelocity>({
+              .Kv = angular.left_Kv,
+              .Ka = angular.left_Ka,
+              .Ks = angular.left_Ks,
+              .Ka_delta_time = angular.Ka_delta_time,
+              .low_target_threshold = angular.low_target_threshold,
+            }),
+            PIDVelocityController<LinearVelocity>({
+              .Kp = linear_pid.left_Kp,
+              .Kp_close = linear_pid.left_Kp_close,
+              .Kp_low = linear_pid.left_Kp_low,
+              .low_threshold = linear_pid.left_low_threshold,
+              .close_threshold = linear_pid.left_close_threshold,
+              .Ki = linear_pid.left_Ki,
+              .Ki_windup = linear_pid.left_Ki_windup,
+              .max_output = linear_pid.left_max_output,
+              .tbh_factor = linear_pid.left_tbh_factor,
+            }),
+            PIDVelocityController<LinearVelocity>({
+              .Kp = angular_pid.left_Kp,
+              .Kp_close = angular_pid.left_Kp_close,
+              .Kp_low = angular_pid.left_Kp_low,
+              .low_threshold = angular_pid.left_low_threshold,
+              .close_threshold = angular_pid.left_close_threshold,
+              .Ki = angular_pid.left_Ki,
+              .Ki_windup = angular_pid.left_Ki_windup,
+              .max_output = angular_pid.left_max_output,
+              .tbh_factor = angular_pid.left_tbh_factor,
+            }),
+        };
     }
 
     DrivetrainSideVelocityController constructRightController() {
@@ -471,15 +505,26 @@ struct DifferentialVelocityControllerParams {
                    .low_target_threshold = angular.low_target_threshold,
                  }),
                  PIDVelocityController<LinearVelocity>({
-                   .Kp = pid.right_Kp,
-                   .Kp_close = pid.right_Kp_close,
-                   .Kp_low = pid.right_Kp_low,
-                   .low_threshold = pid.right_low_threshold,
-                   .close_threshold = pid.right_close_threshold,
-                   .Ki = pid.right_Ki,
-                   .Ki_windup = pid.right_Ki_windup,
-                   .max_output = pid.right_max_output,
-                   .tbh_factor = pid.right_tbh_factor,
+                   .Kp = linear_pid.right_Kp,
+                   .Kp_close = linear_pid.right_Kp_close,
+                   .Kp_low = linear_pid.right_Kp_low,
+                   .low_threshold = linear_pid.right_low_threshold,
+                   .close_threshold = linear_pid.right_close_threshold,
+                   .Ki = linear_pid.right_Ki,
+                   .Ki_windup = linear_pid.right_Ki_windup,
+                   .max_output = linear_pid.right_max_output,
+                   .tbh_factor = linear_pid.right_tbh_factor,
+                 }),
+                 PIDVelocityController<LinearVelocity>({
+                   .Kp = angular_pid.right_Kp,
+                   .Kp_close = angular_pid.right_Kp_close,
+                   .Kp_low = angular_pid.right_Kp_low,
+                   .low_threshold = angular_pid.right_low_threshold,
+                   .close_threshold = angular_pid.right_close_threshold,
+                   .Ki = angular_pid.right_Ki,
+                   .Ki_windup = angular_pid.right_Ki_windup,
+                   .max_output = angular_pid.right_max_output,
+                   .tbh_factor = angular_pid.right_tbh_factor,
                  }) };
     }
 };
@@ -522,10 +567,16 @@ class DifferentialVelocityController {
     }
 
     LeftRightVoltages update(LeftRightSpeeds measurement, Time duration) {
+        LinearVelocity linear =
+          (measurement.left_vel + measurement.right_vel) / 2;
+        LinearVelocity angular =
+          (measurement.right_vel - measurement.left_vel) / 2;
         Voltage left_voltage =
-          m_left_controller.update(measurement.left_vel, duration);
+          m_left_controller.update({ .linear = linear, .angular = -angular },
+                                   duration);
         Voltage right_voltage =
-          m_right_controller.update(measurement.right_vel, duration);
+          m_right_controller.update({ .linear = linear, .angular = angular },
+                                    duration);
 
         LeftRightVoltages result = { left_voltage, right_voltage };
 

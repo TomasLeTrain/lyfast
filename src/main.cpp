@@ -132,22 +132,9 @@ lyfast::DifferentialVelocityControllerParams vel_controller_params {
 		// TODO: recalc angular?
 		.left_Kv = 0.46 * volt / mps,
 		.left_Ka = 0.09 * volt / mps2,
-		.left_Ks = 0.06 * volt,
-
-		.right_Kv = 0.49 * volt / mps,
-		.right_Ka = 0.09 * volt / mps2,
-		.right_Ks = 0.06 * volt,
-
-		.Ka_delta_time = 20_msec,
-		// .low_target_threshold = 2_inps
-		.low_target_threshold = 2_inps
-	},
-	.angular = {
-		.left_Kv = 0.50 * volt / mps,
-		.left_Ka = 0.09 * volt / mps2,
 		.left_Ks = 0.08 * volt,
 
-		.right_Kv = 0.60 * volt / mps,
+		.right_Kv = 0.49 * volt / mps,
 		.right_Ka = 0.09 * volt / mps2,
 		.right_Ks = 0.08 * volt,
 
@@ -155,30 +142,68 @@ lyfast::DifferentialVelocityControllerParams vel_controller_params {
 		// .low_target_threshold = 2_inps
 		.low_target_threshold = 2_inps
 	},
-	.pid = {
-		// .left_Kp = 1.0 * volt / mps,
-		// .left_Kp_close = 0.0 * volt / mps,
-		// .left_Kp_low = 0.0 * volt / mps,
-		// .left_low_threshold = 5_inps,
-		// .left_close_threshold = 0_inps,
-		// // .left_Ki = 1.5 * volt / m,
-		// .left_Ki = 1.0 * volt / m,
-		// .left_Ki_windup = 10_inps,
-		// //
-		// .left_max_output =  1_volt,
-		// .left_tbh_factor =  1.0,
+	.angular = {
+		.left_Kv = 0.70 * volt / mps,
+		.left_Ka = 0.09 * volt / mps2,
+		.left_Ks = 0.08 * volt,
+
+		.right_Kv = 0.70 * volt / mps,
+		.right_Ka = 0.09 * volt / mps2,
+		.right_Ks = 0.08 * volt,
+
+		.Ka_delta_time = 20_msec,
+		// .low_target_threshold = 2_inps
+		.low_target_threshold = 2_inps
+	},
+	.linear_pid = {
+		.left_Kp = 1.5 * volt / mps,
+		// .left_Kp = 3.0 * volt / mps,
+		.left_Kp_close = 0.0 * volt / mps,
+		.left_Kp_low = 0.0 * volt / mps,
+		.left_low_threshold = 5_inps,
+		.left_close_threshold = 0_inps,
+		.left_Ki = 500.0 * volt / m,
+		.left_Ki_windup = 1005_inps,
 		//
-		// .right_Kp = 1.0 * volt / mps,
-		// .right_Kp_close = 0.0 * volt / mps,
-		// .right_Kp_low = 0.0 * volt / mps,
-		// .right_low_threshold = 5_inps,
-		// .right_close_threshold = 0_inps,
-		// // .right_Ki = 1.5 * volt / m,
-		// .right_Ki = 1.0 * volt / m,
-		// .right_Ki_windup = 10_inps,
+		.left_max_output =  1_volt,
+		.left_tbh_factor =  1.0,
+
+		// .right_Kp = 1.5 * volt / mps,
+		.right_Kp = 1.5 * volt / mps,
+		.right_Kp_close = 0.0 * volt / mps,
+		.right_Kp_low = 0.0 * volt / mps,
+		.right_low_threshold = 5_inps,
+		.right_close_threshold = 0_inps,
+		.right_Ki = 10.0 * volt / m,
+		.right_Ki_windup = 1005_inps,
+
+		.right_max_output =  1_volt,
+		.right_tbh_factor =  1.0,
+	},
+	.angular_pid = {
+		.left_Kp = 5.0 * volt / mps,
+		.left_Kp_close = 0.0 * volt / mps,
+		.left_Kp_low = 0.0 * volt / mps,
+		.left_low_threshold = 5_inps,
+		.left_close_threshold = 0_inps,
+		// .left_Ki = 1.5 * volt / m,
+		.left_Ki = 0.0 * volt / m,
+		.left_Ki_windup = 10_inps,
 		//
-		// .right_max_output =  1_volt,
-		// .right_tbh_factor =  1.0,
+		.left_max_output =  1_volt,
+		.left_tbh_factor =  1.0,
+
+		.right_Kp = 5.0 * volt / mps,
+		.right_Kp_close = 0.0 * volt / mps,
+		.right_Kp_low = 0.0 * volt / mps,
+		.right_low_threshold = 5_inps,
+		.right_close_threshold = 0_inps,
+		// .right_Ki = 1.5 * volt / m,
+		.right_Ki = 0.0 * volt / m,
+		.right_Ki_windup = 10_inps,
+
+		.right_max_output =  1_volt,
+		.right_tbh_factor =  1.0,
 	}
 };
 lyfast::DifferentialVelocityController vel_controller { vel_controller_params,
@@ -1142,6 +1167,10 @@ void initialize() {
     // });
 
     startTimeCriticalTask();
+
+    forwards_odom_rotation.set_data_rate(5);
+    forwards_odom_rotation.set_data_rate(5);
+    imu.set_data_rate(5);
 }
 
 void test_motor_kv_ks_tuner() {
