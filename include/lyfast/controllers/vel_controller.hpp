@@ -12,6 +12,8 @@
 #include <functional>
 #include <ios>
 #include <queue>
+#include <set>
+#include <utility>
 
 namespace blazing {
 namespace lyfast {
@@ -83,31 +85,107 @@ class FeedforwardVelocityController {
     using AccelT = Divided<VelUnit, Time>;
     FeedforwardVelocityControllerParams<VelUnit> m_params;
 
-    VelUnit m_target_velocity { 0 };
-    AccelT m_target_acceleration { 0 };
+    // VelUnit m_target_velocity { 0 };
+    // AccelT m_target_acceleration { 0 };
+
+    struct TargetT {
+        VelUnit velocity { 0 };
+        AccelT acceleration { 0 };
+        uint32_t timestamp;
+
+        bool operator<(const TargetT& rhs) {
+            return timestamp < rhs;
+        }
+
+        bool operator==(const TargetT& rhs) {
+            return timestamp == rhs;
+        }
+    };
+
+    std::set<TargetT> m_targets;
+    uint32_t lookahead_time = 60;
 
   public:
-    void setTarget(VelUnit target_velocity, AccelT target_acceleration) {
-        m_target_velocity = target_velocity;
-        m_target_acceleration = target_acceleration;
+    void setTarget(VelUnit target_velocity,
+                   AccelT target_acceleration,
+                   uint32_t timestamp) {
+
+        TargetT tmp_target = { target_velocity,
+                               target_acceleration,
+                               timestamp };
+
+        // deletes element with same timestamp, if it exists
+        if (auto target = m_targets.find(tmp_target); target != m_targets.end())
+            m_targets.erase(target);
+
+        m_targets.emplace(target_velocity, target_acceleration, timestamp);
+
+        // also prune all elements that are too old the ever use anymore
+        for (;
+             // while we have 3 or more elements and beginning timestamp is
+             // before right now
+             m_targets.size() > 2 &&
+             int(m_targets.begin()->timestamp) <
+               int(pros::millis()) - int(to_msec(m_params.Ka_delta_time));
+             // erase the smallest element
+             m_targets.erase(m_targets.begin()));
+
+        // stop erasing at 2 to have
+    }
+
+    void setTarget(VelUnit target_velocity, uint32_t timestamp) {
+        // find closest index less than current target to calculate acceleration
+        auto lowest_equal = m_targets.lower_bound(
+          TargetT { VelUnit { 0 }, AccelT { 0 }, timestamp });
+
+        // find element before current one if possible
+        if (lowest_equal != m_targets.begin()) lowest_equal--;
+
+        TargetT last_target = *lowest_equal;
+        AccelT curr_accel;
+        if (last_target.timestamp > timestamp) {
+            // last target has higher timestamp, no way to know accel
+            curr_accel = AccelT { 0 };
+        } else {
+            curr_accel = (target_velocity - last_target.velocity) /
+                         from_msec(timestamp - last_target.timestamp);
+        }
+
+        setTarget(target_velocity, curr_accel, timestamp);
     }
 
     void setTarget(VelUnit target_velocity) {
-        setTarget(target_velocity,
-                  (target_velocity - m_target_velocity) /
-                    m_params.Ka_delta_time);
+        setTarget(target_velocity, pros::millis());
+    }
+
+    TargetT getCurrentTarget() {
+        uint32_t target_timestamp = pros::millis() + lookahead_time;
+
+        // want to find first element less than or equal to current target
+
+        // first find a guaranteed higher element
+        auto guaranteed_higher = m_targets.upper_bound(
+          TargetT { VelUnit { 0 }, AccelT { 0 }, target_timestamp });
+
+        // then find the <=, if exists
+        if (guaranteed_higher != m_targets.begin()) guaranteed_higher--;
+
+        // here we assume the answer is possible
     }
 
     Voltage updateKvKa() {
+        TargetT current_target = getCurrentTarget();
+
         // target low enough that accel is basically instant
-        if (units::abs(m_target_velocity) < m_params.low_target_threshold) {
-            m_target_acceleration = Divided<VelUnit, Time> { 0 };
+        if (units::abs(current_target.velocity) <
+            m_params.low_target_threshold) {
+            current_target.acceleration = Divided<VelUnit, Time> { 0 };
         }
 
         Voltage result { // kv
-                         m_target_velocity * m_params.Kv +
+                         current_target.velocity * m_params.Kv +
                          // ka
-                         m_target_acceleration * m_params.Ka
+                         current_target.acceleration * m_params.Ka
         };
 
         return result;
@@ -347,13 +425,17 @@ class DrivetrainSideVelocityController {
     TargetT m_target;
 
   public:
-    void setTarget(TargetT target) {
+    void setTarget(TargetT target, uint32_t timestamp) {
         // LinearVelocity v_target = target.linear + target.angular;
-        m_linear.setTarget(target.linear);
-        m_angular.setTarget(target.angular);
-        m_linear_pid.setTarget(target.linear);
-        m_angular_pid.setTarget(target.angular);
+        m_linear.setTarget(target.linear, timestamp);
+        m_angular.setTarget(target.angular, timestamp);
+        m_linear_pid.setTarget(target.linear, timestamp);
+        m_angular_pid.setTarget(target.angular, timestamp);
         m_target = target;
+    }
+
+    void setTarget(TargetT target) {
+        setTarget(target, pros::millis());
     }
 
     Voltage update(TargetT measurement, Time duration) {
@@ -540,7 +622,7 @@ class DifferentialVelocityController {
     DifferentialSpeeds m_target;
 
   public:
-    void setTarget(DifferentialSpeeds target) {
+    void setTarget(DifferentialSpeeds target, uint32_t timestamp) {
         Length track_radius = m_track_width / 2.0;
 
         // desaturate target first
@@ -560,10 +642,16 @@ class DifferentialVelocityController {
           (target.angular_velocity / rad) * track_radius;
 
         m_left_controller.setTarget({ .linear = target_linear_velocity,
-                                      .angular = -converted_angular_velocity });
+                                      .angular = -converted_angular_velocity },
+                                    timestamp);
 
         m_right_controller.setTarget({ .linear = target_linear_velocity,
-                                       .angular = converted_angular_velocity });
+                                       .angular = converted_angular_velocity },
+                                     timestamp);
+    }
+
+    void setTarget(DifferentialSpeeds target) {
+        setTarget(target, pros::millis());
     }
 
     LeftRightVoltages update(LeftRightSpeeds measurement, Time duration) {

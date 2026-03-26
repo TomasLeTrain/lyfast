@@ -249,7 +249,8 @@ class DrivetrainVelocityPlant {
     }
 
     void
-    setTarget(std::variant<LeftRightVoltages, DifferentialSpeeds> new_target) {
+    setTarget(std::variant<LeftRightVoltages, DifferentialSpeeds> new_target,
+              uint32_t timestamp) {
         std::lock_guard lock(m_mutex);
 
         bool new_target_is_vel =
@@ -263,11 +264,17 @@ class DrivetrainVelocityPlant {
 
         // update target for controller, if being used
         if (new_target_is_vel) {
-            m_controller.setTarget(std::get<DifferentialSpeeds>(new_target));
+            m_controller.setTarget(std::get<DifferentialSpeeds>(new_target),
+                                   timestamp);
         }
 
         // update target
         m_target = new_target;
+    }
+
+    void
+    setTarget(std::variant<LeftRightVoltages, DifferentialSpeeds> new_target) {
+        setTarget(new_target, pros::millis());
     }
 
     std::variant<LeftRightVoltages, DifferentialSpeeds> getTarget() {

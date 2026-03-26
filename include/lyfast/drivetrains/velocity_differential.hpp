@@ -60,21 +60,36 @@ class VelocityDifferentialDrivetrain : public ChainableDrivetrain {
     // move robot based on left and right velocities
     // positive angular -> turns left
     void moveArcade(LinearVelocity linear_velocity,
-                    AngularVelocity angular_velocity) {
+                    AngularVelocity angular_velocity,
+                    uint32_t timestamp) {
         // TODO: saturate here or offload to controller?
         m_plant->setTarget(
-          DifferentialSpeeds { linear_velocity, angular_velocity });
+          DifferentialSpeeds { linear_velocity, angular_velocity },timestamp);
     }
 
     // move robot based on left and right velocities
-    void moveTank(LinearVelocity left_velocity, LinearVelocity right_velocity) {
+    void moveTank(LinearVelocity left_velocity,
+                  LinearVelocity right_velocity,
+                  uint32_t timestamp) {
         // convert left and right velocities into linear and angular
         // v = (v_l + v_r) / 2
         // w = (v_r - v_l) / (track_width)
         LinearVelocity v = (left_velocity + right_velocity) / 2;
         AngularVelocity w =
           rad * (right_velocity - left_velocity) / (m_track_width);
-        moveArcade(v, w);
+        moveArcade(v, w, timestamp);
+    }
+
+    // move robot based on left and right velocities
+    // positive angular -> turns left
+    void moveArcade(LinearVelocity linear_velocity,
+                    AngularVelocity angular_velocity) {
+        moveArcade(linear_velocity, angular_velocity, pros::millis());
+    }
+
+    // move robot based on left and right velocities
+    void moveTank(LinearVelocity left_velocity, LinearVelocity right_velocity) {
+        moveTank(left_velocity, right_velocity, pros::millis());
     }
 
     void setBrakeMode(pros::MotorBrake brake_mode) {
