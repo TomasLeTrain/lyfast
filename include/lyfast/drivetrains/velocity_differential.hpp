@@ -77,6 +77,20 @@ class VelocityDifferentialDrivetrain : public ChainableDrivetrain {
         moveArcade(v, w);
     }
 
+    void moveArcadeFeedforward(LinearVelocity linear_velocity,
+                               AngularVelocity angular_velocity) {
+        m_plant->setFeedforwardTarget(
+          DifferentialSpeeds { linear_velocity, angular_velocity });
+    }
+
+    // move robot based on left and right velocities
+    void moveTankFeedforward(LinearVelocity left_velocity, LinearVelocity right_velocity) {
+        LinearVelocity v = (left_velocity + right_velocity) / 2;
+        AngularVelocity w =
+          rad * (right_velocity - left_velocity) / (m_track_width);
+        moveArcadeFeedforward(v, w);
+    }
+
     void setBrakeMode(pros::MotorBrake brake_mode) {
         m_left_motors->set_brake_mode_all(brake_mode);
         m_right_motors->set_brake_mode_all(brake_mode);

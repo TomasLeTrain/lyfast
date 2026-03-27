@@ -16,6 +16,11 @@
 namespace blazing {
 namespace lyfast {
 
+struct TargetFeedType {
+    bool feedforward = true;
+    bool feedback = true;
+};
+
 // voltage is assumed to be in the range [0,1]
 
 // u = Ks * sgn(v) + Kv * v + Ka * a;
@@ -347,12 +352,17 @@ class DrivetrainSideVelocityController {
     TargetT m_target;
 
   public:
-    void setTarget(TargetT target) {
+    void setTarget(TargetT target, TargetFeedType feed_type = {}) {
         // LinearVelocity v_target = target.linear + target.angular;
-        m_linear.setTarget(target.linear);
-        m_angular.setTarget(target.angular);
-        m_linear_pid.setTarget(target.linear);
-        m_angular_pid.setTarget(target.angular);
+        if (feed_type.feedforward) {
+            m_linear.setTarget(target.linear);
+            m_angular.setTarget(target.angular);
+        }
+        if (feed_type.feedback) {
+            m_linear_pid.setTarget(target.linear);
+            m_angular_pid.setTarget(target.angular);
+        }
+
         m_target = target;
     }
 
@@ -540,7 +550,7 @@ class DifferentialVelocityController {
     DifferentialSpeeds m_target;
 
   public:
-    void setTarget(DifferentialSpeeds target) {
+    void setTarget(DifferentialSpeeds target, TargetFeedType feed_type = {}) {
         Length track_radius = m_track_width / 2.0;
 
         // desaturate target first
@@ -560,10 +570,12 @@ class DifferentialVelocityController {
           (target.angular_velocity / rad) * track_radius;
 
         m_left_controller.setTarget({ .linear = target_linear_velocity,
-                                      .angular = -converted_angular_velocity });
+                                      .angular = -converted_angular_velocity },
+                                    feed_type);
 
         m_right_controller.setTarget({ .linear = target_linear_velocity,
-                                       .angular = converted_angular_velocity });
+                                       .angular = converted_angular_velocity },
+                                     feed_type);
     }
 
     LeftRightVoltages update(LeftRightSpeeds measurement, Time duration) {

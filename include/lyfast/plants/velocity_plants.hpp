@@ -15,6 +15,7 @@
 
 namespace blazing {
 namespace lyfast {
+
 // moves controller using velocity estimates from the filters
 // plant is not responsible for updating the filters
 class AngularMotorGroupVelocityPlant {
@@ -249,7 +250,8 @@ class DrivetrainVelocityPlant {
     }
 
     void
-    setTarget(std::variant<LeftRightVoltages, DifferentialSpeeds> new_target) {
+    setTarget(std::variant<LeftRightVoltages, DifferentialSpeeds> new_target,
+              TargetFeedType feedforward_type = {}) {
         std::lock_guard lock(m_mutex);
 
         bool new_target_is_vel =
@@ -263,7 +265,8 @@ class DrivetrainVelocityPlant {
 
         // update target for controller, if being used
         if (new_target_is_vel) {
-            m_controller.setTarget(std::get<DifferentialSpeeds>(new_target));
+            m_controller.setTarget(std::get<DifferentialSpeeds>(new_target),
+                                   feedforward_type);
         }
 
         // update target
