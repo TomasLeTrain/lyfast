@@ -251,17 +251,19 @@ class PathFollow : public Motion<ControllersType,
                                                   k1_reference_speeds };
 
         // get purely feedback term of the feedback control velocities
-        DifferentialSpeeds feedback_velocities =
+        DifferentialSpeeds lqr_feedback_velocities =
           this->controllers.path_pose_feedback.update(path_pose_state,
                                                       path_pose_reference,
                                                       delta_time) -
           k1_reference_speeds;
 
-        // uses the lookahead reference
-        DifferentialSpeeds feedforward_velocities = lookahead_reference_speeds;
+        // lookahead reference vel
+        DifferentialSpeeds feedforward_velocities =
+          lookahead_reference_speeds + lqr_feedback_velocities;
 
-        DifferentialSpeeds new_speeds =
-          feedback_velocities + feedforward_velocities;
+        // current reference + lqr feedback
+        DifferentialSpeeds feedback_velocities =
+          reference_speeds + lqr_feedback_velocities;
 
         // linear and angular should be references for the velocity
         // controller
@@ -274,15 +276,17 @@ class PathFollow : public Motion<ControllersType,
 
         std::cout << "lin/ang/drive_left/drive_right/tv_l/tv_r/"
                      "av_l/av_r/x/y/theta/tx/ty/ttheta: "
-                  << new_speeds.linear_velocity.internal() << " "
-                  << new_speeds.angular_velocity.internal() << " "
+                  << feedforward_velocities.linear_velocity.internal() << " "
+                  << feedforward_velocities.angular_velocity.internal() << " "
                   << left_vel.internal() << " " << right_vel.internal()
                   << " "
                   // << saturated_voltages.at(0).internal() << " "
                   // << saturated_voltages.at(1).internal() << " "
                   // << 0 << " " << 0 << " "
-                  << actual_volt_left.internal() << " "
-                  << actual_volt_right.internal() << " "
+                  // << actual_volt_left.internal() << " "
+                  // << actual_volt_right.internal() << " "
+                  << feedback_velocities.linear_velocity.internal() << " "
+                  << feedback_velocities.angular_velocity.internal() << " "
                   << actual_volt_left.internal() << " "
                   << actual_volt_right.internal() << " "
                   << position.x.convert(in) << " " << position.y.convert(in)
@@ -292,8 +296,17 @@ class PathFollow : public Motion<ControllersType,
                   << path_pose_reference.pose.orientation.convert(deg)
                   << std::endl;
 
-        this->drivetrain.moveArcade(new_speeds.linear_velocity,
-                                    new_speeds.angular_velocity);
+        // update feedforward vel
+        this->drivetrain.moveArcade(
+          feedforward_velocities.linear_velocity,
+          feedforward_velocities.angular_velocity,
+          TargetFeedType { .feedforward = true, .feedback = false });
+
+        // update feedback vel
+        this->drivetrain.moveArcade(
+          feedback_velocities.linear_velocity,
+          feedback_velocities.angular_velocity,
+          TargetFeedType { .feedforward = false, .feedback = true });
 
         return result;
     }

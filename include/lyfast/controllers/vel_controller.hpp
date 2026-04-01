@@ -65,6 +65,9 @@ struct FeedforwardVelocityControllerParams {
     KaUnits<VelUnit> Ka;
     Voltage Ks;
     Time Ka_delta_time;
+
+    KvUnits<VelUnit> low_target_Kv { 0 };
+    KaUnits<VelUnit> low_target_Ka { 0 };
     VelUnit low_target_threshold { 0 };
 };
 
@@ -104,15 +107,18 @@ class FeedforwardVelocityController {
     }
 
     Voltage updateKvKa() {
-        // target low enough that accel is basically instant
+        KvUnits<VelUnit> kv = m_params.Kv;
+        KaUnits<VelUnit> ka = m_params.Ka;
+
         if (units::abs(m_target_velocity) < m_params.low_target_threshold) {
-            m_target_acceleration = Divided<VelUnit, Time> { 0 };
+            kv = m_params.low_target_Kv;
+            ka = m_params.low_target_Ka;
         }
 
         Voltage result { // kv
-                         m_target_velocity * m_params.Kv +
+                         m_target_velocity * kv +
                          // ka
-                         m_target_acceleration * m_params.Ka
+                         m_target_acceleration * ka
         };
 
         return result;
@@ -163,27 +169,15 @@ class PIDVelocityController {
     Multiplied<VelUnit, Time> current_integral { 0 };
     VelUnit error;
 
-    // VelUnit m_target_velocity { 0 };
-
-    std::queue<VelUnit> m_targets;
-    int num_targets = 5;
+    VelUnit m_target_velocity { 0 };
 
   public:
     void setTarget(VelUnit target_velocity) {
-        // m_target_velocity = target_velocity;
-        m_targets.push(target_velocity);
-        if (m_targets.size() > num_targets) m_targets.pop();
-        // 1. 60 msec  -  0 msec   -> went from 1 to two items
-        // 2. 80 msec  -  20 msec  -> went frmo 2 to 3 items
-        // 3. 100 msec  -  40 msec -> went frmo 3 to 4 items
-        // 4. 120 msec  -  60 msec -> went frmo 4 items to 5 items
-        // 5. 140 msec  -  80 msec -> went frmo 5 items to 6 items, start
-        // popping
+        m_target_velocity = target_velocity;
     }
 
     Voltage unclampedUpdate(VelUnit measurement, Time duration) {
-        // const VelUnit curr_target = m_target_velocity;
-        const VelUnit curr_target = m_targets.front();
+        const VelUnit curr_target = m_target_velocity;
 
         error = curr_target - measurement;
 
@@ -266,14 +260,12 @@ class PIDVelocityController {
 
     void reset() {
         integral = Multiplied<VelUnit, Time> { 0 };
-        // m_target_velocity = VelUnit { 0 };
-        m_targets.push(VelUnit { 0 });
+        m_target_velocity = VelUnit { 0 };
         last_error = std::nullopt;
     }
 
     VelUnit getTarget() {
-        // return m_target_velocity;
-        return m_targets.front();
+        return m_target_velocity;
     }
 
     PIDVelocityControllerParams<VelUnit> getParams() {
@@ -285,9 +277,7 @@ class PIDVelocityController {
     }
 
     PIDVelocityController(PIDVelocityControllerParams<VelUnit> params)
-        : m_params(params) {
-        m_targets.push(VelUnit { 0 });
-    }
+        : m_params(params) {}
 };
 
 template<typename VelUnit>
@@ -416,14 +406,19 @@ class DrivetrainSideVelocityController {
 struct FFLeftRightVelocityControllerParams {
     KvUnits<LinearVelocity> left_Kv;
     KaUnits<LinearVelocity> left_Ka;
+    KvUnits<LinearVelocity> left_low_target_Kv { 0 };
+    KaUnits<LinearVelocity> left_low_target_Ka { 0 };
     KsUnits left_Ks;
 
     KvUnits<LinearVelocity> right_Kv;
     KaUnits<LinearVelocity> right_Ka;
+    KvUnits<LinearVelocity> right_low_target_Kv { 0 };
+    KaUnits<LinearVelocity> right_low_target_Ka { 0 };
     KsUnits right_Ks;
 
     Time Ka_delta_time;
-    LinearVelocity low_target_threshold;
+
+    LinearVelocity low_target_threshold { 0 };
 };
 
 struct PIDLeftRightVelocityControllerParams {
@@ -465,6 +460,8 @@ struct DifferentialVelocityControllerParams {
               .Ka = linear.left_Ka,
               .Ks = linear.left_Ks,
               .Ka_delta_time = linear.Ka_delta_time,
+              .low_target_Kv = linear.left_low_target_Kv,
+              .low_target_Ka = linear.left_low_target_Ka,
               .low_target_threshold = linear.low_target_threshold,
             }),
             FeedforwardVelocityController<LinearVelocity>({
@@ -472,6 +469,8 @@ struct DifferentialVelocityControllerParams {
               .Ka = angular.left_Ka,
               .Ks = angular.left_Ks,
               .Ka_delta_time = angular.Ka_delta_time,
+              .low_target_Kv = angular.left_low_target_Kv,
+              .low_target_Ka = angular.left_low_target_Ka,
               .low_target_threshold = angular.low_target_threshold,
             }),
             PIDVelocityController<LinearVelocity>({
@@ -505,6 +504,8 @@ struct DifferentialVelocityControllerParams {
                    .Ka = linear.right_Ka,
                    .Ks = linear.right_Ks,
                    .Ka_delta_time = linear.Ka_delta_time,
+                   .low_target_Kv = linear.right_low_target_Kv,
+                   .low_target_Ka = linear.right_low_target_Ka,
                    .low_target_threshold = linear.low_target_threshold,
                  }),
                  FeedforwardVelocityController<LinearVelocity>({
@@ -512,6 +513,8 @@ struct DifferentialVelocityControllerParams {
                    .Ka = angular.right_Ka,
                    .Ks = angular.right_Ks,
                    .Ka_delta_time = angular.Ka_delta_time,
+                   .low_target_Kv = angular.right_low_target_Kv,
+                   .low_target_Ka = angular.right_low_target_Ka,
                    .low_target_threshold = angular.low_target_threshold,
                  }),
                  PIDVelocityController<LinearVelocity>({

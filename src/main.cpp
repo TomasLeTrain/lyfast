@@ -130,30 +130,49 @@ AngularVelocity final_rpm = 450_rpm;
 lyfast::DifferentialVelocityControllerParams vel_controller_params {
 	.linear = {
 		// TODO: recalc angular?
+		// .left_Kv = 0.46 * volt / mps,
 		.left_Kv = 0.46 * volt / mps,
 		.left_Ka = 0.09 * volt / mps2,
+		// .left_low_target_Kv = 0.4 * volt / mps,
+		// .left_low_target_Ka = 0.0 * volt / mps2,
 		.left_Ks = 0.08 * volt,
 
-		.right_Kv = 0.49 * volt / mps,
+		// .right_Kv = 0.49 * volt / mps,
+		.right_Kv = 0.46 * volt / mps,
 		.right_Ka = 0.09 * volt / mps2,
+		// .right_low_target_Kv = 0.42 * volt / mps,
+		// .right_low_target_Ka = 0.0 * volt / mps2,
 		.right_Ks = 0.08 * volt,
 
 		.Ka_delta_time = 20_msec,
 		// .low_target_threshold = 2_inps
-		.low_target_threshold = 2_inps
+		// .low_target_threshold = 4_inps
+		.low_target_threshold = 0_inps
 	},
 	.angular = {
-		.left_Kv = 0.70 * volt / mps,
-		.left_Ka = 0.10 * volt / mps2,
+		// .left_Kv = 0.87 * volt / mps,
+		// .left_Kv = 0.7 * volt / mps,
+		.left_Kv = 0.8 * volt / mps,
+		// .left_Ka = 0.10 * volt / mps2,
+		// .left_Ka = 0.08 * volt / mps2,
+		.left_Ka = 0.07 * volt / mps2,
+		.left_low_target_Kv = 0.5 * volt / mps,
+		.left_low_target_Ka = 0.0 * volt / mps2,
 		.left_Ks = 0.08 * volt,
 
-		.right_Kv = 0.70 * volt / mps,
-		.right_Ka = 0.10 * volt / mps2,
+		// .right_Kv = 0.87 * volt / mps,
+		.right_Kv = 0.8 * volt / mps,
+		// .right_Ka = 0.10 * volt / mps2,
+		// .right_Ka = 0.08 * volt / mps2,
+		.right_Ka = 0.07 * volt / mps2,
+		.right_low_target_Kv = 0.5 * volt / mps,
+		.right_low_target_Ka = 0.0 * volt / mps2,
 		.right_Ks = 0.08 * volt,
+
 
 		.Ka_delta_time = 20_msec,
 		// .low_target_threshold = 2_inps
-		.low_target_threshold = 7_inps
+		.low_target_threshold = 0_inps
 	},
 	.linear_pid = {
 		.left_Kp = 1.5 * volt / mps,
@@ -161,7 +180,8 @@ lyfast::DifferentialVelocityControllerParams vel_controller_params {
 		.left_Kp_low = 0.0 * volt / mps,
 		.left_low_threshold = 5_inps,
 		.left_close_threshold = 0_inps,
-		.left_Ki = 1.0 * volt / m,
+		// .left_Ki = 1.0 * volt / m,
+		.left_Ki = 0.0 * volt / m,
 		.left_Ki_windup = 12_inps,
 		//
 		.left_max_output =  1_volt,
@@ -172,36 +192,37 @@ lyfast::DifferentialVelocityControllerParams vel_controller_params {
 		.right_Kp_low = 0.0 * volt / mps,
 		.right_low_threshold = 5_inps,
 		.right_close_threshold = 0_inps,
-		.right_Ki = 1.0 * volt / m,
+		// .right_Ki = 1.0 * volt / m,
+		.right_Ki = 0.0 * volt / m,
 		.right_Ki_windup = 12_inps,
 
 		.right_max_output =  1_volt,
 		.right_tbh_factor =  1.0,
 	},
 	.angular_pid = {
-		.left_Kp = 3.0 * volt / mps,
-		.left_Kp_close = 0.0 * volt / mps,
-		.left_Kp_low = 0.0 * volt / mps,
-		.left_low_threshold = 10_inps,
-		.left_close_threshold = 0_inps,
-		// .left_Ki = 1.5 * volt / m,
-		.left_Ki = 0.0 * volt / m,
-		.left_Ki_windup = 12_inps,
+		// .left_Kp = 0.5 * volt / mps,
+		// .left_Kp_close = 0.0 * volt / mps,
+		// .left_Kp_low = 0.0 * volt / mps,
+		// .left_low_threshold = 10_inps,
+		// .left_close_threshold = 0_inps,
+		// // .left_Ki = 1.5 * volt / m,
+		// .left_Ki = 0.0 * volt / m,
+		// .left_Ki_windup = 12_inps,
+		// //
+		// .left_max_output =  1_volt,
+		// .left_tbh_factor =  1.0,
 		//
-		.left_max_output =  1_volt,
-		.left_tbh_factor =  1.0,
-
-		.right_Kp = 3.0 * volt / mps,
-		.right_Kp_close = 0.0 * volt / mps,
-		.right_Kp_low = 0.0 * volt / mps,
-		.right_low_threshold = 10_inps,
-		.right_close_threshold = 0_inps,
-		// .right_Ki = 1.5 * volt / m,
-		.right_Ki = 0.0 * volt / m,
-		.right_Ki_windup = 12_inps,
-
-		.right_max_output =  1_volt,
-		.right_tbh_factor =  1.0,
+		// .right_Kp = 0.5 * volt / mps,
+		// .right_Kp_close = 0.0 * volt / mps,
+		// .right_Kp_low = 0.0 * volt / mps,
+		// .right_low_threshold = 10_inps,
+		// .right_close_threshold = 0_inps,
+		// // .right_Ki = 1.5 * volt / m,
+		// .right_Ki = 0.0 * volt / m,
+		// .right_Ki_windup = 12_inps,
+		//
+		// .right_max_output =  1_volt,
+		// .right_tbh_factor =  1.0,
 	}
 };
 lyfast::DifferentialVelocityController vel_controller { vel_controller_params,
@@ -247,7 +268,7 @@ ForwardsTracker right_motor_tracker(&right_motors,
 
 // TODO: update since now sideways might be zero
 ForwardsTracker forwards_tracker(&forwards_odom_rotation, 0.04_in, 1.991_in);
-SidewaysTracker sideways_tracker(&sideways_odom_rotation, -1.1_in, 1.991_in);
+SidewaysTracker sideways_tracker(&sideways_odom_rotation, -2.1_in, 1.991_in);
 
 TrackingImu tracking_imu(&imu);
 
@@ -319,8 +340,10 @@ FLinearVelocity max_velocity = 76_Finps;
 FAngularVelocity max_angular_velocity = (max_velocity / track_radius) * Frad;
 
 std::array<float, 3> Q { (40_in).internal(),
+                         (6_in).internal(),
                          // (3_in).internal(),
-                         (3_in).internal(),
+                         // (1_in).internal(),
+                         // (5_stDeg).internal() };
                          (45_stDeg).internal() };
 
 std::array<float, 2> R { // max velocity
@@ -332,7 +355,7 @@ std::array<float, 2> R { // max velocity
 Time input_delay = 40_msec;
 
 blazing::lyfast::state_space::LTVUnicycleController
-  lqr_controller(Q, R, input_delay);
+  lqr_controller(Q, R, 0_msec);
 
 lyfast::PathPoseFeedbackController<decltype(lqr_controller)>
   path_pose_feedback_controller(lqr_controller);
@@ -769,6 +792,11 @@ void trajectoryDebugPrint(const lyfast::mp::Trajectory* trajectory) {
 }
 
 void path_follow_test() {
+
+
+
+
+
     using namespace blazing::lyfast;
     using namespace blazing::lyfast::geometry;
     using namespace blazing::lyfast::mp;
@@ -1118,15 +1146,20 @@ void timeCriticalTask() {
                 //   << "\n";
 
                 // actuate motors with desired voltages
-                int discretized_left_voltage = round(
-                  curr_drivetrain_voltages.left_voltage.internal() * 100.0);
-                int discretized_right_voltage = round(
-                  curr_drivetrain_voltages.right_voltage.internal() * 100.0);
+                // int discretized_left_voltage = round(
+                //   curr_drivetrain_voltages.left_voltage.internal() * 100.0);
+                // int discretized_right_voltage = round(
+                //   curr_drivetrain_voltages.right_voltage.internal() * 100.0);
+                //
+                // left_motors.move_voltage((12000 / 100) *
+                //                          discretized_left_voltage);
+                // right_motors.move_voltage((12000 / 100) *
+                //                           discretized_right_voltage);
 
-                left_motors.move_voltage((12000 / 100) *
-                                         discretized_left_voltage);
-                right_motors.move_voltage((12000 / 100) *
-                                          discretized_right_voltage);
+                left_motors.move_voltage(
+                  12 * to_mvolt(curr_drivetrain_voltages.left_voltage));
+                right_motors.move_voltage(
+                  12 * to_mvolt(curr_drivetrain_voltages.right_voltage));
 
                 // logDrivetrainInformation(
                 //   FDifferentialSpeeds { speeds.linear_velocity,
