@@ -37,7 +37,9 @@ struct LTVUnicycleController {
     std::array<float, 4> m_simpler_feedback;
 
     std::array<float, 3> m_Q;
+    std::array<float, 2> m_simple_Q;
     std::array<float, 2> m_R;
+
     FTime m_input_delay = 0_msec;
     LinearVelocity m_minimum_velocity = 0_mps;
 
@@ -53,6 +55,9 @@ struct LTVUnicycleController {
     // Q matrix determined by bryson's rule
     void setQMatrix(std::array<float, 3> Q);
 
+    // [x, theta] -> Q matrix determined by bryson's rule
+    void setSimpleQMatrix(std::array<float, 2> Q);
+
     // R matrix determined by bryson's rule
     void setRMatrix(std::array<float, 2> R);
 
@@ -67,6 +72,13 @@ struct LTVUnicycleController {
     update(PathPoseFeedbackT state, PathPoseFeedbackT reference, Time duration);
 
     LTVUnicycleController();
+
+    LTVUnicycleController(std::array<float, 3> Q,
+                          std::array<float, 2> simple_Q,
+                          std::array<float, 2> R,
+                          Time input_delay = 0_msec,
+                          LinearVelocity minimum_velocity = 0_mps);
+
     LTVUnicycleController(std::array<float, 3> Q,
                           std::array<float, 2> R,
                           Time input_delay = 0_msec,

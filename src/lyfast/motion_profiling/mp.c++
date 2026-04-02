@@ -424,8 +424,10 @@ int Trajectory::indexByClosestPoint(geometry::Point point,
 
     FLength original_start_dist = m_points[start_ind].arc_length;
     // either some max look dist or look until the end of the array
-    FLength original_end_dist =
-      units::min(original_start_dist + max_look_dist, getTotalDistance());
+    FLength original_end_dist = units::min(original_start_dist + max_look_dist,
+                                           // guarantee last point is visited
+                                           // index should get clamped
+                                           getTotalDistance() + 2 * resolution);
 
     FLength start_dist = original_start_dist;
     FLength end_dist = original_end_dist;

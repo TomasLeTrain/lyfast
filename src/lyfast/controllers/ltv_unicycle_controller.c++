@@ -24,13 +24,16 @@ void LTVUnicycleController::setNextReference(State new_reference) {
 }
 
 void LTVUnicycleController::setDeltaTime(Time delta_time) {
-    // delta time has changed, need to update the feedback
-    if (m_last_delta_time != delta_time) {
-        precomputeforwardsAngleFeedback();
-    }
+    bool delta_has_changed =
+      units::abs(m_last_delta_time - delta_time) > 5_msec;
 
     m_last_delta_time = m_delta_time;
     m_delta_time = delta_time;
+
+    // delta time has changed, need to update the feedback (with new delta time)
+    if (delta_has_changed) {
+        precomputeforwardsAngleFeedback();
+    }
 }
 
 void LTVUnicycleController::setTimeDelay(Time input_delay) {
@@ -52,6 +55,13 @@ std::optional<DifferentialSpeeds> LTVUnicycleController::getInput() {
 // Q matrix determined by bryson's rule
 void LTVUnicycleController::setQMatrix(std::array<float, 3> Q) {
     m_Q = Q;
+    // forwardsAngle not dependent on Q
+}
+
+// Q matrix determined by bryson's rule
+void LTVUnicycleController::setSimpleQMatrix(std::array<float, 2> Q) {
+    m_simple_Q = Q;
+
     // need to recompute when cost changes
     precomputeforwardsAngleFeedback();
 }
@@ -66,9 +76,7 @@ void LTVUnicycleController::setRMatrix(std::array<float, 2> R) {
 void LTVUnicycleController::precomputeforwardsAngleFeedback() {
     std::cout << "LQR:computing forwards angle" << std::endl;
 
-    const std::array<float, 2> new_Q = { m_Q[0], m_Q[2] };
-
-    const Eigen::Matrix2f Q = MakeCostMatrix(new_Q); // states x states
+    const Eigen::Matrix2f Q = MakeCostMatrix(m_simple_Q); // states x states
     const Eigen::Matrix2f R = MakeCostMatrix(m_R); // inputs x inputs
 
     // states x states
@@ -111,6 +119,7 @@ void LTVUnicycleController::precomputeforwardsAngleFeedback() {
 
 DifferentialSpeeds
 LTVUnicycleController::forwardsAngleCompute(units::Pose error_pose) {
+    std::cout << "LQR:using forwards angle" << std::endl;
     const Eigen::Vector2f error(error_pose.x.internal(),
                                 error_pose.orientation.internal());
 
@@ -227,16 +236,27 @@ DifferentialSpeeds LTVUnicycleController::update(PathPoseFeedbackT state,
 LTVUnicycleController::LTVUnicycleController() {}
 
 LTVUnicycleController::LTVUnicycleController(std::array<float, 3> Q,
+                                             std::array<float, 2> simple_Q,
                                              std::array<float, 2> R,
                                              Time input_delay,
                                              LinearVelocity minimum_velocity)
     : m_Q(Q),
+      m_simple_Q(simple_Q),
       m_R(R),
       m_input_delay(input_delay),
       m_minimum_velocity(minimum_velocity) {
     precomputeforwardsAngleFeedback();
 }
 
+LTVUnicycleController::LTVUnicycleController(std::array<float, 3> Q,
+                                             std::array<float, 2> R,
+                                             Time input_delay,
+                                             LinearVelocity minimum_velocity)
+    : LTVUnicycleController(Q,
+                            { Q[0], Q[2] },
+                            R,
+                            input_delay,
+                            minimum_velocity) {}
 } // namespace state_space
 } // namespace lyfast
 } // namespace blazing

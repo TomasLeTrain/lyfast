@@ -285,8 +285,8 @@ class PathFollow : public Motion<ControllersType,
                   // << 0 << " " << 0 << " "
                   // << actual_volt_left.internal() << " "
                   // << actual_volt_right.internal() << " "
-                  << feedback_velocities.linear_velocity.internal() << " "
-                  << feedback_velocities.angular_velocity.internal() << " "
+                  << reference_speeds.linear_velocity.internal() << " "
+                  << reference_speeds.angular_velocity.internal() << " "
                   << actual_volt_left.internal() << " "
                   << actual_volt_right.internal() << " "
                   << position.x.convert(in) << " " << position.y.convert(in)

@@ -346,6 +346,9 @@ std::array<float, 3> Q { (40_in).internal(),
                          // (5_stDeg).internal() };
                          (90_stDeg).internal() };
 
+// [x, theta]
+std::array<float, 2> simple_Q { (20_in).internal(), (130_stDeg).internal() };
+
 std::array<float, 2> R { // max velocity
                          max_velocity.internal(),
                          // max angular velocity
@@ -353,10 +356,10 @@ std::array<float, 2> R { // max velocity
 };
 
 Time input_delay = 40_msec;
-LinearVelocity lqr_minimum_velocity = 0.5_inps;
+LinearVelocity lqr_minimum_velocity = 4.0_inps;
 
 blazing::lyfast::state_space::LTVUnicycleController
-  lqr_controller(Q, R, 0_msec, lqr_minimum_velocity);
+  lqr_controller(Q, simple_Q, R, 0_msec, lqr_minimum_velocity);
 
 lyfast::PathPoseFeedbackController<decltype(lqr_controller)>
   path_pose_feedback_controller(lqr_controller);
