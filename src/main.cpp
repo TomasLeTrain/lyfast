@@ -138,7 +138,7 @@ lyfast::DifferentialVelocityControllerParams vel_controller_params {
 		.left_Ks = 0.08 * volt,
 
 		// .right_Kv = 0.49 * volt / mps,
-		.right_Kv = 0.46 * volt / mps,
+		.right_Kv = 0.47 * volt / mps,
 		.right_Ka = 0.09 * volt / mps2,
 		// .right_low_target_Kv = 0.42 * volt / mps,
 		// .right_low_target_Ka = 0.0 * volt / mps2,
@@ -147,32 +147,32 @@ lyfast::DifferentialVelocityControllerParams vel_controller_params {
 		.Ka_delta_time = 20_msec,
 		// .low_target_threshold = 2_inps
 		// .low_target_threshold = 4_inps
-		.low_target_threshold = 0_inps
+		.low_target_threshold = -1_inps
 	},
 	.angular = {
 		// .left_Kv = 0.87 * volt / mps,
 		// .left_Kv = 0.7 * volt / mps,
-		.left_Kv = 0.50 * volt / mps,
+		.left_Kv = 0.60 * volt / mps,
+		.left_Ka = 0.08 * volt / mps2,
 		// .left_Ka = 0.10 * volt / mps2,
 		// .left_Ka = 0.08 * volt / mps2,
-		.left_Ka = 0.10 * volt / mps2,
-		.left_low_target_Kv = 0.5 * volt / mps,
-		.left_low_target_Ka = 0.0 * volt / mps2,
+		.left_low_target_Kv = 0.4 * volt / mps,
+		.left_low_target_Ka = 0.03 * volt / mps2,
 		.left_Ks = 0.08 * volt,
 
 		// .right_Kv = 0.87 * volt / mps,
-		.right_Kv = 0.50 * volt / mps,
+		.right_Kv = 0.60 * volt / mps,
 		// .right_Ka = 0.10 * volt / mps2,
 		// .right_Ka = 0.08 * volt / mps2,
-		.right_Ka = 0.10 * volt / mps2,
-		.right_low_target_Kv = 0.5 * volt / mps,
-		.right_low_target_Ka = 0.0 * volt / mps2,
+		.right_Ka = 0.08 * volt / mps2,
+		.right_low_target_Kv = 0.4 * volt / mps,
+		.right_low_target_Ka = 0.03 * volt / mps2,
 		.right_Ks = 0.08 * volt,
 
 
 		.Ka_delta_time = 20_msec,
 		// .low_target_threshold = 2_inps
-		.low_target_threshold = 0_inps
+		.low_target_threshold = 7_inps
 	},
 	.linear_pid = {
 		.left_Kp = 1.5 * volt / mps,
@@ -341,13 +341,13 @@ FAngularVelocity max_angular_velocity = (max_velocity / track_radius) * Frad;
 
 std::array<float, 3> Q { (40_in).internal(),
                          // (6_in).internal(),
-                         (3_in).internal(),
+                         (5_in).internal(),
                          // (1_in).internal(),
                          // (5_stDeg).internal() };
-                         (90_stDeg).internal() };
+                         (180_stDeg).internal() };
 
 // [x, theta]
-std::array<float, 2> simple_Q { (20_in).internal(), (130_stDeg).internal() };
+std::array<float, 2> simple_Q { (30_in).internal(), (100_stDeg).internal() };
 
 std::array<float, 2> R { // max velocity
                          max_velocity.internal(),
