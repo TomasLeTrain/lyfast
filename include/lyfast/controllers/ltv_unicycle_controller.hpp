@@ -3,6 +3,7 @@
 #include "blazing/utils.hpp"
 #include "lyfast/controllers/path_pose_feedback.hpp"
 #include "units/Pose.hpp"
+#include "units/units.hpp"
 
 namespace blazing {
 namespace lyfast {
@@ -27,18 +28,25 @@ struct LTVUnicycleController {
     State m_state;
     State m_next_reference;
     State m_current_reference;
-    Time m_delta_time = 10_msec;
+
+    // used to determine if delta time has changed
+    Time m_last_delta_time = -1_sec;
+    Time m_delta_time = 20_msec;
+
     std::optional<DifferentialSpeeds> m_input = std::nullopt;
+    std::array<float, 4> m_simpler_feedback;
 
     std::array<float, 3> m_Q;
     std::array<float, 2> m_R;
     FTime m_input_delay = 0_msec;
+    LinearVelocity m_minimum_velocity = 0_mps;
 
   public:
     void setState(State new_state);
     void setNextReference(State new_reference);
     void setDeltaTime(Time delta_time);
     void setTimeDelay(Time time_delay);
+    void setMinimumVelocity(LinearVelocity minimum_velocity);
 
     std::optional<DifferentialSpeeds> getInput();
 
@@ -48,6 +56,11 @@ struct LTVUnicycleController {
     // R matrix determined by bryson's rule
     void setRMatrix(std::array<float, 2> R);
 
+    void precomputeforwardsAngleFeedback();
+
+    DifferentialSpeeds forwardsAngleCompute(units::Pose error_pose);
+    DifferentialSpeeds fullCompute(units::Pose error_pose);
+
     void compute();
 
     DifferentialSpeeds
@@ -56,7 +69,8 @@ struct LTVUnicycleController {
     LTVUnicycleController();
     LTVUnicycleController(std::array<float, 3> Q,
                           std::array<float, 2> R,
-                          Time input_delay = 0_msec);
+                          Time input_delay = 0_msec,
+                          LinearVelocity minimum_velocity = 0_mps);
 };
 
 } // namespace state_space

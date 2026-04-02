@@ -152,19 +152,19 @@ lyfast::DifferentialVelocityControllerParams vel_controller_params {
 	.angular = {
 		// .left_Kv = 0.87 * volt / mps,
 		// .left_Kv = 0.7 * volt / mps,
-		.left_Kv = 0.8 * volt / mps,
+		.left_Kv = 0.50 * volt / mps,
 		// .left_Ka = 0.10 * volt / mps2,
 		// .left_Ka = 0.08 * volt / mps2,
-		.left_Ka = 0.07 * volt / mps2,
+		.left_Ka = 0.10 * volt / mps2,
 		.left_low_target_Kv = 0.5 * volt / mps,
 		.left_low_target_Ka = 0.0 * volt / mps2,
 		.left_Ks = 0.08 * volt,
 
 		// .right_Kv = 0.87 * volt / mps,
-		.right_Kv = 0.8 * volt / mps,
+		.right_Kv = 0.50 * volt / mps,
 		// .right_Ka = 0.10 * volt / mps2,
 		// .right_Ka = 0.08 * volt / mps2,
-		.right_Ka = 0.07 * volt / mps2,
+		.right_Ka = 0.10 * volt / mps2,
 		.right_low_target_Kv = 0.5 * volt / mps,
 		.right_low_target_Ka = 0.0 * volt / mps2,
 		.right_Ks = 0.08 * volt,
@@ -275,8 +275,8 @@ TrackingImu tracking_imu(&imu);
 ArcOdomTracker arc_pose_tracker({ &forwards_tracker,
                                   &left_motor_tracker,
                                   &right_motor_tracker },
-                                { &sideways_tracker },
-                                // {},
+                                // { &sideways_tracker },
+                                {},
                                 { &tracking_imu });
 
 // controller stuff
@@ -340,11 +340,11 @@ FLinearVelocity max_velocity = 76_Finps;
 FAngularVelocity max_angular_velocity = (max_velocity / track_radius) * Frad;
 
 std::array<float, 3> Q { (40_in).internal(),
-                         (6_in).internal(),
-                         // (3_in).internal(),
+                         // (6_in).internal(),
+                         (3_in).internal(),
                          // (1_in).internal(),
                          // (5_stDeg).internal() };
-                         (45_stDeg).internal() };
+                         (90_stDeg).internal() };
 
 std::array<float, 2> R { // max velocity
                          max_velocity.internal(),
@@ -353,9 +353,10 @@ std::array<float, 2> R { // max velocity
 };
 
 Time input_delay = 40_msec;
+LinearVelocity lqr_minimum_velocity = 0.5_inps;
 
 blazing::lyfast::state_space::LTVUnicycleController
-  lqr_controller(Q, R, 0_msec);
+  lqr_controller(Q, R, 0_msec, lqr_minimum_velocity);
 
 lyfast::PathPoseFeedbackController<decltype(lqr_controller)>
   path_pose_feedback_controller(lqr_controller);
@@ -791,16 +792,72 @@ void trajectoryDebugPrint(const lyfast::mp::Trajectory* trajectory) {
     }
 }
 
+std::shared_ptr<lyfast::geometry::Line>
+line(float x0, float y0, float x1, float y1) {
+    return std::make_shared<lyfast::geometry::Line>(
+      units::V2FPosition { from_in(x0), from_in(y0) },
+      units::V2FPosition { from_in(x1), from_in(y1) });
+}
+
+std::shared_ptr<lyfast::geometry::CubicBezier> curve(float x0,
+                                                     float y0,
+                                                     float x1,
+                                                     float y1,
+                                                     float x2,
+                                                     float y2,
+                                                     float x3,
+                                                     float y3) {
+    return std::make_shared<lyfast::geometry::CubicBezier>(
+      units::V2FPosition { from_in(x0), from_in(y0) },
+      units::V2FPosition { from_in(x1), from_in(y1) },
+      units::V2FPosition { from_in(x2), from_in(y2) },
+      units::V2FPosition { from_in(x3), from_in(y3) });
+}
+
+namespace skills_paths {
+auto start_TO_in_red_park = line(-44.125, 0.039, -61.257, 0.363);
+auto in_red_park_TO_out_of_red = line(-61.257, 0.363, -44.365, 0.235);
+auto out_of_red_TO_get_blue_middle =
+  curve(-44.365, 0.235, -30.572, -0.922, -16.487, 8.767, -17.78, 17.656);
+auto get_blue_middle_TO_score_middle = line(-17.78, 17.656, -13.179, 12.513);
+auto score_middle_TO_ull =
+  curve(-13.179, 12.513, -30.308, 27.086, -32.253, 47.2, -37.891, 47.2);
+auto ull_TO_uls = line(-37.891, 47.2, -30.06, 47.2);
+auto uls_TO_ulm = line(-30.06, 47.2, -57.173, 46.7);
+auto ulm_TO_url1 =
+  curve(-57.173, 46.7, -32.88, 47.3, -40.033, 62.034, 20.091, 60.741);
+auto url1_TO_urls =
+  curve(20.091, 60.741, 40.295, 60.58, 48.707, 45.952, 30.528, 46.68);
+auto urls_TO_urm = line(30.528, 46.68, 56.959, 46.195);
+auto urm_TO_urls2 = line(56.959, 46.195, 30.776, 46.518);
+auto urls2_TO_ur_cluster =
+  curve(30.776, 46.518, 40.635, 46.195, 27.22, 37.467, 30.776, 31.164);
+auto ur_cluster_TO_blue_park = line(30.776, 31.164, 44.859, -0.234);
+auto blue_park_TO_in_blue_park = line(44.859, -0.234, 61.945, -0.234);
+auto in_blue_park_TO_blue_park2 = line(61.945, -0.234, 45.304, -0.056);
+auto blue_park2_TO_go_bottom = line(45.304, -0.056, 16.95, 18.346);
+auto go_bottom_TO_bottom_score = line(16.95, 18.346, 11.967, 12.295);
+auto bottom_score_TO_back_bottom = line(11.967, 12.295, 16.594, 16.389);
+auto back_bottom_TO_dr_cluster = line(16.594, 16.389, 23.741, -23.427);
+auto dr_cluster_TO_drl =
+  curve(23.741, -23.427, 36.435, -44.03, 35.082, -46.916, 39.523, -46.844);
+auto drl_TO_drls = line(39.523, -46.844, 29.949, -47.059);
+auto drls_TO_drm = line(29.949, -47.059, 57.098, -47.059);
+auto drm_TO_dll =
+  curve(57.098, -47.059, 25.566, -49.3, 48.236, -64.96, -22.032, -60.53);
+auto dll_TO_dls =
+  curve(-22.032, -60.53, -37.44, -60.465, -45.449, -47.829, -29.875, -47.384);
+auto dls_TO_dlm = line(-29.875, -47.384, -56.502, -47.295);
+auto dlm_TO_dls2 = line(-56.502, -47.295, -29.538, -47.384);
+auto dls2_TO_ending =
+  curve(-29.538, -47.384, -64.6, -36.493, -61.239, -20.894, -62.307, -0.693);
+} // namespace skills_paths
+
 void path_follow_test() {
-
-
-
-
 
     using namespace blazing::lyfast;
     using namespace blazing::lyfast::geometry;
     using namespace blazing::lyfast::mp;
-    arc_pose_tracker.setPose({ -23.6_in, 0_in, 0_stDeg });
     //
     std::shared_ptr<Line> line(new Line({ -23.6_in, 0_in }, { 0_in, 0_in }));
     std::shared_ptr<CubicBezier> bezier(new CubicBezier({ 0_in, 0_in },
@@ -808,25 +865,32 @@ void path_follow_test() {
                                                         { 23.6_in, 23.6_in },
                                                         { 47.2_in, 23.6_in }));
 
-    // // TODO: fix whatever is wrong with spline thingy
     std::shared_ptr<geometry::Spline> spline_ptr { new Spline(
       { line, bezier }) };
-    //   { bezier }) };
-    //
+
+    // auto spline_ptr = skills_paths::score_middle_TO_ull;
+
+    auto start_position = spline_ptr->getFirstEndpoint();
+    auto start_angle = spline_ptr->df(0).getAngle();
+    arc_pose_tracker.setPose({ start_position, start_angle });
+
     RobotConstraints robot_constraints(
       10.5_in, // track with
-      0.05, // friction coeff - should tune?
+      // 0.05, // friction coeff - should tune?
+      1.00, // friction coeff - should tune?
       3.25_in, // wheel diameter
       389_rpm, // max ang vel - determined somewhat from data
       6.7_kg, // about 14.8 lbs
       // 1.36f); // motor count - determined somewhat from data
-      2.5f); // motor count - determined somewhat from data
+      // 2.5f); // motor count - determined somewhat from data
+      3.0f); // motor count - determined somewhat from data
 
     LinearConstraints linear_constraints(
       70_inps, // max vel - for testing
       // 20.0_inps2, // max accel - for testing
       10000.0_inps2, // max accel - for testing
-      150_inps2 // max decel - for testing also
+      // 150_inps2 // max decel - for testing also
+      200_inps2 // max decel - for testing also
     );
     //
     // // TODO: what is the difference between angular accel/decel?
@@ -1131,11 +1195,11 @@ void timeCriticalTask() {
                 auto curr_drivetrain_voltages =
                   drivetrain_plant.getCommandedVoltages();
 
-                DifferentialSpeeds speeds =
-                  std::holds_alternative<DifferentialSpeeds>(
-                    drivetrain_plant.getTarget()) ?
-                    std::get<DifferentialSpeeds>(drivetrain_plant.getTarget()) :
-                    DifferentialSpeeds { 0_inps, 0_radps };
+                // DifferentialSpeeds speeds =
+                //   std::holds_alternative<DifferentialSpeeds>(
+                //     drivetrain_plant.getTarget()) ?
+                //     std::get<DifferentialSpeeds>(drivetrain_plant.getTarget())
+                //     : DifferentialSpeeds { 0_inps, 0_radps };
 
                 // std::cout
                 //   <<
@@ -1457,8 +1521,6 @@ void odom_offset_tuning() {
     sideways_odom_rotation.set_position(0);
     forwards_odom_rotation.set_position(0);
     pros::delay(10);
-
-    float pct = 0.5;
 
     double last_sideways_rotation = sideways_odom_rotation.get_position();
     double last_forwards_rotation = forwards_odom_rotation.get_position();
