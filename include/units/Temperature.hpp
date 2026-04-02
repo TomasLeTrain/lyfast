@@ -134,20 +134,6 @@ struct LookupName<Quantity<std::ratio<0>,
     using Named = FTemperature;
 };
 
-template<>
-struct std::formatter<Temperature> : std::formatter<double> {
-    auto format(const Temperature& quantity, std::format_context& ctx) const {
-        return std::format_to(ctx.out(), "{}_k", quantity.internal());
-    }
-};
-
-template<>
-struct std::formatter<FTemperature> : std::formatter<float> {
-    auto format(const FTemperature& quantity, std::format_context& ctx) const {
-        return std::format_to(ctx.out(), "{}_k", quantity.internal());
-    }
-};
-
 inline std::ostream& operator<<(std::ostream& os, const Temperature& quantity) {
     os << quantity.internal() << " k";
     return os;

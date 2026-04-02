@@ -113,7 +113,7 @@ size_t Trajectory::indexByKeyframe(std::variant<float, FLength>& keyframe) {
     if (std::holds_alternative<float>(keyframe)) {
         // indexed by spline time
         // first clamp to be in correct range
-        spline_time = units::clamp(get<float>(keyframe), 0, 1);
+        spline_time = units::clamp(get<float>(keyframe), 0.f, 1.f);
 
         // calculate distance from the spline time
         target_dist = curve->s(spline_time);

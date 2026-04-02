@@ -68,15 +68,6 @@ struct LookupName<Quantity<std::ratio<0>,
     using Named = Angle;
 };
 
-template<>
-struct std::formatter<Angle> : std::formatter<double> {
-    auto format(const Angle& number, std::format_context& ctx) const {
-        auto formatted_float =
-          std::formatter<double>::format(number.internal(), ctx);
-        return std::format_to(formatted_float, "_stRad");
-    }
-};
-
 inline std::ostream& operator<<(std::ostream& os, const Angle& quantity) {
     os << quantity.internal() << " rad";
     return os;
@@ -146,15 +137,6 @@ struct LookupName<Quantity<std::ratio<0>,
                            std::ratio<0>,
                            float>> {
     using Named = FAngle;
-};
-
-template<>
-struct std::formatter<FAngle> : std::formatter<float> {
-    auto format(const FAngle& number, std::format_context& ctx) const {
-        auto formatted_float =
-          std::formatter<float>::format(number.internal(), ctx);
-        return std::format_to(formatted_float, "_stRad");
-    }
 };
 
 inline std::ostream& operator<<(std::ostream& os, const FAngle& quantity) {

@@ -182,7 +182,7 @@ class EMAVelocityFilter : public VelocityEstimator<AngularVelocity> {
 
         last_derivative = voltage_derivative;
 
-        m_alpha_gain = units::clamp(m_alpha_gain, 0, 1);
+        m_alpha_gain = units::clamp(m_alpha_gain, 0.f, 1.f);
 
         m_last_predict_timestamp = pros::millis();
     }
