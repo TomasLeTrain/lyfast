@@ -107,7 +107,6 @@ SpeedOps(LeftRightVoltagesT);
 SpeedOps(DifferentialSpeedsT);
 SpeedOps(DifferentialVoltagesT);
 
-// TODO: could possibly explicitly instantiate?
 using LeftRightSpeeds = LeftRightSpeedsT<double>;
 using FLeftRightSpeeds = LeftRightSpeedsT<float>;
 
@@ -123,6 +122,10 @@ using FDifferentialVoltages = DifferentialVoltagesT<float>;
 // returns time since program started
 // uses pros::millis to get the information
 Time now();
+FTime Fnow();
+
+Time nowMicro();
+FTime FnowMicro();
 
 Divided<Number, Angle> sinc(Angle theta);
 
@@ -155,14 +158,15 @@ bool timeoutDone(std::optional<Time> timeout, Time start_time);
 // same as units::sgn, but returns 1.0 if the number is equal to zero (never
 // returns 0 for the sign)
 template<isQuantity Q>
-Number signed_sgn(Q num) {
-    return num.internal() >= 0.0 ? Number(1.0) : Number(-1.0);
+units::conditionalNumber<typename Q::floatType> signed_sgn(Q num) {
+    using NumberT = units::conditionalNumber<typename Q::floatType>;
+    return num.internal() >= 0.0 ? NumberT(1.0) : NumberT(-1.0);
 }
 
 // scales all values of saturated such that max(desaturated) <= max
 template<isQuantity T, size_t size>
 std::array<T, size> desaturate(std::array<T, size> saturated, T max) {
-    auto abs_compare = [](T a, T b) {
+    auto abs_compare = [](const T& a, const T& b) {
         return units::abs(a) < units::abs(b);
     };
 
@@ -174,55 +178,26 @@ std::array<T, size> desaturate(std::array<T, size> saturated, T max) {
         std::transform(saturated.cbegin(),
                        saturated.cend(),
                        saturated.begin(),
-                       [multiplier](T num) {
+                       [multiplier](const T& num) -> T {
                            return num * multiplier;
                        });
     };
     return saturated;
 }
 
-inline AngularVelocity gearingToVelocity(pros::MotorGears gearing) {
-    if (gearing == pros::MotorGears::rpm_600)
-        return 600_rpm;
-    else if (gearing == pros::MotorGears::rpm_200)
-        return 200_rpm;
-    else if (gearing == pros::MotorGears::rpm_100)
-        return 100_rpm;
-    // if encoder units are not set then it defaults to 200?
-    return 200_rpm;
-}
+// returns gearing of the motor as angular velocity
+FAngularVelocity gearingToVelocity(pros::MotorGears gearing);
 
 // gets the average angular velocity of the motor group
-inline AngularVelocity get_group_velocity(pros::MotorGroup* motors,
-                                          AngularVelocity final_rpm) {
-    AngularVelocity average_rpm = 0_rpm;
-
-    for (std::int8_t motor_i = 0; motor_i < motors->size(); motor_i++) {
-        auto zero_indexed_port = abs(motors->get_port(motor_i)) - 1;
-        bool installed = pros::DeviceType::motor ==
-                         (pros::DeviceType)pros::c::registry_get_plugged_type(
-                           zero_indexed_port);
-        if (!installed) continue;
-
-        double velocity = motors->get_actual_velocity(motor_i);
-        pros::MotorGears encoder_units = motors->get_gearing(motor_i);
-        AngularVelocity start_rpm = gearingToVelocity(encoder_units);
-        AngularVelocity actual_rpm = (velocity * rpm) * (final_rpm / start_rpm);
-
-        average_rpm += actual_rpm;
-    }
-
-    average_rpm /= motors->size();
-
-    return average_rpm;
-};
+FAngularVelocity getGroupVelocity(pros::MotorGroup* motors,
+                                  FAngularVelocity final_rpm);
 
 // gets the average linear velocity of the motor group
-LinearVelocity get_group_velocity(pros::MotorGroup* motors,
-                                  Length wheel_diameter,
-                                  AngularVelocity final_rpm);
+FLinearVelocity getGroupVelocity(pros::MotorGroup* motors,
+                                 FLength wheel_diameter,
+                                 FAngularVelocity final_rpm);
 
 // gets the average voltage of the motor group
-Voltage get_group_voltage(pros::MotorGroup* motors);
+FVoltage getGroupVoltage(pros::MotorGroup* motors);
 
 } // namespace blazing

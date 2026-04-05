@@ -93,9 +93,9 @@ class Motion : public MotionBase {
     ControllersType controllers;
     TolerancesType tolerances;
 
-    // these are taken by reference
-    TrackerType& tracker;
-    DrivetrainType& drivetrain;
+    // these are taken by pointer
+    TrackerType* tracker;
+    DrivetrainType* drivetrain;
 
   protected:
     std::optional<Time> chain_time = std::nullopt;
@@ -123,7 +123,7 @@ class Motion : public MotionBase {
     // attempt to override chain functions
     bool setEnabledDrivetrain(bool enabled) override {
         if constexpr (MotionChainableDrivetrain<DrivetrainType>) {
-            drivetrain.setEnabled(enabled);
+            drivetrain->setEnabled(enabled);
             return true;
         }
         return false;
@@ -131,14 +131,14 @@ class Motion : public MotionBase {
 
     std::optional<std::vector<Voltage>> getVoltagesDrivetrain() override {
         if constexpr (MotionChainableDrivetrain<DrivetrainType>) {
-            return drivetrain.getVoltages();
+            return drivetrain->getVoltages();
         }
         return std::nullopt;
     };
 
     bool moveVoltagesDrivetrain(std::vector<Voltage> voltages) override {
         if constexpr (MotionChainableDrivetrain<DrivetrainType>) {
-            drivetrain.moveVoltages(voltages);
+            drivetrain->moveVoltages(voltages);
             return true;
         }
         return false;

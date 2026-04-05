@@ -40,7 +40,7 @@ class Quantity {
     typedef Temperature temperature; /** temperature unit type */
     typedef Luminosity luminosity; /** luminosity unit type */
     typedef Moles moles; /** moles unit type */
-    typedef FloatType floatType; /** moles unit type */
+    typedef FloatType floatType; /** float type */
 
     using Self = Quantity<Mass,
                           Length,
@@ -119,7 +119,11 @@ class Quantity {
         return value;
     }
 
-    // TODO: document this
+    /**
+     * @brief convert the unit to a specified unit quantity. Similar to the to_* functions.
+     *
+     * @return constexpr value in the specified units
+     */
     constexpr FloatType convert(Self quantity) const {
         return value / quantity.value;
     }
@@ -622,7 +626,7 @@ constexpr bool operator>(const Q& lhs, const R& rhs)
         return quantity.internal();                                           \
     }
 
-#define NEW_UNIT_LITERAL2(Name, suffix, multiple, f)               \
+#define NEW_UNIT_LITERAL2(Name, suffix, multiple, f, NumberType)   \
     [[maybe_unused]]                                               \
     constexpr Name suffix = multiple;                              \
     constexpr Name operator""_##suffix(long double value) {        \
@@ -631,46 +635,40 @@ constexpr bool operator>(const Q& lhs, const R& rhs)
     constexpr Name operator""_##suffix(unsigned long long value) { \
         return static_cast<f>(value) * suffix;                     \
     }                                                              \
-    constexpr inline Name from_##suffix(Number value) {            \
+    constexpr inline Name from_##suffix(NumberType value) {        \
         return value.internal() * suffix;                          \
     }                                                              \
     constexpr inline f to_##suffix(Name quantity) {                \
         return quantity.convert(suffix);                           \
     }
 
-#define NEW_METRIC_PREFIXES2(Name, base, f)          \
-    NEW_UNIT_LITERAL2(Name, T##base, base * 1E12, f) \
-    NEW_UNIT_LITERAL2(Name, G##base, base * 1E9, f)  \
-    NEW_UNIT_LITERAL2(Name, M##base, base * 1E6, f)  \
-    NEW_UNIT_LITERAL2(Name, k##base, base * 1E3, f)  \
-    NEW_UNIT_LITERAL2(Name, c##base, base / 1E2, f)  \
-    NEW_UNIT_LITERAL2(Name, m##base, base / 1E3, f)  \
-    NEW_UNIT_LITERAL2(Name, u##base, base / 1E6, f)  \
-    NEW_UNIT_LITERAL2(Name, n##base, base / 1E9, f)
+#define NEW_METRIC_PREFIXES2(Name, base, f, NumberType)          \
+    NEW_UNIT_LITERAL2(Name, T##base, base * 1E12, f, NumberType) \
+    NEW_UNIT_LITERAL2(Name, G##base, base * 1E9, f, NumberType)  \
+    NEW_UNIT_LITERAL2(Name, M##base, base * 1E6, f, NumberType)  \
+    NEW_UNIT_LITERAL2(Name, k##base, base * 1E3, f, NumberType)  \
+    NEW_UNIT_LITERAL2(Name, c##base, base / 1E2, f, NumberType)  \
+    NEW_UNIT_LITERAL2(Name, m##base, base / 1E3, f, NumberType)  \
+    NEW_UNIT_LITERAL2(Name, u##base, base / 1E6, f, NumberType)  \
+    NEW_UNIT_LITERAL2(Name, n##base, base / 1E9, f, NumberType)
+
+#define NEW_METRIC_PREFIXES_FLOAT(Name, base, f, NumberType)      \
+    NEW_UNIT_LITERAL2(Name, FT##base, base * 1E12, f, NumberType) \
+    NEW_UNIT_LITERAL2(Name, FG##base, base * 1E9, f, NumberType)  \
+    NEW_UNIT_LITERAL2(Name, FM##base, base * 1E6, f, NumberType)  \
+    NEW_UNIT_LITERAL2(Name, Fk##base, base * 1E3, f, NumberType)  \
+    NEW_UNIT_LITERAL2(Name, Fc##base, base / 1E2, f, NumberType)  \
+    NEW_UNIT_LITERAL2(Name, Fm##base, base / 1E3, f, NumberType)  \
+    NEW_UNIT_LITERAL2(Name, Fu##base, base / 1E6, f, NumberType)  \
+    NEW_UNIT_LITERAL2(Name, Fn##base, base / 1E9, f, NumberType)
 
 template<>
-struct LookupName<Quantity<std::ratio<0>,
-                           std::ratio<0>,
-                           std::ratio<0>,
-                           std::ratio<0>,
-                           std::ratio<0>,
-                           std::ratio<0>,
-                           std::ratio<0>,
-                           std::ratio<0>,
-                           double>> {
+struct LookupName<QDimensionless<double>> {
     using Named = Number;
 };
 
 template<>
-struct LookupName<Quantity<std::ratio<0>,
-                           std::ratio<0>,
-                           std::ratio<0>,
-                           std::ratio<0>,
-                           std::ratio<0>,
-                           std::ratio<0>,
-                           std::ratio<0>,
-                           std::ratio<0>,
-                           float>> {
+struct LookupName<QDimensionless<float>> {
     using Named = FNumber;
 };
 
@@ -678,13 +676,13 @@ struct LookupName<Quantity<std::ratio<0>,
     NEW_UNIT2(F##name, F##suffix, m, l, t, i, a, o, j, n, float) \
     NEW_UNIT2(name, suffix, m, l, t, i, a, o, j, n, double)
 
-#define NEW_UNIT_LITERAL(Name, suffix, multiple)                    \
-    NEW_UNIT_LITERAL2(F##Name, F##suffix, F##Name(multiple), float) \
-    NEW_UNIT_LITERAL2(Name, suffix, multiple, double)
+#define NEW_UNIT_LITERAL(Name, suffix, multiple)                             \
+    NEW_UNIT_LITERAL2(F##Name, F##suffix, F##Name(multiple), float, FNumber) \
+    NEW_UNIT_LITERAL2(Name, suffix, multiple, double, Number)
 
-#define NEW_METRIC_PREFIXES(Name, base)           \
-    NEW_METRIC_PREFIXES2(F##Name, F##base, float) \
-    NEW_METRIC_PREFIXES2(Name, base, double)
+#define NEW_METRIC_PREFIXES(Name, base)                    \
+    NEW_METRIC_PREFIXES_FLOAT(Name, base, float, FNumber) \
+    NEW_METRIC_PREFIXES2(Name, base, double, Number)
 
 NEW_UNIT(Mass, kg, 1, 0, 0, 0, 0, 0, 0, 0)
 NEW_UNIT_LITERAL(Mass, g, kg / 1000)

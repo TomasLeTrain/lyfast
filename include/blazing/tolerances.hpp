@@ -13,8 +13,8 @@ class ToleranceBase {
     std::optional<bool> in_tolerance = std::nullopt;
     bool m_stop_instantly = false;
 
-    void update_in_tolerance(std::optional<bool> tolerance,
-                             bool stop_instantly = false) {
+    void updateInTolerance(std::optional<bool> tolerance,
+                           bool stop_instantly = false) {
         if (in_tolerance.has_value()) {
             if (tolerance.has_value())
                 in_tolerance = in_tolerance.value() && tolerance.value();
@@ -45,7 +45,7 @@ class ErrorTolerance : virtual ToleranceBase {
                                            return units::abs(error) < tolerance;
                                        })
                                        .value_or(false);
-        update_in_tolerance(curr_tolerance_active);
+        updateInTolerance(curr_tolerance_active);
     }
 };
 
@@ -70,7 +70,7 @@ class VelocityTolerance : virtual ToleranceBase {
             })
             .value_or(false);
 
-        update_in_tolerance(curr_tolerance_active);
+        updateInTolerance(curr_tolerance_active);
     }
 };
 
@@ -132,7 +132,7 @@ class HalfCircleTolerance : virtual ToleranceBase {
         // does not mess with other tolerances, only determines an instant exit
         // TODO: should it be a normal exit (with timeout) but override whether
         // others are active?
-        update_in_tolerance(std::nullopt, curr_tolerance_active);
+        updateInTolerance(std::nullopt, curr_tolerance_active);
     }
 };
 

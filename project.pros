@@ -785,7 +785,7 @@
                 "version": "5.0.1"
             },
             "blazing": {
-                "location": "/home/tomas/.config/pros/templates/blazing@0.0.20",
+                "location": "/home/tomas/.config/pros/templates/blazing@0.0.21",
                 "metadata": {
                     "origin": "local"
                 },
@@ -812,6 +812,7 @@
                     "include/blazing/motion_builder.hpp",
                     "include/blazing/controllers/feedback/pid.hpp",
                     "include/blazing/trackers/simple_odom.hpp",
+                    "include/blazing/latex_utils.hpp",
                     "include/blazing/motions/boomerang.hpp",
                     "include/blazing/executor.hpp",
                     "include/blazing/motions/moveTo.hpp",
@@ -819,10 +820,10 @@
                 ],
                 "target": "v5",
                 "user_files": [],
-                "version": "0.0.20"
+                "version": "0.0.21"
             },
             "float_units": {
-                "location": "/home/tomas/.config/pros/templates/float_units@0.7.5",
+                "location": "/home/tomas/.config/pros/templates/float_units@0.7.6",
                 "metadata": {
                     "origin": "local"
                 },
@@ -842,7 +843,7 @@
                 ],
                 "target": "v5",
                 "user_files": [],
-                "version": "0.7.5"
+                "version": "0.7.6"
             },
             "kernel": {
                 "location": "/home/tomass/.config/pros/templates/kernel@4.2.1",

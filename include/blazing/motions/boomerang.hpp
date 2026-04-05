@@ -100,7 +100,7 @@ class boomerang : public Motion<ControllersType,
                         .crossed_sideways = false,
                         .close = false,
                         .initial_side = std::nullopt,
-                        .prev_position = this->tracker.getPosition() };
+                        .prev_position = this->tracker->getPosition() };
             // done to prevent values like delta_time being 0
             return std::nullopt;
         }
@@ -111,10 +111,10 @@ class boomerang : public Motion<ControllersType,
         // should never equal 0_sec
         Time delta_time = deltaTime(state.last_time);
 
-        const units::V2Position position = this->tracker.getPosition();
+        const units::V2Position position = this->tracker->getPosition();
 
         const Angle heading = [&] {
-            const Angle heading = this->tracker.getAngle();
+            const Angle heading = this->tracker->getAngle();
             return reversed ? reverseAngle(heading) : heading;
         }();
 
@@ -238,7 +238,7 @@ class boomerang : public Motion<ControllersType,
         // update tolerances if they are included
         this->tolerances.linearErrorToleranceUpdate(linear_error);
         this->tolerances.linearVelocityToleranceUpdate(
-          this->tracker.getLinearVelocity());
+          this->tracker->getLinearVelocity());
         this->tolerances.linearHalfcircleToleranceUpdate(
           position,
           target_pose,
@@ -267,7 +267,7 @@ class boomerang : public Motion<ControllersType,
 
         // finished if any of the available tolerances or timeout are triggered
         if (result.finished) {
-            this->drivetrain.moveArcade(0_volt, 0_volt);
+            this->drivetrain->moveArcade(0_volt, 0_volt);
             // returns immediately to avoid more movement
             return result;
         }
@@ -342,9 +342,9 @@ class boomerang : public Motion<ControllersType,
                 // TODO: apply voltage clamp/slew? probably not
 
                 auto [left_vel, right_vel] =
-                  this->drivetrain.getDrivetrainVelocities();
+                  this->drivetrain->getDrivetrainVelocities();
                 auto [actual_volt_left, actual_volt_right] =
-                  this->drivetrain.getDrivetrainVoltages();
+                  this->drivetrain->getDrivetrainVoltages();
 
                 // std::cout << std::fixed;
                 // std::cout << std::setprecision(5);
@@ -365,7 +365,7 @@ class boomerang : public Motion<ControllersType,
                 //           << projected_cte_error.convert(in) << " "
                 //           << angular_error.internal() << std::endl;
 
-                this->drivetrain.moveTank(left_voltage, right_voltage);
+                this->drivetrain->moveTank(left_voltage, right_voltage);
 
                 // we return here, so none of the below code executes
                 return result;
@@ -448,7 +448,7 @@ class boomerang : public Motion<ControllersType,
               this->controllers.angular_slew.apply(angular_output, delta_time);
         }
 
-        this->drivetrain.moveArcade(linear_output, angular_output);
+        this->drivetrain->moveArcade(linear_output, angular_output);
 
         return result;
     }

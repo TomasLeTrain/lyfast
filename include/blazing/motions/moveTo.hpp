@@ -102,9 +102,9 @@ class moveTo
         // should never equal 0_sec
         Time delta_time = deltaTime(state.last_time);
 
-        const units::V2Position position = this->tracker.getPosition();
+        const units::V2Position position = this->tracker->getPosition();
         const Angle heading = [&] -> Angle {
-            const Angle heading = this->tracker.getAngle();
+            const Angle heading = this->tracker->getAngle();
             return reversed ? reverseAngle(heading) : heading;
         }();
 
@@ -175,7 +175,7 @@ class moveTo
         this->tolerances.linearErrorToleranceUpdate(linear_error);
 
         this->tolerances.linearVelocityToleranceUpdate(
-          this->tracker.getLinearVelocity());
+          this->tracker->getLinearVelocity());
         // TODO: does half circle exit make sense here?
         this->tolerances.linearHalfcircleToleranceUpdate(position,
                                                          target_point,
@@ -204,7 +204,7 @@ class moveTo
 
         // finished if any of the available tolerances or timeout are triggered
         if (result.finished) {
-            this->drivetrain.moveArcade(0_volt, 0_volt);
+            this->drivetrain->moveArcade(0_volt, 0_volt);
             // returns immediately to avoid more movement
             return result;
         }
@@ -279,9 +279,9 @@ class moveTo
                 // TODO: apply voltage clamp/slew? probably not
 
                 auto [left_vel, right_vel] =
-                  this->drivetrain.getDrivetrainVelocities();
+                  this->drivetrain->getDrivetrainVelocities();
                 auto [actual_volt_left, actual_volt_right] =
-                  this->drivetrain.getDrivetrainVoltages();
+                  this->drivetrain->getDrivetrainVoltages();
 
                 // std::cout << std::fixed;
                 // std::cout << std::setprecision(5);
@@ -302,7 +302,7 @@ class moveTo
                 //           << projected_cte_error.convert(in) << " "
                 //           << angular_error.internal() << std::endl;
 
-                this->drivetrain.moveTank(left_voltage, right_voltage);
+                this->drivetrain->moveTank(left_voltage, right_voltage);
 
                 // we return here, so none of the below code executes
                 return result;
@@ -385,7 +385,7 @@ class moveTo
               this->controllers.angular_slew.apply(angular_output, delta_time);
         }
 
-        this->drivetrain.moveArcade(linear_output, angular_output);
+        this->drivetrain->moveArcade(linear_output, angular_output);
 
         return result;
     }

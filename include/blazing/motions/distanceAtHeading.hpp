@@ -75,7 +75,7 @@ class distanceAtHeading
     std::optional<motionExecutionResult> execute() override {
         if (!m_state.has_value()) {
             m_state = { .initial_forward_travel =
-                          this->tracker.getForwardTravel(),
+                          this->tracker->getForwardTravel(),
                         .start_time = now(),
                         .last_time = now(),
                         .linear_settled = false,
@@ -93,9 +93,9 @@ class distanceAtHeading
         // should never equal 0_sec
         Time delta_time = deltaTime(state.last_time);
 
-        Length forward_travel = this->tracker.getForwardTravel();
+        Length forward_travel = this->tracker->getForwardTravel();
         const Angle heading = [&] {
-            const Angle heading = this->tracker.getAngle();
+            const Angle heading = this->tracker->getAngle();
             return reversed ? reverseAngle(heading) : heading;
         }();
 
@@ -132,12 +132,12 @@ class distanceAtHeading
         // linear tolerances
         this->tolerances.linearErrorToleranceUpdate(linear_error);
         this->tolerances.linearVelocityToleranceUpdate(
-          this->tracker.getLinearVelocity());
+          this->tracker->getLinearVelocity());
 
         // angular tolerances
         this->tolerances.angularErrorToleranceUpdate(angular_error);
         this->tolerances.angularVelocityToleranceUpdate(
-          this->tracker.getAngularVelocity());
+          this->tracker->getAngularVelocity());
 
         auto updateTolerance = [](std::optional<bool>& tolerance,
                                   bool curr_in_tolerance) {
@@ -194,7 +194,7 @@ class distanceAtHeading
         // finished if any of the available tolerances or timeout are
         // triggered
         if (result.finished) {
-            this->drivetrain.moveArcade(0_volt, 0_volt);
+            this->drivetrain->moveArcade(0_volt, 0_volt);
             // returns immediately to avoid more movement
             return result;
         }
@@ -256,9 +256,9 @@ class distanceAtHeading
                 // TODO: apply voltage clamp/slew? probably not
 
                 auto [left_vel, right_vel] =
-                  this->drivetrain.getDrivetrainVelocities();
+                  this->drivetrain->getDrivetrainVelocities();
                 auto [actual_volt_left, actual_volt_right] =
-                  this->drivetrain.getDrivetrainVoltages();
+                  this->drivetrain->getDrivetrainVoltages();
 
                 // std::cout << std::fixed;
                 // std::cout << std::setprecision(5);
@@ -279,7 +279,7 @@ class distanceAtHeading
                 //           << projected_cte_error.convert(in) << " "
                 //           << angular_error.internal() << std::endl;
 
-                this->drivetrain.moveTank(left_voltage, right_voltage);
+                this->drivetrain->moveTank(left_voltage, right_voltage);
 
                 // we return here, so none of the below code executes
                 return result;
@@ -319,7 +319,7 @@ class distanceAtHeading
               this->controllers.angular_slew.apply(angular_output, delta_time);
         }
 
-        this->drivetrain.moveArcade(linear_output, angular_output);
+        this->drivetrain->moveArcade(linear_output, angular_output);
 
         return result;
     }
