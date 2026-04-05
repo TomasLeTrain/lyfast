@@ -97,8 +97,8 @@ class VelocityDifferentialDrivetrain : public ChainableDrivetrain {
     }
 
     LeftRightVoltages getDrivetrainVoltages() {
-        return LeftRightVoltages { get_group_voltage(m_left_motors),
-                                   get_group_voltage(m_right_motors) };
+        return LeftRightVoltages { getGroupVoltage(m_left_motors),
+                                   getGroupVoltage(m_right_motors) };
     }
 };
 } // namespace lyfast

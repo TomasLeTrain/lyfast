@@ -115,7 +115,7 @@ class EMAVelocityFilter : public VelocityEstimator<AngularVelocity> {
 
     // update input (voltage) based on motor data
     void updateInput() {
-        m_input = get_group_voltage(motor_group);
+        m_input = getGroupVoltage(motor_group);
     }
 
   public:

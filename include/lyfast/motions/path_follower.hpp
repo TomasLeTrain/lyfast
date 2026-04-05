@@ -78,7 +78,7 @@ class PathFollow : public Motion<ControllersType,
             m_state = {
                 .last_time = now(),
                 .start_time = now(),
-                .start_distance = this->tracker.getForwardTravel(),
+                .start_distance = this->tracker->getForwardTravel(),
             };
             // done to prevent values like delta_time being 0
             return std::nullopt;
@@ -90,9 +90,9 @@ class PathFollow : public Motion<ControllersType,
         const Time delta_time = deltaTime(state.last_time);
         const Time elapsed_motion_time = now() - state.start_time;
 
-        const units::V2Position position = this->tracker.getPosition();
+        const units::V2Position position = this->tracker->getPosition();
         const Angle heading = [&] -> Angle {
-            const Angle heading = this->tracker.getAngle();
+            const Angle heading = this->tracker->getAngle();
             return reversed ? reverseAngle(heading) : heading;
         }();
 
@@ -104,7 +104,7 @@ class PathFollow : public Motion<ControllersType,
                 // distance based
                 return target_trajectory->indexByDistance(units::max(
                   0_in,
-                  this->tracker.getForwardTravel() - state.start_distance));
+                  this->tracker->getForwardTravel() - state.start_distance));
             } else if (m_parameterization_type == closest_point_based) {
                 // closest point based
                 // TODO: add max lookahead dist to avoid skipping whole path
@@ -203,7 +203,7 @@ class PathFollow : public Motion<ControllersType,
         // update tolerances
         this->tolerances.linearErrorToleranceUpdate(distance_to_end);
         this->tolerances.linearVelocityToleranceUpdate(
-          this->tracker.getLinearVelocity());
+          this->tracker->getLinearVelocity());
         this->tolerances.linearHalfcircleToleranceUpdate(
           position,
           curve_endpoint.point,
@@ -233,7 +233,7 @@ class PathFollow : public Motion<ControllersType,
         // finished if any of the available tolerances or timeout are
         // triggered
         if (result.finished) {
-            this->drivetrain.moveArcade(0_volt, 0_volt);
+            this->drivetrain->moveArcade(0_volt, 0_volt);
             // returns immediately to avoid more movement
             return result;
         }
@@ -271,9 +271,9 @@ class PathFollow : public Motion<ControllersType,
 
         // linear and angular should be references for the velocity
         // controller
-        auto [left_vel, right_vel] = this->drivetrain.getDrivetrainVelocities();
+        auto [left_vel, right_vel] = this->drivetrain->getDrivetrainVelocities();
         auto [actual_volt_left, actual_volt_right] =
-          this->drivetrain.getDrivetrainVoltages();
+          this->drivetrain->getDrivetrainVoltages();
 
         std::cout << std::fixed;
         std::cout << std::setprecision(5);
@@ -301,13 +301,13 @@ class PathFollow : public Motion<ControllersType,
                   << std::endl;
 
         // update feedforward vel
-        this->drivetrain.moveArcade(
+        this->drivetrain->moveArcade(
           feedforward_velocities.linear_velocity,
           feedforward_velocities.angular_velocity,
           TargetFeedType { .feedforward = true, .feedback = false });
 
         // update feedback vel
-        this->drivetrain.moveArcade(
+        this->drivetrain->moveArcade(
           feedback_velocities.linear_velocity,
           feedback_velocities.angular_velocity,
           TargetFeedType { .feedforward = false, .feedback = true });

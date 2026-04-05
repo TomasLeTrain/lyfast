@@ -328,7 +328,7 @@ normalLargeChainTolerances tolerances(linearTolerances,
                                       chainAngularTolerances);
 
 // Chassis chassis(drivetrain, arc_pose_tracker, tolerances);
-Chassis velocity_chassis(velocity_drivetrain, arc_pose_tracker, tolerances);
+Chassis velocity_chassis(&velocity_drivetrain, &arc_pose_tracker, tolerances);
 
 RunExecutor run;
 AsyncExecutor async;
@@ -1309,7 +1309,7 @@ void test_motor_kv_ks_tuner() {
     auto voltage_func = [&](Voltage commanded_voltage) -> Voltage {
         // using either will return different values?
         // return commanded_voltage;
-        return get_group_voltage(&test_motor);
+        return getGroupVoltage(&test_motor);
     };
 
     auto data =
@@ -1435,12 +1435,12 @@ void test_motor_ka_tuner() {
     AngularVelocity final_rpm = 200_rpm;
 
     auto vel_func = [&]() -> AngularVelocity {
-        return get_group_velocity(&test_motor, final_rpm);
+        return getGroupVelocity(&test_motor, final_rpm);
     };
     auto voltage_func = [&](Voltage commanded_voltage) -> Voltage {
         // using either will return different values?
         // return commanded_voltage;
-        return get_group_voltage(&test_motor);
+        return getGroupVoltage(&test_motor);
     };
 
     auto data = AngularMotorGroupUtils::generateData(ka_commands,
