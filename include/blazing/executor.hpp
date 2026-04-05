@@ -31,7 +31,6 @@ template<typename M>
 constexpr void operator|(M&& motion, Executor& executor) {
     // creates a copy of the temporary motion object and creates one owned by
     // the executor
-
     executor.addMotion(std::make_unique<std::decay_t<M>>(std::move(motion)));
 }
 

@@ -785,7 +785,7 @@
                 "version": "5.0.1"
             },
             "blazing": {
-                "location": "/home/tomas/.config/pros/templates/blazing@0.0.21",
+                "location": "/home/tomas/.config/pros/templates/blazing@0.0.22",
                 "metadata": {
                     "origin": "local"
                 },
@@ -820,7 +820,7 @@
                 ],
                 "target": "v5",
                 "user_files": [],
-                "version": "0.0.21"
+                "version": "0.0.22"
             },
             "float_units": {
                 "location": "/home/tomas/.config/pros/templates/float_units@0.7.6",

@@ -10,9 +10,6 @@ struct Chassis {
     using trackerType = TrackerType;
     using tolerancesType = TolerancesType;
 
-    // WARNING: it is assumed drivetrain and tracker are global variables or
-    // have lifetimes thorughout the entire program duration
-    // TODO: should be ref wrappers?
 	DrivetrainType* drivetrain;
     TrackerType* tracker;
 

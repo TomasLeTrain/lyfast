@@ -112,14 +112,6 @@ class Motion : public MotionBase {
           tracker(chassis.tracker),
           drivetrain(chassis.drivetrain) {}
 
-    // no copiable
-    Motion(const Motion&) = delete;
-    Motion& operator=(const Motion&) = delete;
-
-    // movable
-    Motion(Motion&&) noexcept = default;
-    Motion& operator=(Motion&&) noexcept = default;
-
     // attempt to override chain functions
     bool setEnabledDrivetrain(bool enabled) override {
         if constexpr (MotionChainableDrivetrain<DrivetrainType>) {
