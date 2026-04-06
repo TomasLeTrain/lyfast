@@ -21,6 +21,17 @@ struct LeftRightSpeedsT {
     ConvertFloatType<LinearVelocity, floatType> left_vel;
     ConvertFloatType<LinearVelocity, floatType> right_vel;
 
+    LeftRightSpeedsT(ConvertFloatType<LinearVelocity, floatType> left_vel,
+                     ConvertFloatType<LinearVelocity, floatType> right_vel)
+        : left_vel(left_vel),
+          right_vel(right_vel) {}
+
+    template<typename OtherFloatType>
+    LeftRightSpeedsT(const LeftRightSpeedsT<OtherFloatType>& other) {
+        left_vel = other.left_vel;
+        right_vel = other.right_vel;
+    }
+
     constexpr LeftRightSpeedsT& operator+=(const LeftRightSpeedsT& rhs) {
         left_vel += rhs.left_vel;
         right_vel += rhs.right_vel;
@@ -38,6 +49,17 @@ template<typename floatType>
 struct LeftRightVoltagesT {
     ConvertFloatType<Voltage, floatType> left_voltage;
     ConvertFloatType<Voltage, floatType> right_voltage;
+
+    LeftRightVoltagesT(ConvertFloatType<Voltage, floatType> left_voltage,
+                       ConvertFloatType<Voltage, floatType> right_voltage)
+        : left_voltage(left_voltage),
+          right_voltage(right_voltage) {}
+
+    template<typename OtherFloatType>
+    LeftRightVoltagesT(const LeftRightVoltagesT<OtherFloatType>& other) {
+        left_voltage = other.left_voltage;
+        right_voltage = other.right_voltage;
+    }
 
     constexpr LeftRightVoltagesT& operator+=(const LeftRightVoltagesT& rhs) {
         left_voltage += rhs.left_voltage;
@@ -57,6 +79,18 @@ struct DifferentialSpeedsT {
     ConvertFloatType<LinearVelocity, floatType> linear_velocity;
     ConvertFloatType<AngularVelocity, floatType> angular_velocity;
 
+    DifferentialSpeedsT(
+      ConvertFloatType<LinearVelocity, floatType> linear_velocity,
+      ConvertFloatType<AngularVelocity, floatType> angular_velocity)
+        : linear_velocity(linear_velocity),
+          angular_velocity(angular_velocity) {}
+
+    template<typename OtherFloatType>
+    DifferentialSpeedsT(const DifferentialSpeedsT<OtherFloatType>& other) {
+        linear_velocity = other.linear_velocity;
+        angular_velocity = other.angular_velocity;
+    }
+
     constexpr DifferentialSpeedsT& operator+=(const DifferentialSpeedsT& rhs) {
         linear_velocity += rhs.linear_velocity;
         angular_velocity += rhs.angular_velocity;
@@ -74,6 +108,17 @@ template<typename floatType>
 struct DifferentialVoltagesT {
     ConvertFloatType<Voltage, floatType> linear_voltage;
     ConvertFloatType<Voltage, floatType> angular_voltage;
+
+    DifferentialVoltagesT(ConvertFloatType<Voltage, floatType> linear_voltage,
+                          ConvertFloatType<Voltage, floatType> angular_voltage)
+        : linear_voltage(linear_voltage),
+          angular_voltage(angular_voltage) {}
+
+    template<typename OtherFloatType>
+    DifferentialVoltagesT(const DifferentialVoltagesT<OtherFloatType>& other) {
+        linear_voltage = other.linear_voltage;
+        angular_voltage = other.angular_voltage;
+    }
 
     constexpr DifferentialVoltagesT&
     operator+=(const DifferentialVoltagesT& rhs) {

@@ -61,6 +61,14 @@ struct MotionPoint {
           heading(heading),
           arc_length(arc_length),
           spline_time(spline_time) {}
+
+    FDifferentialSpeeds calculateSpeeds() const {
+        return { vel, unit_cast<AngularVelocity>(vel * curvature) };
+    }
+
+    units::FPose pose() const {
+        return { point, heading };
+    }
 };
 
 class Trajectory {

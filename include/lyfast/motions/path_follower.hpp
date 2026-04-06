@@ -90,11 +90,13 @@ class PathFollow : public Motion<ControllersType,
         const Time delta_time = deltaTime(state.last_time);
         const Time elapsed_motion_time = now() - state.start_time;
 
-        const units::V2Position position = this->tracker->getPosition();
-        const Angle heading = [&] -> Angle {
-            const Angle heading = this->tracker->getAngle();
-            return reversed ? reverseAngle(heading) : heading;
+        // reverses heading if neccesary
+        auto applyHeadingReversal = [&](Angle angle) -> Angle {
+            return reversed ? reverseAngle(angle) : angle;
         }();
+
+        const units::V2Position position = this->tracker->getPosition();
+        const Angle heading = this->tracker->getAngle();
 
         int reference_idx = [&] {
             if (m_parameterization_type == time_based) {
@@ -140,58 +142,29 @@ class PathFollow : public Motion<ControllersType,
 
         const mp::MotionPoint& reference_motion_point =
           target_trajectory->getPoint(reference_idx);
-
-        units::Pose reference_pose = { reference_motion_point.point,
-                                       reference_motion_point.heading };
-
-        // used as the current state for the feedback controller
-        DifferentialSpeeds reference_speeds = {
-            reference_motion_point.vel,
-            Frad * reference_motion_point.vel * reference_motion_point.curvature
-        };
-
         const mp::MotionPoint& lookahead_motion_point =
           target_trajectory->getPoint(next_reference_idx);
 
-        // units::Pose lookahead_reference_pose = {
-        //     lookahead_motion_point.point,
-        //     lookahead_motion_point.heading
-        // };
+        units::Pose reference_pose = reference_motion_point.pose();
+        // changes heading to match backwards movement
+        reference_pose.orientation =
+          applyHeadingReversal(reference_pose.orientation);
+
+        // used as the current state for the feedback controller
+        DifferentialSpeeds reference_speeds =
+          reference_motion_point.calculateSpeeds();
 
         // used as feedforward velocities
-        DifferentialSpeeds lookahead_reference_speeds = {
-            lookahead_motion_point.vel,
-            Frad * lookahead_motion_point.vel * lookahead_motion_point.curvature
-        };
+        DifferentialSpeeds lookahead_reference_speeds =
+          lookahead_motion_point.calculateSpeeds();
 
-        // immediately next reference - target for the feedback control
-        // int k1_reference_idx = target_trajectory->indexByTime(
-        //   target_trajectory->getPoint(reference_idx).travel_time +
-        //     from_msec(getLoopDelayTime()),
-        //   // limit to minimum fixed_next_reference
-        //   fixed_next_reference);
-
-        // const mp::MotionPoint& k1_reference_motion_point =
-        //   target_trajectory->getPoint(k1_reference_idx);
-
-        // units::Pose k1_reference_pose = { k1_reference_motion_point.point,
-        //                                   k1_reference_motion_point.heading
-        //                                   };
-        //
-        // DifferentialSpeeds k1_reference_speeds = {
-        //     k1_reference_motion_point.vel,
-        //     Frad * k1_reference_motion_point.vel *
-        //       k1_reference_motion_point.curvature
-        // };
-
+        // reverse linear vels if needed
         double reverse_multiplier = reversed ? -1.0 : 1.0;
+        reference_speeds.linear_velocity *= reverse_multiplier;
+        lookahead_reference_speeds.linear_velocity *= reverse_multiplier;
 
         // TODO: add option for custom settling conditions (different
         // control law maybe)
-
-        // reverse linear_velocity if needed
-        reference_speeds.linear_velocity *= reverse_multiplier;
-        lookahead_reference_speeds.linear_velocity *= reverse_multiplier;
 
         // points used for tolerances
         const mp::MotionPoint& curve_endpoint =
@@ -271,7 +244,8 @@ class PathFollow : public Motion<ControllersType,
 
         // linear and angular should be references for the velocity
         // controller
-        auto [left_vel, right_vel] = this->drivetrain->getDrivetrainVelocities();
+        auto [left_vel, right_vel] =
+          this->drivetrain->getDrivetrainVelocities();
         auto [actual_volt_left, actual_volt_right] =
           this->drivetrain->getDrivetrainVoltages();
 

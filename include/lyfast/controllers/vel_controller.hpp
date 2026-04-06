@@ -359,22 +359,23 @@ class DrivetrainSideVelocityController {
     Voltage update(TargetT measurement, Time duration) {
         Voltage u_linear = m_linear.updateKvKa();
         Voltage u_angular = m_angular.updateKvKa();
-        Voltage u_linear_feedback =
-          m_linear_pid.unclampedUpdate(measurement.linear, duration);
-        Voltage u_angular_feedback =
-          m_angular_pid.unclampedUpdate(measurement.angular, duration);
+        // Voltage u_linear_feedback =
+        //   m_linear_pid.unclampedUpdate(measurement.linear, duration);
+        // Voltage u_angular_feedback =
+        //   m_angular_pid.unclampedUpdate(measurement.angular, duration);
 
         Voltage result =
-          u_linear + u_angular + u_linear_feedback + u_angular_feedback;
+          // u_linear + u_angular + u_linear_feedback + u_angular_feedback;
+          u_linear + u_angular;
 
         // apply ks only from linear output
         result = m_linear.applyKs(result);
 
         // apply final pid step
-        result = m_linear_pid.updateIntegralWithSaturation(result);
-        result = m_angular_pid.updateIntegralWithSaturation(result);
-        result = m_linear_pid.clampVoltage(result);
-        result = m_angular_pid.clampVoltage(result);
+        // result = m_linear_pid.updateIntegralWithSaturation(result);
+        // result = m_angular_pid.updateIntegralWithSaturation(result);
+        // result = m_linear_pid.clampVoltage(result);
+        // result = m_angular_pid.clampVoltage(result);
 
         return result;
     }
@@ -555,8 +556,6 @@ class DifferentialVelocityController {
   public:
     void setTarget(DifferentialSpeeds target, TargetFeedType feed_type = {}) {
         Length track_radius = m_track_width / 2.0;
-
-        DifferentialSpeeds og_target = target;
 
         // desaturate target first
         if (m_prioritize_angular)

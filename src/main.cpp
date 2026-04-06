@@ -154,26 +154,26 @@ lyfast::DifferentialVelocityControllerParams vel_controller_params {
 		// .left_Kv = 0.87 * volt / mps,
 		// .left_Kv = 0.7 * volt / mps,
 		.left_Kv = 0.90 * volt / mps,
-		.left_Ka = 0.08 * volt / mps2,
+		.left_Ka = 0.11 * volt / mps2,
 		// .left_Ka = 0.10 * volt / mps2,
 		// .left_Ka = 0.08 * volt / mps2,
-		.left_low_target_Kv = 0.4 * volt / mps,
-		.left_low_target_Ka = 0.03 * volt / mps2,
+		.left_low_target_Kv = 0.0 * volt / mps,
+		.left_low_target_Ka = 0.0 * volt / mps2,
 		.left_Ks = 0.08 * volt,
 
 		// .right_Kv = 0.87 * volt / mps,
 		.right_Kv = 0.90 * volt / mps,
 		// .right_Ka = 0.10 * volt / mps2,
 		// .right_Ka = 0.08 * volt / mps2,
-		.right_Ka = 0.08 * volt / mps2,
-		.right_low_target_Kv = 0.4 * volt / mps,
-		.right_low_target_Ka = 0.03 * volt / mps2,
+		.right_Ka = 0.11 * volt / mps2,
+		.right_low_target_Kv = 0.0 * volt / mps,
+		.right_low_target_Ka = 0.0 * volt / mps2,
 		.right_Ks = 0.08 * volt,
 
 
 		.Ka_delta_time = 20_msec,
 		// .low_target_threshold = 2_inps
-		.low_target_threshold = 7_inps
+		.low_target_threshold = -10_inps
 	},
 	.linear_pid = {
 		// .left_Kp = 1.5 * volt / mps,
@@ -342,7 +342,8 @@ FAngularVelocity max_angular_velocity = (max_velocity / track_radius) * Frad;
 
 std::array<float, 3> Q { (40_in).internal(),
                          // (6_in).internal(),
-                         (5_in).internal(),
+                         // (5_in).internal(),
+                         (8_in).internal(),
                          // (1_in).internal(),
                          // (5_stDeg).internal() };
                          (180_stDeg).internal() };
@@ -365,12 +366,12 @@ blazing::lyfast::state_space::LTVUnicycleController
 blazing::lyfast::RamsetteController ramsete_controller(1, 0.5);
 blazing::lyfast::NoPathFeedbackController no_feedback_controller;
 
-// lyfast::PathPoseFeedbackController<decltype(lqr_controller)>
-// path_pose_feedback_controller(lqr_controller);
+lyfast::PathPoseFeedbackController<decltype(lqr_controller)>
+path_pose_feedback_controller(lqr_controller);
 // lyfast::PathPoseFeedbackController<decltype(ramsete_controller)>
   // path_pose_feedback_controller(ramsete_controller);
-lyfast::PathPoseFeedbackController<decltype(no_feedback_controller)>
-path_pose_feedback_controller(no_feedback_controller);
+// lyfast::PathPoseFeedbackController<decltype(no_feedback_controller)>
+// path_pose_feedback_controller(no_feedback_controller);
 
 Controllers controllers(
   // pid controllers
@@ -907,7 +908,14 @@ void path_follow_test() {
     // // TODO: what is the difference between angular accel/decel?
     // AngularConstraints
     // angular_constraints(2.0_radps, 1.3_radps2, 1.3_radps2);
-    AngularConstraints angular_constraints(1.0_radps, 1.3_radps2, 1.3_radps2);
+    AngularConstraints angular_constraints(
+		2.0_radps,
+		// 1.3_radps2,
+		// 1.3_radps2
+
+		2.0_radps2,
+		2.0_radps2
+	);
     //
     Constraints constraints(robot_constraints,
                             linear_constraints,
@@ -940,6 +948,7 @@ void path_follow_test() {
         .drive_toleranceDuration(100_sec)
         .drive_largeToleranceDuration(100_sec)
         .lookahead(20_msec + input_delay)
+		.reverse()
         // .parameterization(blazing::lyfast::time_based)
         .timeout(5_sec) |
       run;
