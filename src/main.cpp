@@ -4,6 +4,7 @@
 #include "blazing/utils.hpp"
 #include "liblvgl/llemu.hpp"
 #include "lyfast/api.hpp"
+#include "lyfast/controllers/path_pose_feedback.hpp"
 #include "lyfast/drivetrains/velocity_differential.hpp"
 #include "lyfast/motion_profiling/mp.hpp"
 #include "lyfast/plants/velocity_plants.hpp"
@@ -152,7 +153,7 @@ lyfast::DifferentialVelocityControllerParams vel_controller_params {
 	.angular = {
 		// .left_Kv = 0.87 * volt / mps,
 		// .left_Kv = 0.7 * volt / mps,
-		.left_Kv = 0.60 * volt / mps,
+		.left_Kv = 0.90 * volt / mps,
 		.left_Ka = 0.08 * volt / mps2,
 		// .left_Ka = 0.10 * volt / mps2,
 		// .left_Ka = 0.08 * volt / mps2,
@@ -161,7 +162,7 @@ lyfast::DifferentialVelocityControllerParams vel_controller_params {
 		.left_Ks = 0.08 * volt,
 
 		// .right_Kv = 0.87 * volt / mps,
-		.right_Kv = 0.60 * volt / mps,
+		.right_Kv = 0.90 * volt / mps,
 		// .right_Ka = 0.10 * volt / mps2,
 		// .right_Ka = 0.08 * volt / mps2,
 		.right_Ka = 0.08 * volt / mps2,
@@ -175,32 +176,32 @@ lyfast::DifferentialVelocityControllerParams vel_controller_params {
 		.low_target_threshold = 7_inps
 	},
 	.linear_pid = {
-		.left_Kp = 1.5 * volt / mps,
-		.left_Kp_close = 0.0 * volt / mps,
-		.left_Kp_low = 0.0 * volt / mps,
-		.left_low_threshold = 5_inps,
-		.left_close_threshold = 0_inps,
-		// .left_Ki = 1.0 * volt / m,
-		.left_Ki = 0.0 * volt / m,
-		.left_Ki_windup = 12_inps,
+		// .left_Kp = 1.5 * volt / mps,
+		// .left_Kp_close = 0.0 * volt / mps,
+		// .left_Kp_low = 0.0 * volt / mps,
+		// .left_low_threshold = 5_inps,
+		// .left_close_threshold = 0_inps,
+		// // .left_Ki = 1.0 * volt / m,
+		// .left_Ki = 0.0 * volt / m,
+		// .left_Ki_windup = 12_inps,
+		// //
+		// .left_max_output =  1_volt,
+		// .left_tbh_factor =  1.0,
 		//
-		.left_max_output =  1_volt,
-		.left_tbh_factor =  1.0,
-
-		.right_Kp = 1.5 * volt / mps,
-		.right_Kp_close = 0.0 * volt / mps,
-		.right_Kp_low = 0.0 * volt / mps,
-		.right_low_threshold = 5_inps,
-		.right_close_threshold = 0_inps,
-		// .right_Ki = 1.0 * volt / m,
-		.right_Ki = 0.0 * volt / m,
-		.right_Ki_windup = 12_inps,
-
-		.right_max_output =  1_volt,
-		.right_tbh_factor =  1.0,
+		// .right_Kp = 1.5 * volt / mps,
+		// .right_Kp_close = 0.0 * volt / mps,
+		// .right_Kp_low = 0.0 * volt / mps,
+		// .right_low_threshold = 5_inps,
+		// .right_close_threshold = 0_inps,
+		// // .right_Ki = 1.0 * volt / m,
+		// .right_Ki = 0.0 * volt / m,
+		// .right_Ki_windup = 12_inps,
+		//
+		// .right_max_output =  1_volt,
+		// .right_tbh_factor =  1.0,
 	},
 	.angular_pid = {
-		// .left_Kp = 0.5 * volt / mps,
+		// .left_Kp = 1.5 * volt / mps,
 		// .left_Kp_close = 0.0 * volt / mps,
 		// .left_Kp_low = 0.0 * volt / mps,
 		// .left_low_threshold = 10_inps,
@@ -212,7 +213,7 @@ lyfast::DifferentialVelocityControllerParams vel_controller_params {
 		// .left_max_output =  1_volt,
 		// .left_tbh_factor =  1.0,
 		//
-		// .right_Kp = 0.5 * volt / mps,
+		// .right_Kp = 1.5 * volt / mps,
 		// .right_Kp_close = 0.0 * volt / mps,
 		// .right_Kp_low = 0.0 * volt / mps,
 		// .right_low_threshold = 10_inps,
@@ -356,17 +357,20 @@ std::array<float, 2> R { // max velocity
 };
 
 Time input_delay = 40_msec;
-LinearVelocity lqr_minimum_velocity = 4.0_inps;
+LinearVelocity lqr_minimum_velocity = 1.0_inps;
 
 blazing::lyfast::state_space::LTVUnicycleController
   lqr_controller(Q, simple_Q, R, 0_msec, lqr_minimum_velocity);
 
-lyfast::PathPoseFeedbackController<decltype(lqr_controller)>
-  path_pose_feedback_controller(lqr_controller);
+blazing::lyfast::RamsetteController ramsete_controller(1, 0.5);
+blazing::lyfast::NoPathFeedbackController no_feedback_controller;
 
-// blazing::lyfast::NoPathFeedbackController no_feedback_controller;
-// lyfast::PathPoseFeedbackController<decltype(no_feedback_controller)>
-// path_pose_feedback_controller(no_feedback_controller);
+// lyfast::PathPoseFeedbackController<decltype(lqr_controller)>
+// path_pose_feedback_controller(lqr_controller);
+// lyfast::PathPoseFeedbackController<decltype(ramsete_controller)>
+  // path_pose_feedback_controller(ramsete_controller);
+lyfast::PathPoseFeedbackController<decltype(no_feedback_controller)>
+path_pose_feedback_controller(no_feedback_controller);
 
 Controllers controllers(
   // pid controllers
@@ -826,15 +830,16 @@ auto get_blue_middle_TO_score_middle = line(-17.78, 17.656, -13.179, 12.513);
 auto score_middle_TO_ull =
   curve(-13.179, 12.513, -30.308, 27.086, -32.253, 47.2, -37.891, 47.2);
 auto ull_TO_uls = line(-37.891, 47.2, -30.06, 47.2);
-auto uls_TO_ulm = line(-30.06, 47.2, -57.173, 46.7);
+auto uls_TO_ulm = line(-30.06, 47.2, -57.173, 46.6);
 auto ulm_TO_url1 =
-  curve(-57.173, 46.7, -32.88, 47.3, -40.033, 62.034, 20.091, 60.741);
-auto url1_TO_urls =
-  curve(20.091, 60.741, 40.295, 60.58, 48.707, 45.952, 30.528, 46.68);
-auto urls_TO_urm = line(30.528, 46.68, 56.959, 46.195);
-auto urm_TO_urls2 = line(56.959, 46.195, 30.776, 46.518);
+  curve(-57.173, 46.6, -37.078, 46.6, -49.792, 67.874, 22.979, 59.339);
+auto url1_TO_End_Control =
+  curve(22.979, 59.339, 30.56, 58.034, 34.696, 53.895, 36, 47.2);
+auto End_Control_TO_urls = line(36, 47.2, 30.2, 47.2);
+auto urls_TO_urm = line(30.2, 47.2, 56.959, 46.6);
+auto urm_TO_urls2 = line(56.959, 46.6, 30.2, 47.2);
 auto urls2_TO_ur_cluster =
-  curve(30.776, 46.518, 40.635, 46.195, 27.22, 37.467, 30.776, 31.164);
+  curve(30.2, 47.2, 40.083, 46.256, 27.22, 37.467, 30.776, 31.164);
 auto ur_cluster_TO_blue_park = line(30.776, 31.164, 44.859, -0.234);
 auto blue_park_TO_in_blue_park = line(44.859, -0.234, 61.945, -0.234);
 auto in_blue_park_TO_blue_park2 = line(61.945, -0.234, 45.304, -0.056);
@@ -843,17 +848,17 @@ auto go_bottom_TO_bottom_score = line(16.95, 18.346, 11.967, 12.295);
 auto bottom_score_TO_back_bottom = line(11.967, 12.295, 16.594, 16.389);
 auto back_bottom_TO_dr_cluster = line(16.594, 16.389, 23.741, -23.427);
 auto dr_cluster_TO_drl =
-  curve(23.741, -23.427, 36.435, -44.03, 35.082, -46.916, 39.523, -46.844);
-auto drl_TO_drls = line(39.523, -46.844, 29.949, -47.059);
-auto drls_TO_drm = line(29.949, -47.059, 57.098, -47.059);
+  curve(23.741, -23.427, 36.435, -44.03, 35.082, -47.2, 39.523, -47.2);
+auto drl_TO_drls = line(39.523, -47.2, 29.949, -47.2);
+auto drls_TO_drm = line(29.949, -47.2, 57.098, -47.059);
 auto drm_TO_dll =
-  curve(57.098, -47.059, 25.566, -49.3, 48.236, -64.96, -22.032, -60.53);
+  curve(57.098, -47.059, 25.566, -46.6, 48.236, -64.96, -22.032, -60.53);
 auto dll_TO_dls =
-  curve(-22.032, -60.53, -37.44, -60.465, -45.449, -47.829, -29.875, -47.384);
-auto dls_TO_dlm = line(-29.875, -47.384, -56.502, -47.295);
-auto dlm_TO_dls2 = line(-56.502, -47.295, -29.538, -47.384);
+  curve(-22.032, -60.53, -37.44, -60.465, -45.449, -47.829, -31.435, -47.2);
+auto dls_TO_dlm = line(-31.435, -47.2, -56.502, -47.295);
+auto dlm_TO_dls2 = line(-56.502, -47.295, -31.435, -47.2);
 auto dls2_TO_ending =
-  curve(-29.538, -47.384, -64.6, -36.493, -61.239, -20.894, -62.307, -0.693);
+  curve(-31.435, -47.2, -66.497, -47.2, -61.239, -20.894, -62.307, -0.693);
 } // namespace skills_paths
 
 void path_follow_test() {
@@ -868,10 +873,13 @@ void path_follow_test() {
                                                         { 23.6_in, 23.6_in },
                                                         { 47.2_in, 23.6_in }));
 
-    std::shared_ptr<geometry::Spline> spline_ptr { new Spline(
-      { line, bezier }) };
+    // std::shared_ptr<geometry::Spline> spline_ptr { new Spline(
+    //   { line, bezier }) };
 
-    // auto spline_ptr = skills_paths::score_middle_TO_ull;
+    // auto spline_ptr = skills_paths::ulm_TO_url1;
+
+    std::shared_ptr<geometry::Spline> spline_ptr { new Spline(
+      { skills_paths::ulm_TO_url1, skills_paths::url1_TO_End_Control }) };
 
     auto start_position = spline_ptr->getFirstEndpoint();
     auto start_angle = spline_ptr->df(0).getAngle();

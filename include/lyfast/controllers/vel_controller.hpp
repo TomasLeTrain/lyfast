@@ -556,6 +556,8 @@ class DifferentialVelocityController {
     void setTarget(DifferentialSpeeds target, TargetFeedType feed_type = {}) {
         Length track_radius = m_track_width / 2.0;
 
+        DifferentialSpeeds og_target = target;
+
         // desaturate target first
         if (m_prioritize_angular)
             target = desaturatePrioritizeAngularDiffSpeeds(target,
@@ -566,6 +568,11 @@ class DifferentialVelocityController {
                                                   m_track_width,
                                                   m_max_velocity);
         m_target = target;
+
+        // if (target.angular_velocity != og_target.angular_velocity ||
+        //     target.linear_velocity != og_target.linear_velocity) {
+        //     std::cout << "desaturation!" << std::endl;
+        // }
 
         LinearVelocity target_linear_velocity = target.linear_velocity;
         // angular velocity converted to linear velocity wheel speeds
@@ -579,6 +586,9 @@ class DifferentialVelocityController {
         m_right_controller.setTarget({ .linear = target_linear_velocity,
                                        .angular = converted_angular_velocity },
                                      feed_type);
+
+        std::cout << "target: " << target_linear_velocity.internal() << " "
+                  << converted_angular_velocity.internal() << " " << std::endl;
     }
 
     LeftRightVoltages update(LeftRightSpeeds measurement, Time duration) {
@@ -594,6 +604,9 @@ class DifferentialVelocityController {
                                     duration);
 
         LeftRightVoltages result = { left_voltage, right_voltage };
+        std::cout << "fb: " << linear.internal() << " " << angular.internal()
+                  << " " << result.left_voltage.internal() << " "
+                  << result.right_voltage.internal() << " " << std::endl;
 
         return result;
     }

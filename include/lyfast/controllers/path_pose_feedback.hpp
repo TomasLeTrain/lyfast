@@ -102,6 +102,14 @@ class RamsetteController {
                                         sinc(angle_error) * local_error.y;
         return new_speeds;
     }
+
+    RamsetteController(zeta_unit zeta = 1 * (1 / rad),
+                       beta_unit beta = 0.5 * units::pow<2>(rad / m))
+        : zeta(zeta),
+          beta(beta) {}
+
+    RamsetteController(float zeta = 1, float beta = 0.5)
+        : RamsetteController(zeta_unit(zeta), beta_unit(beta)) {}
 };
 
 // seems pretty bad since it assumes linear veloctiy and angular veloctiy
