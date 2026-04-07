@@ -88,7 +88,7 @@ class RamsetteController {
           units::sqrt(units::square(reference_vels.angular_velocity) +
                       beta * units::square(reference_vels.linear_velocity));
 
-        DifferentialSpeeds new_speeds;
+        DifferentialSpeeds new_speeds { LinearVelocity(0), AngularVelocity(0) };
 
         // v_new = cos(e_theta) * v + k * e_x
         new_speeds.linear_velocity =

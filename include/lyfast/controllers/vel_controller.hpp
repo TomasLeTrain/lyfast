@@ -16,11 +16,6 @@
 namespace blazing {
 namespace lyfast {
 
-struct TargetFeedType {
-    bool feedforward = true;
-    bool feedback = true;
-};
-
 // voltage is assumed to be in the range [0,1]
 
 // u = Ks * sgn(v) + Kv * v + Ka * a;
@@ -359,23 +354,22 @@ class DrivetrainSideVelocityController {
     Voltage update(TargetT measurement, Time duration) {
         Voltage u_linear = m_linear.updateKvKa();
         Voltage u_angular = m_angular.updateKvKa();
-        // Voltage u_linear_feedback =
-        //   m_linear_pid.unclampedUpdate(measurement.linear, duration);
-        // Voltage u_angular_feedback =
-        //   m_angular_pid.unclampedUpdate(measurement.angular, duration);
+        Voltage u_linear_feedback =
+          m_linear_pid.unclampedUpdate(measurement.linear, duration);
+        Voltage u_angular_feedback =
+          m_angular_pid.unclampedUpdate(measurement.angular, duration);
 
         Voltage result =
-          // u_linear + u_angular + u_linear_feedback + u_angular_feedback;
-          u_linear + u_angular;
+          u_linear + u_angular + u_linear_feedback + u_angular_feedback;
 
         // apply ks only from linear output
         result = m_linear.applyKs(result);
 
         // apply final pid step
-        // result = m_linear_pid.updateIntegralWithSaturation(result);
-        // result = m_angular_pid.updateIntegralWithSaturation(result);
-        // result = m_linear_pid.clampVoltage(result);
-        // result = m_angular_pid.clampVoltage(result);
+        result = m_linear_pid.updateIntegralWithSaturation(result);
+        result = m_angular_pid.updateIntegralWithSaturation(result);
+        result = m_linear_pid.clampVoltage(result);
+        result = m_angular_pid.clampVoltage(result);
 
         return result;
     }
@@ -551,7 +545,7 @@ class DifferentialVelocityController {
     Length m_track_width;
     bool m_prioritize_angular = false;
 
-    DifferentialSpeeds m_target;
+    DifferentialSpeeds m_target { LinearVelocity(0), AngularVelocity(0) };
 
   public:
     void setTarget(DifferentialSpeeds target, TargetFeedType feed_type = {}) {
@@ -568,15 +562,10 @@ class DifferentialVelocityController {
                                                   m_max_velocity);
         m_target = target;
 
-        // if (target.angular_velocity != og_target.angular_velocity ||
-        //     target.linear_velocity != og_target.linear_velocity) {
-        //     std::cout << "desaturation!" << std::endl;
-        // }
-
-        LinearVelocity target_linear_velocity = target.linear_velocity;
+        LinearVelocity target_linear_velocity = m_target.linear_velocity;
         // angular velocity converted to linear velocity wheel speeds
         LinearVelocity converted_angular_velocity =
-          (target.angular_velocity / rad) * track_radius;
+          (m_target.angular_velocity / rad) * track_radius;
 
         m_left_controller.setTarget({ .linear = target_linear_velocity,
                                       .angular = -converted_angular_velocity },
@@ -586,8 +575,8 @@ class DifferentialVelocityController {
                                        .angular = converted_angular_velocity },
                                      feed_type);
 
-        std::cout << "target: " << target_linear_velocity.internal() << " "
-                  << converted_angular_velocity.internal() << " " << std::endl;
+        // std::cout << "target: " << target_linear_velocity.internal() << " "
+        //           << converted_angular_velocity.internal() << " " << std::endl;
     }
 
     LeftRightVoltages update(LeftRightSpeeds measurement, Time duration) {
@@ -603,9 +592,9 @@ class DifferentialVelocityController {
                                     duration);
 
         LeftRightVoltages result = { left_voltage, right_voltage };
-        std::cout << "fb: " << linear.internal() << " " << angular.internal()
-                  << " " << result.left_voltage.internal() << " "
-                  << result.right_voltage.internal() << " " << std::endl;
+        // std::cout << "fb: " << linear.internal() << " " << angular.internal()
+        //           << " " << result.left_voltage.internal() << " "
+        //           << result.right_voltage.internal() << " " << std::endl;
 
         return result;
     }
@@ -658,25 +647,6 @@ class DifferentialVelocityController {
           m_track_width(track_width),
           m_prioritize_angular(prioritize_angular) {}
 };
-
-// explicit declarations
-// feedforward
-// extern template struct FeedforwardVelocityControllerParams<LinearVelocity>;
-// extern template struct FeedforwardVelocityControllerParams<AngularVelocity>;
-//
-// extern template class FeedforwardVelocityController<LinearVelocity>;
-// extern template class FeedforwardVelocityController<AngularVelocity>;
-//
-// // PID
-// extern template struct PIDVelocityControllerParams<LinearVelocity>;
-// extern template struct PIDVelocityControllerParams<AngularVelocity>;
-//
-// extern template class PIDVelocityController<LinearVelocity>;
-// extern template class PIDVelocityController<AngularVelocity>;
-//
-// // simple vel controller
-// extern template class SimpleVelocityController<LinearVelocity>;
-// extern template class SimpleVelocityController<AngularVelocity>;
 
 // using declarations to make it easier to work with
 using LinearFeedforwardVelocityControllerParams =

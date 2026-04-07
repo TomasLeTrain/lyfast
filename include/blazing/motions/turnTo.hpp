@@ -203,11 +203,7 @@ class turnToBase : public Motion<ControllersType,
         // only evaluate velocity based if we have all the requirements
         if constexpr (hasLinearVelocityFeedback<ControllersType> &&
                       hasAngularVelocityFeedback<ControllersType> &&
-                      TankDrivetrain<DrivetrainType> &&
-                      // has velocity feedforward
-                      requires(ControllersType controller) {
-                          controller.velocity_feedforward;
-                      }) {
+                      VelocityArcadeDrivetrain<DrivetrainType>) {
             if (m_velocity_based) {
                 AngularVelocity angular_vel =
                   this->controllers.angular_velocity_feedback.update(
@@ -250,17 +246,21 @@ class turnToBase : public Motion<ControllersType,
 
                 DifferentialSpeeds target { linear_vel, angular_vel };
 
+                this->drivetrain->moveArcade(target.linear_velocity,
+                                             target.angular_velocity);
+                return result;
+
                 // pass velocities into feedforward
-                auto [left_voltage, right_voltage] =
-                  this->controllers.velocity_feedforward.update(target,
-                                                                delta_time);
+                // auto [left_voltage, right_voltage] =
+                //   this->controllers.velocity_feedforward.update(target,
+                //                                                 delta_time);
 
                 // TODO: apply voltage clamp/slew? probably not
 
-                auto [left_vel, right_vel] =
-                  this->drivetrain->getDrivetrainVelocities();
-                auto [actual_volt_left, actual_volt_right] =
-                  this->drivetrain->getDrivetrainVoltages();
+                // auto [left_vel, right_vel] =
+                //   this->drivetrain->getDrivetrainVelocities();
+                // auto [actual_volt_left, actual_volt_right] =
+                //   this->drivetrain->getDrivetrainVoltages();
                 //
 
                 // std::cout << std::fixed;
@@ -280,10 +280,10 @@ class turnToBase : public Motion<ControllersType,
                 //           << 0 << " " << heading.convert(deg) << " "
                 //           << angular_error.internal() << std::endl;
 
-                this->drivetrain->moveTank(left_voltage, right_voltage);
+                // this->drivetrain->moveTank(left_voltage, right_voltage);
 
                 // we return here, so none of the below code executes
-                return result;
+                // return result;
             } else {
                 // assert to warn user?
                 // assert("want to use velocity but don't have requirements!");

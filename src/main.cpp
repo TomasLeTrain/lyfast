@@ -1,6 +1,7 @@
 #include "main.h"
 #include "blazing/api.hpp"
 #include "blazing/latex_utils.hpp"
+#include "blazing/tolerances.hpp"
 #include "blazing/utils.hpp"
 #include "liblvgl/llemu.hpp"
 #include "lyfast/api.hpp"
@@ -27,6 +28,7 @@
 #include <memory>
 #include <mutex>
 #include <numeric>
+#include <optional>
 #include <tuple>
 #include <utility>
 #include <variant>
@@ -36,6 +38,27 @@ void disabled() {}
 void competition_initialize() {}
 
 void autonomous() {}
+
+namespace controls {
+const auto L1 = pros::E_CONTROLLER_DIGITAL_L1;
+const auto R1 = pros::E_CONTROLLER_DIGITAL_R1;
+
+const auto L2 = pros::E_CONTROLLER_DIGITAL_L2;
+const auto R2 = pros::E_CONTROLLER_DIGITAL_R2;
+
+const auto X = pros::E_CONTROLLER_DIGITAL_X;
+const auto Y = pros::E_CONTROLLER_DIGITAL_Y;
+const auto A = pros::E_CONTROLLER_DIGITAL_A;
+const auto B = pros::E_CONTROLLER_DIGITAL_B;
+
+const auto UP = pros::E_CONTROLLER_DIGITAL_UP;
+const auto DOWN = pros::E_CONTROLLER_DIGITAL_DOWN;
+const auto LEFT = pros::E_CONTROLLER_DIGITAL_LEFT;
+const auto RIGHT = pros::E_CONTROLLER_DIGITAL_RIGHT;
+
+const auto LEFT_SHIFT = pros::E_CONTROLLER_DIGITAL_RIGHT;
+const auto RIGHT_SHIFT = pros::E_CONTROLLER_DIGITAL_Y;
+} // namespace controls
 
 class ScaledIMU : public pros::IMU {
   public:
@@ -111,7 +134,7 @@ pros::MotorGroup right_motors({ right_front, right_middle, right_back }, pros::M
 
 ScaledIMU imu(20, (360.0 + 1.5) / 360.0);
 
-pros::Controller master(pros::E_CONTROLLER_MASTER);
+pros::Controller controller(pros::E_CONTROLLER_MASTER);
 
 // odom rotation sensors
 // pros::Rotation forwards_odom_rotation(-20);
@@ -146,59 +169,48 @@ lyfast::DifferentialVelocityControllerParams vel_controller_params {
 		.right_Ks = 0.08 * volt,
 
 		.Ka_delta_time = 20_msec,
-		// .low_target_threshold = 2_inps
-		// .low_target_threshold = 4_inps
-		.low_target_threshold = -1_inps
+		.low_target_threshold = 2_inps
 	},
 	.angular = {
-		// .left_Kv = 0.87 * volt / mps,
-		// .left_Kv = 0.7 * volt / mps,
 		.left_Kv = 0.90 * volt / mps,
 		.left_Ka = 0.11 * volt / mps2,
-		// .left_Ka = 0.10 * volt / mps2,
-		// .left_Ka = 0.08 * volt / mps2,
-		.left_low_target_Kv = 0.0 * volt / mps,
+		.left_low_target_Kv = 0.80 * volt / mps,
 		.left_low_target_Ka = 0.0 * volt / mps2,
 		.left_Ks = 0.08 * volt,
 
-		// .right_Kv = 0.87 * volt / mps,
 		.right_Kv = 0.90 * volt / mps,
-		// .right_Ka = 0.10 * volt / mps2,
-		// .right_Ka = 0.08 * volt / mps2,
 		.right_Ka = 0.11 * volt / mps2,
-		.right_low_target_Kv = 0.0 * volt / mps,
+		.right_low_target_Kv = 0.80 * volt / mps,
 		.right_low_target_Ka = 0.0 * volt / mps2,
 		.right_Ks = 0.08 * volt,
 
-
 		.Ka_delta_time = 20_msec,
-		// .low_target_threshold = 2_inps
-		.low_target_threshold = -10_inps
+		.low_target_threshold = 2_inps
 	},
 	.linear_pid = {
-		// .left_Kp = 1.5 * volt / mps,
-		// .left_Kp_close = 0.0 * volt / mps,
-		// .left_Kp_low = 0.0 * volt / mps,
-		// .left_low_threshold = 5_inps,
-		// .left_close_threshold = 0_inps,
-		// // .left_Ki = 1.0 * volt / m,
-		// .left_Ki = 0.0 * volt / m,
-		// .left_Ki_windup = 12_inps,
-		// //
-		// .left_max_output =  1_volt,
-		// .left_tbh_factor =  1.0,
+		.left_Kp = 1.5 * volt / mps,
+		.left_Kp_close = 0.0 * volt / mps,
+		.left_Kp_low = 0.0 * volt / mps,
+		.left_low_threshold = 7_inps,
+		.left_close_threshold = 0_inps,
+		// .left_Ki = 1.0 * volt / m,
+		.left_Ki = 0.0 * volt / m,
+		.left_Ki_windup = 12_inps,
 		//
-		// .right_Kp = 1.5 * volt / mps,
-		// .right_Kp_close = 0.0 * volt / mps,
-		// .right_Kp_low = 0.0 * volt / mps,
-		// .right_low_threshold = 5_inps,
-		// .right_close_threshold = 0_inps,
-		// // .right_Ki = 1.0 * volt / m,
-		// .right_Ki = 0.0 * volt / m,
-		// .right_Ki_windup = 12_inps,
-		//
-		// .right_max_output =  1_volt,
-		// .right_tbh_factor =  1.0,
+		.left_max_output =  1_volt,
+		.left_tbh_factor =  1.0,
+
+		.right_Kp = 1.5 * volt / mps,
+		.right_Kp_close = 0.0 * volt / mps,
+		.right_Kp_low = 0.0 * volt / mps,
+		.right_low_threshold = 7_inps,
+		.right_close_threshold = 0_inps,
+		// .right_Ki = 1.0 * volt / m,
+		.right_Ki = 0.0 * volt / m,
+		.right_Ki_windup = 12_inps,
+
+		.right_max_output =  1_volt,
+		.right_tbh_factor =  1.0,
 	},
 	.angular_pid = {
 		// .left_Kp = 1.5 * volt / mps,
@@ -254,10 +266,8 @@ lyfast::DrivetrainVelocityPlant drivetrain_plant { &left_ema_filter,
                                                    vel_controller,
                                                    wheel_diameter };
 
-lyfast::VelocityDifferentialDrivetrain velocity_drivetrain(&left_motors,
-                                                           &right_motors,
-                                                           &drivetrain_plant,
-                                                           track_width);
+lyfast::VelocityDifferentialDrivetrain
+  drivetrain(&left_motors, &right_motors, &drivetrain_plant, track_width);
 
 ForwardsTracker
   left_motor_tracker(&left_motors, -track_width / 2, wheel_diameter, final_rpm);
@@ -303,18 +313,22 @@ PID<Angle, Voltage> angular_pid(2.5,
                                 Voltage(1.0 / 127.0));
 
 // tolerance stuff
-Tolerances linearTolerances(200_msec,
-                            ErrorTolerance { 3_in },
+Tolerances linearTolerances(100_msec,
+                            ErrorTolerance { 0.7_in },
                             VelocityTolerance { 400_inps });
 // HalfCircleTolerance { 1_in });
 
-Tolerances angularTolerances(200_msec,
-                             ErrorTolerance { 8_stDeg },
-                             VelocityTolerance { 400_degps });
+Tolerances angularTolerances(40_msec,
+                             ErrorTolerance { 2.25_stDeg },
+                             VelocityTolerance { 120_degps });
 
 // large tolerances
-Tolerances largeLinearTolerances(1_sec, ErrorTolerance { 5_in });
-Tolerances largeAngularTolerances(1_sec, ErrorTolerance { 15_stDeg });
+Tolerances largeLinearTolerances(400_msec,
+                                 ErrorTolerance { 3_in },
+                                 VelocityTolerance { 30_inps });
+Tolerances largeAngularTolerances(400_msec,
+                                  ErrorTolerance { 7_stDeg },
+                                  VelocityTolerance { 70_inps });
 
 // chain tolerances
 Tolerances chainLinearTolerances(1_sec, ErrorTolerance { 6_in });
@@ -329,7 +343,7 @@ normalLargeChainTolerances tolerances(linearTolerances,
                                       chainAngularTolerances);
 
 // Chassis chassis(drivetrain, arc_pose_tracker, tolerances);
-Chassis velocity_chassis(&velocity_drivetrain, &arc_pose_tracker, tolerances);
+Chassis velocity_chassis(&drivetrain, &arc_pose_tracker, tolerances);
 
 RunExecutor run;
 AsyncExecutor async;
@@ -349,7 +363,12 @@ std::array<float, 3> Q { (40_in).internal(),
                          (180_stDeg).internal() };
 
 // [x, theta]
-std::array<float, 2> simple_Q { (30_in).internal(), (100_stDeg).internal() };
+std::array<float, 2> simple_Q { (10000_in).internal(),
+                                (50000_stDeg).internal() };
+
+std::array<float, 2> simple_R { (1_inps).internal(),
+                                // max angular velocity
+                                (1_degps).internal() };
 
 std::array<float, 2> R { // max velocity
                          max_velocity.internal(),
@@ -361,36 +380,155 @@ Time input_delay = 40_msec;
 LinearVelocity lqr_minimum_velocity = 1.0_inps;
 
 blazing::lyfast::state_space::LTVUnicycleController
-  lqr_controller(Q, simple_Q, R, 0_msec, lqr_minimum_velocity);
+  lqr_controller(Q, R, simple_Q, simple_R, 0_msec, lqr_minimum_velocity);
 
-blazing::lyfast::RamsetteController ramsete_controller(1, 0.5);
-blazing::lyfast::NoPathFeedbackController no_feedback_controller;
+// blazing::lyfast::RamsetteController ramsete_controller(1, 0.5);
+// blazing::lyfast::NoPathFeedbackController no_feedback_controller;
 
 lyfast::PathPoseFeedbackController<decltype(lqr_controller)>
-path_pose_feedback_controller(lqr_controller);
+  path_pose_feedback_controller(lqr_controller);
 // lyfast::PathPoseFeedbackController<decltype(ramsete_controller)>
-  // path_pose_feedback_controller(ramsete_controller);
+// path_pose_feedback_controller(ramsete_controller);
 // lyfast::PathPoseFeedbackController<decltype(no_feedback_controller)>
 // path_pose_feedback_controller(no_feedback_controller);
 
+PID<Angle, AngularVelocity>
+  linear_angular_vel_pid(14.00,
+                         0.0,
+                         15.5,
+                         to_stRad(10_stDeg), // windup range
+                         76, // restrict max vel
+                         std::nullopt, // derivative alpha
+                         50_msec,
+                         1_stRad,
+                         1_radps);
+
+PID<Angle, AngularVelocity> turn_heading_vel_pid(
+  5.000,
+  // 0.01,
+  0.0,
+  0.000,
+  // 19.000,
+  //                       // 0.01,
+  //                       0.0,
+  //                       19.050,
+  to_stRad(10_stDeg),
+  // std::nullopt,
+  // to_radps(rad * 76_inps / (10.5_in * 0.5)), // max speed
+  to_radps(max_angular_velocity),
+  std::nullopt, // derivative alpha
+  50_msec,
+  1_stRad,
+  1_radps);
+
+PIDAngularVelocityController angular_vel_pid_controller(linear_angular_vel_pid);
+
+AngularVelocitySlewController angular_vel_slew_controller {};
+AngularVelocityClampController angular_vel_clamp_controller {};
+
+LinearSlewController linear_slew { std::nullopt, 0.2_volt };
+// AngularSlewController angular_slew(0.8_volt);
+AngularSlewController angular_slew {};
+
+lyfast::mpFeedback<Length> linear_mp_feedback { 70_inps, 110_inps2 };
+
+LinearVelocityFeedbackController<decltype(linear_mp_feedback)>
+  linear_mp_feedback_controller(linear_mp_feedback);
+
+// simulates accel
+LinearVelocitySlewController linear_vel_slew_controller { 170_inps2 };
+LinearVelocityClampController linear_vel_clamp_controller {};
+
+LinearVoltageClampController linear_voltage_constraints;
+AngularVoltageClampController angular_voltage_constraints;
+
 Controllers controllers(
+  // pid controllers
+  // PIDLinearController(linear_pid),
+  // PIDAngularController(angular_pid),
+  //
+  // path_pose_feedback_controller,
+  //
+  // LinearSlewController {},
+  // AngularSlewController {},
+  //
+  // // voltage constraints controllers
+  // LinearVoltageClampController(),
+  // AngularVoltageClampController());
+
   // pid controllers
   PIDLinearController(linear_pid),
   PIDAngularController(angular_pid),
-
   path_pose_feedback_controller,
 
-  LinearSlewController {},
-  AngularSlewController {},
+  // slew controllers
+  linear_slew,
+  angular_slew,
+
+  linear_mp_feedback_controller,
+  linear_vel_slew_controller,
+  linear_vel_clamp_controller,
+
+  // angular velocity controllers
+  angular_vel_pid_controller,
+  angular_vel_slew_controller,
+  angular_vel_clamp_controller,
 
   // voltage constraints controllers
-  LinearVoltageClampController(),
-  AngularVoltageClampController());
+  // (included just so they can be set per motion)
+  linear_voltage_constraints,
+  angular_voltage_constraints);
+
+// normal tolerances
+
+// .large_duration = 400_sec,
+//   .large_error { 3_in }, .large_velocity { 30_inps },
+//
+//   .chain_duration = 1_sec, .chain_error { 6_in },
+
+// avoids a division by zero
+ChainedExecutor chain(5_msec);
+
+// custom cos-like func
+double angular_linear_func(Angle angle) {
+    // reduces the domain to [0,pi]
+    angle = units::abs(units::constrainAngle180(angle));
+
+    // double sgn = units::sgn(angle);
+    // angle = units::abs(angle);
+
+    // defined on the range [0,pi/2]
+    // auto func = [](double x) -> double {
+    //     double poly = 0.0001;
+    //     if (x < 1.224747) {
+    //         // simple polynomial that delays linear output until angle error
+    //         is small poly = 1.0 - 2.0 * (x * x) + 1.08866 * (x * x * x);
+    //     }
+    //     // return 0.00001;
+    //     return 0.7 * poly + std::cos(x) * 0.3;
+    // };
+
+    // defined on the range [0,pi/2]
+    // auto func = [](double x) -> double {
+    //     return std::exp(-1.25 * x);
+    // };
+    //
+    // defined on the range [0,pi/2]
+    auto func = [](double x) -> double {
+        double a = 0.93;
+        return std::exp(-a * x) * (1 - (2 / M_PI) * x);
+    };
+
+    // makes this function apply on the range [0,pi]
+    if (angle <= rot / 4.0) {
+        return func(angle.internal());
+    } else {
+        return -func(M_PI - angle.internal());
+    }
+};
 
 // MotionBuilder mb(chassis, controllers);
-MotionBuilder vel_mb(velocity_chassis, controllers);
-
-ChainedExecutor chain(100_msec);
+MotionBuilder mb(velocity_chassis, controllers);
 
 std::vector<std::array<FLinearVelocity, 3>> left_tick_velocity;
 std::vector<std::array<FLinearVelocity, 3>> right_tick_velocity;
@@ -446,272 +584,6 @@ void printDrivetrainData() {
         // enable again in case more data is gonna be collected
         drivetrain_tick_logging = true;
     }
-}
-
-// allows running tuning routine multiple times
-// press A to run routine, X to get raw data
-void genericTuner(
-  const std::string& type,
-  Time delta_time,
-  std::function<lyfast::sysid::DifferentialData()> gatherData,
-  std::function<void(const lyfast::sysid::DifferentialData&)> processData) {
-    lyfast::sysid::DifferentialData data;
-
-    while (true) {
-        velocity_drivetrain.moveTank(0_volt, 0_volt);
-
-        if (master.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_A)) {
-            std::cout << "type: " << type << std::endl;
-
-            data = gatherData();
-
-            processData(data);
-        }
-
-        if (master.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_X)) {
-            std::cout << "type: " << type << std::endl;
-            std::cout << "data: " << std::endl;
-            lyfast::sysid::DifferentialUtils::printData(data, delta_time);
-            printDrivetrainData();
-        }
-        pros::delay(10);
-    }
-}
-
-void kv_ks_tuner(const std::string& type,
-                 const std::vector<lyfast::sysid::DifferentialVoltageCommand>&
-                   voltage_commands,
-                 bool use_measured_voltage = false,
-                 Time steady_state_time = 150_msec,
-                 Time delta_time = 10_msec) {
-    using namespace lyfast::sysid;
-    // function params outlive the genericTuner function, so capturing
-    // them by reference should fine
-    genericTuner(
-      type,
-      delta_time,
-      [&] -> DifferentialData {
-          return DifferentialUtils::generate_kv_ks_data(voltage_commands,
-                                                        velocity_drivetrain,
-                                                        delta_time,
-                                                        steady_state_time,
-                                                        use_measured_voltage);
-      },
-      [](const DifferentialData& data) {
-          DifferentialUtils::calculate_kv_ks(data);
-      });
-}
-
-// allows running tuning routine multiple times
-// press A to run routine, X to get raw data
-void raw_ka_tuner(const std::string& type,
-                  const std::vector<lyfast::sysid::DifferentialVoltageCommand>&
-                    voltage_commands,
-                  lyfast::KvUnits<LinearVelocity> left_Kv,
-                  lyfast::KsUnits left_Ks,
-                  lyfast::KvUnits<LinearVelocity> right_Kv,
-                  lyfast::KsUnits right_Ks,
-                  bool use_measured_voltage = true,
-                  Time delta_time = 10_msec) {
-    using namespace lyfast::sysid;
-    // function params outlive the genericTuner function, so capturing
-    // them by reference should fine
-    genericTuner(
-      type,
-      delta_time,
-      [&] {
-          return DifferentialUtils::generateData(voltage_commands,
-                                                 velocity_drivetrain,
-                                                 delta_time,
-                                                 use_measured_voltage);
-      },
-      [&](const DifferentialData& data) {
-          DifferentialUtils::calculate_ka(data,
-                                          left_Kv,
-                                          left_Ks,
-                                          right_Kv,
-                                          right_Ks,
-                                          delta_time);
-      });
-}
-
-void create_accel_data(
-  const lyfast::sysid::DifferentialVoltageCommand& voltage_command,
-  const std::string& type,
-  Time delta_time = 10_msec) {
-    using namespace lyfast::sysid;
-    // function params outlive the genericTuner function, so capturing
-    // them by reference should fine
-    genericTuner(
-      type,
-      delta_time,
-      [&] {
-          return DifferentialUtils::generateData({ voltage_command },
-                                                 velocity_drivetrain,
-                                                 delta_time);
-      },
-      [](const DifferentialData& data) {});
-}
-
-void ka_kp_ki_tuner(
-  const std::string& type,
-  const lyfast::sysid::DifferentialVoltageCommand& voltage_command,
-  double lambda_factor,
-  bool use_measured_voltage = false,
-  Time delta_time = 10_msec) {
-    using namespace lyfast::sysid;
-    // function params outlive the genericTuner function, so capturing
-    // them by reference should fine
-    genericTuner(
-      type,
-      delta_time,
-      [&] {
-          return DifferentialUtils::generateData({ voltage_command },
-                                                 velocity_drivetrain,
-                                                 delta_time,
-                                                 use_measured_voltage);
-      },
-      [&](const DifferentialData& data) {
-          DifferentialUtils::calculate_ka_kp_ki_fopdt(data,
-                                                      delta_time,
-                                                      lambda_factor);
-      });
-}
-
-void linear_ka_kp_ki_tuner(Voltage u_step = 0.5_volt,
-                           double lambda_factor = 0.6,
-                           Time accel_time = 2_sec,
-                           bool use_measured_voltage = false,
-                           Time delta_time = 10_msec) {
-    ka_kp_ki_tuner("LINEAR",
-                   { u_step, u_step, accel_time },
-                   lambda_factor,
-                   use_measured_voltage,
-                   delta_time);
-}
-
-void angular_ka_kp_ki_tuner(Voltage u_step = 0.5_volt,
-                            double lambda_factor = 0.6,
-                            Time accel_time = 2_sec,
-                            bool use_measured_voltage = false,
-                            Time delta_time = 10_msec) {
-    ka_kp_ki_tuner("ANGULAR",
-                   { u_step, -u_step, accel_time },
-                   lambda_factor,
-                   use_measured_voltage,
-                   delta_time);
-}
-
-void linear_kv_ks_tuner(bool use_measured_voltage = false,
-                        Time steady_state_time = 100_msec,
-                        Time delta_time = 10_msec) {
-    kv_ks_tuner("LINEAR",
-                std::vector<lyfast::sysid::DifferentialVoltageCommand> {
-                  // linear movements
-                  { -0.1_volt, -0.1_volt, 600_msec },
-                  { 0.0_volt, 0.0_volt, 500_msec, false },
-                  { 0.2_volt, 0.2_volt, 1300_msec },
-                  { 0.0_volt, 0.0_volt, 500_msec, false },
-                  { -0.3_volt, -0.3_volt, 1300_msec },
-                  { 0.0_volt, 0.0_volt, 500_msec, false },
-                  { 0.4_volt, 0.4_volt, 1300_msec },
-                  { 0.0_volt, 0.0_volt, 500_msec, false },
-                  { -0.5_volt, -0.5_volt, 1300_msec },
-                  { 0.0_volt, 0.0_volt, 500_msec, false },
-                  { 0.6_volt, 0.6_volt, 1300_msec },
-                  { 0.0_volt, 0.0_volt, 500_msec, false },
-                  { -0.7_volt, -0.7_volt, 1300_msec },
-                  { 0.0_volt, 0.0_volt, 500_msec, false },
-    },
-                use_measured_voltage,
-                steady_state_time,
-                delta_time);
-}
-
-void angular_kv_ks_tuner(bool use_measured_voltage = false,
-                         Time steady_state_time = 100_msec,
-                         Time delta_time = 10_msec) {
-    kv_ks_tuner("ANGULAR",
-                std::vector<lyfast::sysid::DifferentialVoltageCommand> {
-                  // linear movements
-                  { 0.1_volt,  -0.1_volt, 600_msec  },
-                  { -0.2_volt, 0.2_volt,  1000_msec },
-                  { 0.3_volt,  -0.3_volt, 1000_msec },
-                  { -0.4_volt, 0.4_volt,  1000_msec },
-                  { 0.5_volt,  -0.5_volt, 1000_msec },
-                  { -0.6_volt, 0.6_volt,  1000_msec },
-                  { 0.7_volt,  -0.7_volt, 1000_msec },
-    },
-                use_measured_voltage,
-                steady_state_time,
-                delta_time);
-}
-
-void linear_raw_ka_tuner(lyfast::KvUnits<LinearVelocity> left_Kv,
-                         lyfast::KsUnits left_Ks,
-                         lyfast::KvUnits<LinearVelocity> right_Kv,
-                         lyfast::KsUnits right_Ks,
-                         bool use_measured_voltage = false,
-                         Time delta_time = 10_msec) {
-    std::vector<lyfast::sysid::DifferentialVoltageCommand>
-      mixed_voltage_commands = {
-          // linear movements
-          { 0.5_volt,  0.5_volt,  500_msec },
-          { 0.7_volt,  0.7_volt,  600_msec },
-          { 0.2_volt,  0.2_volt,  600_msec },
-          { 0.0_volt,  0.0_volt,  300_msec },
-          { -0.7_volt, -0.7_volt, 800_msec },
-          { -0.2_volt, -0.2_volt, 800_msec },
-          { 0.0_volt,  0.0_volt,  300_msec },
-
-          { 0.5_volt,  0.5_volt,  500_msec },
-          { 0.7_volt,  0.7_volt,  600_msec },
-          { 0.2_volt,  0.2_volt,  600_msec },
-          { 0.0_volt,  0.0_volt,  300_msec },
-          { -0.7_volt, -0.7_volt, 800_msec },
-          { -0.2_volt, -0.2_volt, 800_msec },
-          { 0.0_volt,  0.0_volt,  300_msec },
-    };
-    raw_ka_tuner("LINEAR",
-                 mixed_voltage_commands,
-                 left_Kv,
-                 left_Ks,
-                 right_Kv,
-                 right_Ks,
-                 use_measured_voltage,
-                 delta_time);
-}
-
-void angular_raw_ka_tuner(lyfast::KvUnits<LinearVelocity> left_Kv,
-                          lyfast::KsUnits left_Ks,
-                          lyfast::KvUnits<LinearVelocity> right_Kv,
-                          lyfast::KsUnits right_Ks,
-                          bool use_measured_voltage = false,
-                          Time delta_time = 10_msec) {
-    std::vector<lyfast::sysid::DifferentialVoltageCommand>
-      mixed_voltage_commands = {
-          { 0.5_volt,  -0.5_volt, 500_msec },
-          { 1.0_volt,  -1.0_volt, 400_msec },
-          { -0.5_volt, 0.5_volt,  800_msec },
-          { -0.2_volt, 0.2_volt,  800_msec },
-          { 1.0_volt,  -1.0_volt, 400_msec },
-          { -0.2_volt, 0.2_volt,  300_msec },
-
-          { -0.5_volt, 0.5_volt,  500_msec },
-          { -1.0_volt, 1.0_volt,  400_msec },
-          { 0.5_volt,  -0.5_volt, 800_msec },
-          { 0.2_volt,  -0.2_volt, 800_msec },
-          { -1.0_volt, 1.0_volt,  400_msec },
-          { 0.2_volt,  -0.2_volt, 300_msec },
-    };
-    raw_ka_tuner("ANGULAR",
-                 mixed_voltage_commands,
-                 left_Kv,
-                 left_Ks,
-                 right_Kv,
-                 right_Ks,
-                 use_measured_voltage,
-                 delta_time);
 }
 
 void trajectoryDebugPrint(const lyfast::mp::Trajectory* trajectory) {
@@ -862,25 +734,103 @@ auto dls2_TO_ending =
   curve(-31.435, -47.2, -66.497, -47.2, -61.239, -20.894, -62.307, -0.693);
 } // namespace skills_paths
 
-void path_follow_test() {
+// void path_follow_test() {
+//     using namespace blazing::lyfast;
+//     using namespace blazing::lyfast::geometry;
+//     using namespace blazing::lyfast::mp;
+//     //
+//     std::shared_ptr<Line> line(new Line({ -23.6_in, 0_in }, { 0_in, 0_in }));
+//     std::shared_ptr<CubicBezier> bezier(new CubicBezier({ 0_in, 0_in },
+//                                                         { 23.6_in, 0_in },
+//                                                         { 23.6_in, 23.6_in },
+//                                                         { 47.2_in, 23.6_in
+//                                                         }));
+//
+//     // std::shared_ptr<geometry::Spline> spline_ptr { new Spline(
+//     //   { line, bezier }) };
+//
+//     // auto spline_ptr = skills_paths::ulm_TO_url1;
+//
+//     std::shared_ptr<geometry::Spline> spline_ptr { new Spline(
+//       { skills_paths::ulm_TO_url1, skills_paths::url1_TO_End_Control }) };
+//
+//     auto start_position = spline_ptr->getFirstEndpoint();
+//     auto start_angle = spline_ptr->df(0).getAngle();
+//     arc_pose_tracker.setPose({ start_position, start_angle });
+//
+//     RobotConstraints robot_constraints(
+//       10.5_in, // track with
+//       // 0.05, // friction coeff - should tune?
+//       1.00, // friction coeff - should tune?
+//       3.25_in, // wheel diameter
+//       389_rpm, // max ang vel - determined somewhat from data
+//       6.7_kg, // about 14.8 lbs
+//       // 1.36f); // motor count - determined somewhat from data
+//       // 2.5f); // motor count - determined somewhat from data
+//       3.0f); // motor count - determined somewhat from data
+//
+//     LinearConstraints linear_constraints(
+//       70_inps, // max vel - for testing
+//       // 20.0_inps2, // max accel - for testing
+//       10000.0_inps2, // max accel - for testing
+//       // 150_inps2 // max decel - for testing also
+//       200_inps2 // max decel - for testing also
+//     );
+//     //
+//     // // TODO: what is the difference between angular accel/decel?
+//     // AngularConstraints
+//     // angular_constraints(2.0_radps, 1.3_radps2, 1.3_radps2);
+//     AngularConstraints angular_constraints(2.0_radps,
+//                                            // 1.3_radps2,
+//                                            // 1.3_radps2
+//
+//                                            2.0_radps2,
+//                                            2.0_radps2);
+//     //
+//     Constraints constraints(robot_constraints,
+//                             linear_constraints,
+//                             angular_constraints);
+//     //
+//     bool debug = true;
+//     //
+//     std::shared_ptr<Trajectory> test_trajectory(
+//       new Trajectory(spline_ptr,
+//                      constraints,
+//                      {},
+//                      {},
+//                      // some initial velocity for it to move?
+//                      // TODO: could there be a place on the curve that also
+//                      has
+//                      // a velof zero? if so this would also have the same
+//                      issue? 0_inps, 0_inps, 0.1_in, debug));
+//
+//     trajectoryDebugPrint(test_trajectory.get());
+//
+//     // print out final trajectory and debug info
+//
+//     // drivetrain.setBrakeMode(pros::v5::MotorBrake::hold);
+//
+//     std::cout << "running path!" << std::endl;
+//     // use path follow to follow the path
+//     lyfast::PathFollow(controllers, velocity_chassis, test_trajectory)
+//         .drive_toleranceDuration(100_sec)
+//         .drive_largeToleranceDuration(100_sec)
+//         .lookahead(20_msec + input_delay)
+//         .reverse()
+//         // .parameterization(blazing::lyfast::time_based)
+//         .timeout(5_sec) |
+//       run;
+// }
 
+void long_goal_to_match_test() {
     using namespace blazing::lyfast;
     using namespace blazing::lyfast::geometry;
     using namespace blazing::lyfast::mp;
     //
-    std::shared_ptr<Line> line(new Line({ -23.6_in, 0_in }, { 0_in, 0_in }));
-    std::shared_ptr<CubicBezier> bezier(new CubicBezier({ 0_in, 0_in },
-                                                        { 23.6_in, 0_in },
-                                                        { 23.6_in, 23.6_in },
-                                                        { 47.2_in, 23.6_in }));
-
-    // std::shared_ptr<geometry::Spline> spline_ptr { new Spline(
-    //   { line, bezier }) };
-
-    // auto spline_ptr = skills_paths::ulm_TO_url1;
-
-    std::shared_ptr<geometry::Spline> spline_ptr { new Spline(
-      { skills_paths::ulm_TO_url1, skills_paths::url1_TO_End_Control }) };
+    // auto spline_ptr = skills_paths::urm_TO_urls2;
+    auto spline_ptr = skills_paths::urls_TO_urm;
+    // bool reversed = true;
+    bool reversed = false;
 
     auto start_position = spline_ptr->getFirstEndpoint();
     auto start_angle = spline_ptr->df(0).getAngle();
@@ -895,27 +845,17 @@ void path_follow_test() {
       6.7_kg, // about 14.8 lbs
       // 1.36f); // motor count - determined somewhat from data
       // 2.5f); // motor count - determined somewhat from data
-      3.0f); // motor count - determined somewhat from data
+      2.0f); // motor count - determined somewhat from data
 
     LinearConstraints linear_constraints(
       70_inps, // max vel - for testing
       // 20.0_inps2, // max accel - for testing
       10000.0_inps2, // max accel - for testing
       // 150_inps2 // max decel - for testing also
-      200_inps2 // max decel - for testing also
+      150_inps2 // max decel - for testing also
     );
     //
-    // // TODO: what is the difference between angular accel/decel?
-    // AngularConstraints
-    // angular_constraints(2.0_radps, 1.3_radps2, 1.3_radps2);
-    AngularConstraints angular_constraints(
-		2.0_radps,
-		// 1.3_radps2,
-		// 1.3_radps2
-
-		2.0_radps2,
-		2.0_radps2
-	);
+    AngularConstraints angular_constraints(2.0_radps, 2.0_radps2, 2.0_radps2);
     //
     Constraints constraints(robot_constraints,
                             linear_constraints,
@@ -923,18 +863,18 @@ void path_follow_test() {
     //
     bool debug = true;
     //
-    std::shared_ptr<Trajectory> test_trajectory(
-      new Trajectory(spline_ptr,
-                     constraints,
-                     {},
-                     {},
-                     // some initial velocity for it to move?
-                     // TODO: could there be a place on the curve that also has
-                     // a velof zero? if so this would also have the same issue?
-                     0_inps,
-                     0_inps,
-                     0.1_in,
-                     debug));
+    std::shared_ptr<Trajectory> test_trajectory(new Trajectory(
+      spline_ptr,
+      constraints,
+      {},
+      {
+        // RangeConstraint { 0.7f, 1.0f, 20_inps, std::nullopt, std::nullopt }
+
+      },
+      2_inps,
+      0_inps,
+      0.1_in,
+      debug));
 
     trajectoryDebugPrint(test_trajectory.get());
 
@@ -948,98 +888,10 @@ void path_follow_test() {
         .drive_toleranceDuration(100_sec)
         .drive_largeToleranceDuration(100_sec)
         .lookahead(20_msec + input_delay)
-		.reverse()
+        .setReverse(reversed)
         // .parameterization(blazing::lyfast::time_based)
         .timeout(5_sec) |
       run;
-}
-
-pros::MotorGroup test_motor({ 13 }, pros::MotorGears::green);
-
-// test motor kv ks and ka
-auto Kv = 0.039394 * volt / radps;
-auto Ks = 0.027303 * volt;
-auto Ka = 0.001357 * volt / radps2;
-
-auto Kp = 0.05 * volt / radps;
-auto Ki = 0.02 * volt / rad;
-
-auto motor_voltage_Kv = 0.039394 * volt / radps;
-auto motor_voltage_Ks = 0.027303 * volt;
-auto motor_voltage_Ka = 0.001357 * volt / radps2;
-
-lyfast::EMAVelocityFilter::Constants test_motor_ema_filter_constants {
-    .final_gearing_rpm = 200_rpm,
-    .Koffset = 0.1,
-    .KalphaFactor = 0.1,
-};
-lyfast::EMAVelocityFilter test_motor_filter { &test_motor,
-                                              test_motor_ema_filter_constants };
-
-lyfast::FeedforwardVelocityController<AngularVelocity> feedforward {
-    lyfast::FeedforwardVelocityControllerParams<AngularVelocity> {
-                                                                  .Kv = motor_voltage_Kv,
-                                                                  .Ka = motor_voltage_Ka,
-                                                                  .Ks = motor_voltage_Ks,
-                                                                  .Ka_delta_time = 10_msec,
-                                                                  .low_target_threshold = 0_radps }
-};
-lyfast::PIDVelocityController<AngularVelocity> feedback {
-    lyfast::PIDVelocityControllerParams<AngularVelocity> {
-                                                          .Kp = Kp,
-                                                          .Ki = Ki,
-                                                          .max_output = 1.0 * volt,
-                                                          .tbh_factor = 1.0,
-                                                          }
-};
-lyfast::SimpleVelocityController<AngularVelocity> controller { feedforward,
-                                                               feedback };
-lyfast::AngularMotorGroupVelocityPlant test_plant(&test_motor_filter,
-                                                  controller);
-
-std::vector<FAngularVelocity> tick_based_vel_data;
-
-std::vector<lyfast::sysid::AngularSysidEntry> raw_data, filtered_data;
-
-std::vector<std::pair<FTorque, FCurrent>> extra_data;
-std::vector<FPower> power_data;
-
-void logInformation(Voltage commanded_voltage) {
-    static uint32_t previousInternalMotorClock;
-    static int32_t oldMotorTicks =
-      test_motor.get_raw_position(&previousInternalMotorClock);
-
-    uint32_t currentInternalMotorClock;
-    int32_t currentMotorTicks =
-      test_motor.get_raw_position(&currentInternalMotorClock);
-
-    double dT =
-      5.0 * std::round(
-              (currentInternalMotorClock - previousInternalMotorClock) / 5.0);
-    double dN = currentMotorTicks - oldMotorTicks;
-    previousInternalMotorClock = currentInternalMotorClock;
-    oldMotorTicks = currentMotorTicks;
-
-    // 900 ticks / revolution
-    Angle angular_position_delta = dN / (900 / rot);
-    AngularVelocity estimated_angular_velocity =
-      angular_position_delta / from_msec(dT);
-
-    tick_based_vel_data.emplace_back(estimated_angular_velocity);
-
-    Voltage filter_voltage = test_motor_filter.getInput();
-    AngularVelocity filter_velocity = test_motor_filter.getPredictedState();
-
-    AngularVelocity raw_vel = test_motor.get_actual_velocity() * rpm;
-
-    Torque torque = test_motor.get_torque() * Nm; // calculated
-    Current current = test_motor.get_current_draw() * mamp;
-    Power power = test_motor.get_power() * watt;
-
-    raw_data.emplace_back(raw_vel, commanded_voltage);
-    filtered_data.emplace_back(filter_velocity, filter_voltage);
-    extra_data.emplace_back(torque, current);
-    power_data.emplace_back(power);
 }
 
 AngularVelocity calculateMotorVel(int port, AngularVelocity max_vel) {
@@ -1167,40 +1019,21 @@ void timeCriticalTask() {
             // do stuff here
             if (frameCount % 5 == 0) {
                 uint32_t curr_time = pros::millis();
-
-                // predict the filter
-                // test_motor_filter.predictToTimestamp(curr_time);
-                // test_motor_filter.correct();
-                // // update plant
-                // test_plant.updateToTimestamp(curr_time);
-                //
-                // Voltage test_plant_voltage =
-                // test_plant.getCommandedVoltage();
-                //
-                // // actuate motor
-                // test_motor.move_voltage(12 *
-                // to_mvolt(test_plant_voltage));
-                // logInformation(test_plant_voltage);
-
-                // update drivetrain filters
-                // std::cout << "left:";
-                left_ema_filter.predictToTimestamp(curr_time);
-                left_ema_filter.correct();
-                // std::cout << "\n";
-
-                // std::cout << "right: ";
-                right_ema_filter.predictToTimestamp(curr_time);
-                right_ema_filter.correct();
-                // std::cout << "\n";
-
-                Angle last_angle = arc_pose_tracker.getAngle();
+                // Angle last_angle = arc_pose_tracker.getAngle();
                 arc_pose_tracker.update();
-                Angle angle = arc_pose_tracker.getAngle();
+                // Angle angle = arc_pose_tracker.getAngle();
 
                 LinearVelocity forwards_velocity =
                   arc_pose_tracker.getLocalVelocityVector().x;
+
+                // not using forwards velocity since its offset is not
+                // guaranteed to be zero
+                // LinearVelocity forwards_velocity =
+                //   toLinear(from_degps(forwards_odom_rotation.get_velocity()),
+                //            1.991_in);
+
                 AngularVelocity angular_velocity =
-                  (angle - last_angle) / 10_msec;
+                  -from_degps(imu.get_gyro_rate().z);
 
                 LinearVelocity left_vel =
                   forwards_velocity - angular_velocity * 5.25_in / rad;
@@ -1215,41 +1048,10 @@ void timeCriticalTask() {
                 auto curr_drivetrain_voltages =
                   drivetrain_plant.getCommandedVoltages();
 
-                // DifferentialSpeeds speeds =
-                //   std::holds_alternative<DifferentialSpeeds>(
-                //     drivetrain_plant.getTarget()) ?
-                //     std::get<DifferentialSpeeds>(drivetrain_plant.getTarget())
-                //     : DifferentialSpeeds { 0_inps, 0_radps };
-
-                // std::cout
-                //   <<
-                //   velocity_drivetrain.getDrivetrainVelocities().left_vel
-                //   << " "
-                //   <<
-                //   velocity_drivetrain.getDrivetrainVelocities().right_vel
-                //   << "\n";
-
-                // actuate motors with desired voltages
-                // int discretized_left_voltage = round(
-                //   curr_drivetrain_voltages.left_voltage.internal() * 100.0);
-                // int discretized_right_voltage = round(
-                //   curr_drivetrain_voltages.right_voltage.internal() * 100.0);
-                //
-                // left_motors.move_voltage((12000 / 100) *
-                //                          discretized_left_voltage);
-                // right_motors.move_voltage((12000 / 100) *
-                //                           discretized_right_voltage);
-
                 left_motors.move_voltage(
                   12 * to_mvolt(curr_drivetrain_voltages.left_voltage));
                 right_motors.move_voltage(
                   12 * to_mvolt(curr_drivetrain_voltages.right_voltage));
-
-                // logDrivetrainInformation(
-                //   FDifferentialSpeeds { speeds.linear_velocity,
-                //                         speeds.angular_velocity },
-                //   volt * discretized_left_voltage / 100.0,
-                //   volt * discretized_right_voltage / 100.0);
             }
 
             pros::Task::delay_until(&systemTime, 2);
@@ -1269,350 +1071,561 @@ void startTimeCriticalTask() {
 }
 
 void initialize() {
-    // pros::c::serctl(SERCTL_DISABLE_COBS, NULL);
     pros::lcd::initialize();
 
     imu.reset(true);
-
-    // pros::Task([&] {
-    //     while (true) {
-    //         arc_pose_tracker.update();
-    //         pros::delay(10);
-    //     }
-    // });
 
     startTimeCriticalTask();
 
     forwards_odom_rotation.set_data_rate(5);
     forwards_odom_rotation.set_data_rate(5);
     imu.set_data_rate(5);
-}
 
-void test_motor_kv_ks_tuner() {
-    using namespace lyfast::sysid;
-    std::vector<VoltageCommand> kv_ks_commands = {
-        // linear movements
-        { -0.05_volt, 600_msec },
-        { 0.05_volt,  600_msec },
-        { -0.1_volt,  800_msec },
-        { 0.1_volt,   800_msec },
-        { -0.2_volt,  800_msec },
-        { 0.2_volt,   800_msec },
-        { -0.3_volt,  800_msec },
-        { 0.3_volt,   800_msec },
-        { -0.4_volt,  800_msec },
-        { 0.4_volt,   800_msec },
-        { -0.5_volt,  800_msec },
-        { 0.5_volt,   800_msec },
-        { -0.6_volt,  800_msec },
-        { 0.6_volt,   800_msec },
-        { -0.7_volt,  800_msec },
-        { 0.7_volt,   800_msec },
-        { -0.8_volt,  800_msec },
-        { 0.8_volt,   800_msec },
-        { -0.9_volt,  800_msec },
-        { 0.9_volt,   800_msec },
-        { -1.0_volt,  800_msec },
-        { 1.0_volt,   800_msec },
-    };
+    mb.setTurnToModifier([](auto turnTo) {
+		std::cout << "modifying" << std::endl;
+        std::ignore =
+          turnTo
+            ->velocity_based(true)
+            // speecifically uses turn heading pid instead of drive pid
+            .withAngularVelocityFeedbackController(turn_heading_vel_pid)
+            // .withVelocityFeedforwardController(turn_vel_controller)
+            .timeout(3_sec);
 
-    // AngularVelocity final_rpm = 200_rpm;
+		std::cout << "did stuff prob" << std::endl;
+    });
 
-    auto vel_func = [&]() -> AngularVelocity {
-        // return get_group_velocity(&test_motor, final_rpm);
-        // can use filtered data for kv/ks
-        return test_motor_filter.getPredictedState();
-    };
-    auto voltage_func = [&](Voltage commanded_voltage) -> Voltage {
-        // using either will return different values?
-        // return commanded_voltage;
-        return getGroupVoltage(&test_motor);
-    };
-
-    auto data =
-      AngularMotorGroupUtils::generateData(kv_ks_commands,
-                                           &test_motor,
-                                           vel_func,
-                                           voltage_func,
-                                           180_msec, // takes 20 samples?
-                                           10_msec);
-
-    std::cout << "Data: " << std::endl;
-    AngularMotorGroupUtils::printDataAsLatex(data);
-
-    auto [Kv, Ks] = AngularMotorGroupUtils::fit_kv_ks_data(data);
-
-    std::cout << "Kv/Ks: " << Kv.convert(volt / radps) << " "
-              << Ks.convert(volt) << std::endl;
-}
-
-void test_motor_ka_tuner() {
-    using namespace lyfast::sysid;
-    std::vector<VoltageCommand> ka_commands = {
-        // bunch of harsh accelerations
-        { -0.05_volt, 200_msec },
-        { 0.05_volt,  200_msec },
-        { -0.2_volt,  200_msec },
-        { 0.2_volt,   200_msec },
-        { -0.1_volt,  200_msec },
-        { 0.1_volt,   200_msec },
-        { -0.3_volt,  200_msec },
-        { 0.3_volt,   200_msec },
-        { -0.5_volt,  200_msec },
-        { 0.5_volt,   200_msec },
-        { -0.4_volt,  200_msec },
-        { 0.4_volt,   200_msec },
-        { -0.6_volt,  200_msec },
-        { 0.6_volt,   200_msec },
-        { -0.8_volt,  200_msec },
-        { 0.8_volt,   200_msec },
-        { -0.7_volt,  200_msec },
-        { 0.7_volt,   200_msec },
-        { -0.9_volt,  200_msec },
-        { 0.9_volt,   200_msec },
-        { -1.0_volt,  200_msec },
-        { 1.0_volt,   200_msec },
-
-        // gradual up and down
-        // { -0.05_volt, 100_msec },
-        { -0.10_volt, 50_msec  },
-        // { -0.15_volt, 100_msec },
-        { -0.20_volt, 50_msec  },
-        // { -0.25_volt, 100_msec },
-        { -0.30_volt, 50_msec  },
-        // { -0.35_volt, 100_msec },
-        { -0.40_volt, 50_msec  },
-        // { -0.45_volt, 100_msec },
-        { -0.50_volt, 50_msec  },
-        // { -0.55_volt, 100_msec },
-        { -0.60_volt, 50_msec  },
-        // { -0.65_volt, 100_msec },
-        { -0.70_volt, 50_msec  },
-        // { -0.75_volt, 100_msec },
-        { -0.80_volt, 60_msec  },
-        // { -0.85_volt, 100_msec },
-        { -0.90_volt, 60_msec  },
-        // { -0.95_volt, 100_msec },
-        { -1.00_volt, 60_msec  },
-        { -1.00_volt,
-         100_msec              }, // more gradual up and downs in other direction
-        { -0.90_volt, 50_msec  },
-        { -0.80_volt, 50_msec  },
-        { -0.70_volt, 50_msec  },
-        { -0.60_volt, 50_msec  },
-        { -0.50_volt, 50_msec  },
-        { -0.40_volt, 50_msec  },
-        { -0.30_volt, 50_msec  },
-        { -0.20_volt, 50_msec  },
-        { -0.10_volt, 50_msec  },
-        { -0.05_volt, 50_msec  },
-
-        { 0.05_volt,  25_msec  },
-        { 0.10_volt,  25_msec  },
-        { 0.15_volt,  25_msec  },
-        { 0.20_volt,  25_msec  },
-        { 0.25_volt,  25_msec  },
-        { 0.30_volt,  25_msec  },
-        { 0.35_volt,  25_msec  },
-        { 0.40_volt,  25_msec  },
-        { 0.45_volt,  25_msec  },
-        { 0.50_volt,  25_msec  },
-        { 0.55_volt,  25_msec  },
-        { 0.60_volt,  25_msec  },
-        { 0.65_volt,  25_msec  },
-        { 0.70_volt,  25_msec  },
-        { 0.75_volt,  25_msec  },
-        { 0.80_volt,  25_msec  },
-        { 0.85_volt,  25_msec  },
-        { 0.90_volt,  25_msec  },
-        { 0.95_volt,  25_msec  },
-        { 1.00_volt,  25_msec  },
-        { 1.00_volt,  25_msec  },
-        { 0.95_volt,  25_msec  },
-        { 0.90_volt,  25_msec  },
-        { 0.85_volt,  25_msec  },
-        { 0.80_volt,  25_msec  },
-        { 0.75_volt,  25_msec  },
-        { 0.70_volt,  25_msec  },
-        { 0.65_volt,  25_msec  },
-        { 0.60_volt,  25_msec  },
-        { 0.55_volt,  25_msec  },
-        { 0.50_volt,  25_msec  },
-        { 0.45_volt,  25_msec  },
-        { 0.40_volt,  25_msec  },
-        { 0.35_volt,  25_msec  },
-        { 0.30_volt,  25_msec  },
-        { 0.25_volt,  25_msec  },
-        { 0.20_volt,  25_msec  },
-        { 0.15_volt,  25_msec  },
-        { 0.10_volt,  25_msec  },
-        { 0.05_volt,  25_msec  },
-    };
-
-    AngularVelocity final_rpm = 200_rpm;
-
-    auto vel_func = [&]() -> AngularVelocity {
-        return getGroupVelocity(&test_motor, final_rpm);
-    };
-    auto voltage_func = [&](Voltage commanded_voltage) -> Voltage {
-        // using either will return different values?
-        // return commanded_voltage;
-        return getGroupVoltage(&test_motor);
-    };
-
-    auto data = AngularMotorGroupUtils::generateData(ka_commands,
-                                                     &test_motor,
-                                                     vel_func,
-                                                     voltage_func,
-                                                     std::nullopt,
-                                                     10_msec);
-
-    std::cout << "got data!" << std::endl;
-
-    std::cout << "ka Data: " << std::endl;
-    AngularMotorGroupUtils::printDataAsLatex(data);
-
-    std::cout << "trying Ka_method1: " << std::endl;
-
-    auto Ka_method1 = AngularMotorGroupUtils::fit_ka_data(data,
-                                                          10_msec,
-                                                          motor_voltage_Kv,
-                                                          motor_voltage_Ks);
-    std::cout << "Ka_method1: " << Ka_method1.convert(volt / radps2)
-              << std::endl;
-}
-
-void motorPlantTest() {
-    using namespace lyfast::sysid;
-
-    // test_motor_kv_ks_tuner();
-    // test_motor_ka_tuner();
-    // return;
+    mb.setArcModifier([](auto arc) -> auto {
+        std::ignore =
+          arc
+            ->velocity_based(true)
+            // speecifically uses turn heading pid instead of drive pid
+            .withAngularVelocityFeedbackController(turn_heading_vel_pid)
+            // .withVelocityFeedforwardController(turn_vel_controller)
+            .timeout(3_sec);
+    });
 
     //
-    // std::vector<VoltageCommand> test_commands = {
-    //     { 0.1_volt,  400_msec  },
-    //     { 0.3_volt,  500_msec  },
-    //     { 0.4_volt,  100_msec  },
-    //     { 0.2_volt,  100_msec  },
-    //     { -0.5_volt, 600_msec  },
-    //     { -1.0_volt, 600_msec  },
-    //     { 1.0_volt,  1000_msec },
-    // };
-    //
-    // for (auto [voltage, duration, record] : test_commands) {
-    //     test_motor.move_voltage(12 * to_mvolt(voltage));
-    //
-    //     pros::delay(to_msec(duration));
-    // }
+    mb.setDistanceAtHeadingModifier([](auto distanceAtHeading) {
+        std::ignore = distanceAtHeading->velocity_based(true).timeout(5_sec);
+    });
 
-    std::vector<std::pair<AngularVelocity, Time>> test_commands = {
-        { 0.1 * 200_rpm,  400_msec  },
-        { 0.3 * 200_rpm,  500_msec  },
-        { 0.4 * 200_rpm,  100_msec  },
-        { 0.2 * 200_rpm,  100_msec  },
-        { -0.5 * 200_rpm, 600_msec  },
-        { -1.0 * 200_rpm, 600_msec  },
-        { 1.0 * 200_rpm,  1000_msec },
-    };
+    mb.setMoveToModifier([](auto moveTo) {
+        std::ignore = moveTo->velocity_based(true)
+                        .customAngularLinearFunc(angular_linear_func)
+                        .k_lat(0.0 * rad / m)
+                        .timeout(3_sec);
+    });
 
-    for (auto [velocity, duration] : test_commands) {
-        test_plant.setTarget(velocity);
-
-        pros::delay(to_msec(duration));
-    }
-
-    std::cout << "raw data: " << std::endl;
-    AngularMotorGroupUtils::printDataAsLatex(raw_data);
-
-    std::cout << "filtered data: " << std::endl;
-    AngularMotorGroupUtils::printDataAsLatex(filtered_data);
-
-    std::cout << "extra data (torque, current): " << std::endl;
-    printPairQuantitiesAsLatex(extra_data);
-
-    std::cout << "power data: " << std::endl;
-    printQuantityVectorAsLatex(power_data);
-    std::cout << "tick based vel data: " << std::endl;
-    printQuantityVectorAsLatex(tick_based_vel_data);
+    mb.setBoomerangModifier([](auto boomerang) {
+        std::ignore = boomerang->velocity_based(true)
+                        .customAngularLinearFunc(angular_linear_func)
+                        .k_lat(0.0 * rad / m, true)
+                        .timeout(5_sec);
+    });
 }
 
-void odom_offset_tuning() {
-    sideways_odom_rotation.set_position(0);
-    forwards_odom_rotation.set_position(0);
-    pros::delay(10);
+// void moveToTest() {
+//     arc_pose_tracker.setPose(units::Pose { 0_in, 0_in, 0_stDeg });
+//     mb.moveTo(24_in, 0_in) | run;
+// }
 
-    double last_sideways_rotation = sideways_odom_rotation.get_position();
-    double last_forwards_rotation = forwards_odom_rotation.get_position();
-    Angle last_angle = arc_pose_tracker.getAngle();
+units::Pose RobotGetPose() {
+    return { arc_pose_tracker.getPosition(), arc_pose_tracker.getAngle() };
+}
 
-    auto get_offset =
-      [](double distance_delta, Length wheel_diameter, Angle angle_delta) {
-          const double rotations = (distance_delta * deg / 100.0) / rot;
+void RobotSetPose(units::Pose pose) {
+    arc_pose_tracker.setPose(pose);
+}
 
-          const Length measured = rotations * (wheel_diameter * M_PI);
-          return measured / to_stRad(angle_delta);
-      };
+void RobotSetPose(float x, float y, float theta) {
+    RobotSetPose(units::Pose { x * in, y * in, theta * deg });
+}
 
-    Time last_measurement_time = now();
+void drive_vel_pid_tuning() {
+    Length target_distance = 24_in;
+    Length target_distance_delta = 8_in;
+
+    Length target_lateral_distance = 2_in;
+
+    double curr_kp =
+      linear_angular_vel_pid.get_kp() / linear_angular_vel_pid.UKP;
+    double curr_ki =
+      linear_angular_vel_pid.get_ki() / linear_angular_vel_pid.UKI;
+    double curr_kd =
+      linear_angular_vel_pid.get_kd() / linear_angular_vel_pid.UKD;
+
+    LinearAcceleration curr_accel_slew = 170_inps2;
+    LinearAcceleration curr_max_accel = linear_mp_feedback.getMaxAccel();
+
+    // Number curr_k_lat = 0.0;
+
+    double kp_delta = 0.1;
+    // double ki_delta = 0.01;
+    double kd_delta = 0.1;
+
+    LinearAcceleration slew_delta = 5_inps2;
+    LinearAcceleration accel_delta = 5_inps2;
+
+    bool config_swapped = false;
+    bool reversed = false;
+
+    units::V2Position start_position = { 0_in, 0_in };
+    units::V2Position target_position =
+      start_position +
+      units::V2Position { target_distance, target_lateral_distance };
+
+    drivetrain.setBrakeMode(pros::MotorBrake::hold);
+
+    std::cout << std::fixed << std::setprecision(3);
 
     while (true) {
-        velocity_drivetrain.moveArcade(0_inps, 3.0_radps);
-        // left_motors.move_voltage(-12000 * pct);
-        // right_motors.move_voltage(12000 * pct);
+        drivetrain.setBrakeMode(pros::MotorBrake::hold);
+        if (!reversed)
+            RobotSetPose({ start_position, 0_stDeg });
+        else
+            RobotSetPose({ start_position, 180_stDeg });
 
-        // units::V2Position deltas = { forwards_tracker.getDelta(),
-        //                              sideways_tracker.getDelta() };
-        // Angle delta_theta = imu_tracker.getDelta();
-        //
-        // units::V2Position offsets = deltas / to_stRad(delta_theta);
+        std::cout << "start is " << RobotGetPose().x.convert(in) << " "
+                  << RobotGetPose().y.convert(in) << std::endl;
 
-        // gets offsets every 0.2 seconds
-        if (blazing::timeoutDone(0.2_sec, last_measurement_time)) {
-            last_measurement_time = now();
-            Angle angle_delta = arc_pose_tracker.getAngle() - last_angle;
-            last_angle = arc_pose_tracker.getAngle();
+        auto start_time = from_msec(pros::millis());
 
-            double curr_forwards_rotation =
-              forwards_odom_rotation.get_position();
-            double curr_sideways_rotation =
-              sideways_odom_rotation.get_position();
+        if (reversed) {
+            // RobotSetPose(2 * target_distance.convert(in), 0, 0);
+            mb.moveTo(target_position)
+                // .drive_vel_kp(curr_kp)
+                // .drive_vel_ki(curr_ki)
+                // .drive_vel_kd(curr_kd)
+                .drive_vel_accelSlew(curr_accel_slew)
+                .drive_vel_mp_setMaxAccel(curr_max_accel)
 
-            double forwards_delta =
-              curr_forwards_rotation - last_forwards_rotation;
-            double sideways_delta =
-              curr_sideways_rotation - last_sideways_rotation;
+                // .lateral_vel_kp(curr_kp)
+                // .lateral_vel_ki(curr_ki)
+                // .lateral_vel_kd(curr_kd)
 
-            last_forwards_rotation = curr_forwards_rotation;
-            last_sideways_rotation = curr_sideways_rotation;
+                .turn_vel_kp(curr_kp)
+                .turn_vel_ki(curr_ki)
+                .turn_vel_kd(curr_kd)
 
-            units::V2Position offsets = {
-                get_offset(forwards_delta, 1.991_in, angle_delta),
-                get_offset(sideways_delta, 1.991_in, angle_delta)
-            };
+                //
+                // .k_lat(0)
+                .reverse()
+              // .closeThreshold(7_in)
+              | run;
+        } else {
+            // RobotSetPose(0, 0, 0);
+            mb.moveTo(target_position)
+                // .drive_vel_kp(curr_kp)
+                // .drive_vel_ki(curr_ki)
+                // .drive_vel_kd(curr_kd)
+                .drive_vel_accelSlew(curr_accel_slew)
+                .drive_vel_mp_setMaxAccel(curr_max_accel)
 
-            std::cout << offsets.x.convert(in) << " " << offsets.y.convert(in)
-                      << std::endl;
+                // .turn_vel_kp(0)
+                // .turn_vel_ki(0)
+                // .turn_vel_kd(0)
+
+                .turn_vel_kp(curr_kp)
+                .turn_vel_ki(curr_ki)
+                .turn_vel_kd(curr_kd)
+
+                // .lateral_vel_kp(curr_kp)
+                // .lateral_vel_ki(curr_ki)
+                // .lateral_vel_kd(curr_kd)
+
+                .timeout(3.3_sec)
+              // .drive_errorTolerance(0_in)
+
+              // .closeThreshold(7_in)
+              | run;
         }
 
-        pros::delay(20);
+        controller.rumble(".");
+
+        const auto end_time = from_msec(pros::millis());
+
+        const auto time_difference = end_time - start_time;
+
+        const auto curr_pose = RobotGetPose();
+        const auto error_vec = target_position - curr_pose;
+
+        std::cout << "final error: " << error_vec.magnitude().convert(in)
+                  << ", x: " << error_vec.x.convert(in)
+                  << ", y: " << error_vec.y.convert(in) << std::endl;
+
+        auto local_error_vec = error_vec.rotatedBy(-curr_pose.orientation);
+
+        std::cout << "final local error: "
+                  << local_error_vec.magnitude().convert(in)
+                  << ", forwards: " << local_error_vec.x.convert(in)
+                  << ", sideways: " << local_error_vec.y.convert(in)
+                  << std::endl;
+
+        // clang-format off
+        std::cout << "position: "
+				  << curr_pose.x.convert(in) << " "
+                  << curr_pose.y.convert(in) << " "
+                  << curr_pose.orientation.convert(deg) << std::endl;
+        // clang-format on
+
+        std::cout << "took " << time_difference.convert(sec)
+                  << " time to finish turn" << std::endl;
+
+        while (
+          !controller.get_digital_new_release(pros::E_CONTROLLER_DIGITAL_A)) {
+            if (controller.get_digital_new_release(
+                  pros::E_CONTROLLER_DIGITAL_LEFT)) {
+                target_distance -= target_distance_delta;
+                std::cout << "decreased target to "
+                          << target_distance.convert(in) << std::endl;
+            }
+
+            if (controller.get_digital_new_release(
+                  pros::E_CONTROLLER_DIGITAL_B)) {
+                // move back
+                if (reversed) {
+                    mb.moveTo(start_position)
+                        .timeout(2_sec)
+                        .closeThreshold(7_in)
+                      // .drive_vel_maxVel(20_inps)
+                      | async;
+                } else {
+                    mb.moveTo(start_position)
+                        .timeout(3_sec)
+                        .closeThreshold(7_in)
+                        // .drive_vel_maxVel(20_inps)
+                        .reverse() |
+                      async;
+                }
+            }
+
+            if (controller.get_digital_new_release(
+                  pros::E_CONTROLLER_DIGITAL_X)) {
+
+                // turns around
+                // if (reversed) {
+                //     mb.turnTo(0) | async;
+                // } else {
+                //     mb.turnTo(180) | async;
+                // }
+                //
+                // reversed = !reversed;
+            }
+
+            if (controller.get_digital_new_release(
+                  pros::E_CONTROLLER_DIGITAL_Y)) {
+                config_swapped = !config_swapped;
+            }
+
+            if (controller.get_digital_new_release(
+                  pros::E_CONTROLLER_DIGITAL_RIGHT)) {
+                target_distance += target_distance_delta;
+                std::cout << "increased target to "
+                          << target_distance.convert(in) << std::endl;
+            }
+
+            if (controller.get_digital_new_release(
+                  pros::E_CONTROLLER_DIGITAL_L2)) {
+                curr_kp -= kp_delta;
+                std::cout << "decreased kp to " << curr_kp << std::endl;
+            }
+            if (controller.get_digital_new_release(
+                  pros::E_CONTROLLER_DIGITAL_L1)) {
+                curr_kp += kp_delta;
+                std::cout << "increased kp to " << curr_kp << std::endl;
+            }
+
+            if (controller.get_digital_new_release(
+                  pros::E_CONTROLLER_DIGITAL_R2)) {
+                curr_kd -= kd_delta;
+                std::cout << "decreased kd to " << curr_kd << std::endl;
+            }
+            if (controller.get_digital_new_release(
+                  pros::E_CONTROLLER_DIGITAL_R1)) {
+                curr_kd += kd_delta;
+                std::cout << "increased kd to " << curr_kd << std::endl;
+            }
+
+            if (controller.get_digital_new_release(
+                  pros::E_CONTROLLER_DIGITAL_UP)) {
+                if (config_swapped) {
+                    curr_max_accel += accel_delta;
+                    std::cout << "increased max accel to "
+                              << curr_max_accel.internal() << std::endl;
+                } else {
+                    curr_accel_slew += slew_delta;
+                    std::cout << "increased slew to "
+                              << curr_accel_slew.internal() << std::endl;
+                }
+            }
+
+            if (controller.get_digital_new_release(
+                  pros::E_CONTROLLER_DIGITAL_DOWN)) {
+                if (config_swapped) {
+                    curr_max_accel -= accel_delta;
+                    std::cout << "decreased max accel to "
+                              << curr_max_accel.internal() << std::endl;
+                } else {
+                    curr_accel_slew -= slew_delta;
+                    std::cout << "decreased slew to "
+                              << curr_accel_slew.internal() << std::endl;
+                }
+            }
+            // kp = 7
+            // kd = 10.5
+
+            // kp = 6.3
+            // kd = 10.2
+            pros::delay(10);
+        }
     }
 }
 
-// }
-void opcontrol() {
-    // pros::delay(2000);
-    // motorPlantTest();
-    // linear_kv_ks_tuner(true);
-    // linear_raw_ka_tuner(vel_controller_params.linear.left_Kv,
-    //                     vel_controller_params.linear.left_Ks,
-    //                     vel_controller_params.linear.right_Kv,
-    //                     vel_controller_params.linear.right_Ks,
-    //                     true);
-    // angular_kv_ks_tuner();
-    // linear_ka_kp_ki_tuner(0.5_volt, 0.6, 2_sec);
-    // angular_ka_kp_ki_tuner(0.5_volt, 0.6, 2_sec);
+void turn_vel_pid_tuning() {
+    double target_theta = 90;
+    // by how much we can increase or decrease
+    double target_theta_delta = 45;
 
+    double curr_kp = turn_heading_vel_pid.get_kp() / turn_heading_vel_pid.UKP;
+    double curr_ki = turn_heading_vel_pid.get_ki() / turn_heading_vel_pid.UKI;
+    double curr_kd = turn_heading_vel_pid.get_kd() / turn_heading_vel_pid.UKD;
+
+    double kp_delta = 0.10;
+    double ki_delta = 0.01;
+    double kd_delta = 0.20;
+
+    pros::delay(2000);
+
+    std::cout << std::fixed << std::setprecision(3);
+
+    while (true) {
+        // matchloader::down();
+
+        RobotSetPose(0, 0, 0);
+        auto start_time = from_msec(pros::millis());
+
+        mb.turnTo(target_theta)
+            // .turn_vel_maxVel(200_degps)
+            // .direction(AngularDirection::RIGHT)
+            // .radius(-10.5_in)
+            .turn_vel_kp(curr_kp)
+            .turn_vel_ki(curr_ki)
+            .turn_vel_kd(curr_kd)
+            .timeout(3.0_sec) |
+          run;
+
+        // mb_vel.moveTo(-48_in, 3_in)
+        //     .reverse()
+        //     .drive_vel_minVel(50_inps)
+        //     // .drive_vel_mp_maxVel(100_inps)
+        //     // .drive_vel_mp_setMaxAccel(300_inps2)
+        //     .setChainTime(0_msec) |
+        //   chain;
+
+        // mb_vel.turnTo(target_theta)
+        //     .turn_vel_kp(curr_kp)
+        //     .turn_vel_ki(curr_ki)
+        //     .turn_vel_kd(curr_kd)
+        //     // .turn_vel_PIDmaxVel(30_degps)
+        //     .reverse()
+        //     // .turn_vel_maxVel(30_degps)
+        //     .radius(-10.5_in / 2.0)
+        //     .timeout(5_sec) |
+        //   chain;
+        // chain.wait();
+
+        // left_motors.set_brake_mode(pros::MotorBrake::brake);
+        //
+        // pros::delay(1500);
+        // drivetrain.moveTank(0_volt, 0_volt);
+
+        // drivetrain.setBrakeMode(pros::v5::MotorBrake::hold);
+        // RobotSetPose(-30, 57, 180);
+        //
+        // mb.moveTo(17_in, 54_in)
+        //     .reverse()
+        //     .drive_vel_minVel(50_inps)
+        //     .setChainTime(0_sec) |
+        //   chain;
+        //
+        // // mb.turnTo(21.8_in, 47_in)
+        // mb.turnTo(180)
+        //     .reverse()
+        //     .direction(AngularDirection::RIGHT)
+        //     .radius(-10.5_in / 2)
+        //     .timeout(2.6_sec)
+        //     .setChainTime(0_sec) |
+        //   chain;
+        // mb.turnTo(0).radius(-4_in).timeout(2.6_sec) | chain;
+        //
+        // chain.wait();
+
+        // mb.turnTo(target_theta)
+        //     // .turn_vel_maxVel(200_degps)
+        //     .direction(AngularDirection::RIGHT)
+        //     .radius(-10.5_in)
+        //     // .turn_vel_kp(curr_kp)
+        //     // .turn_vel_ki(curr_ki)
+        //     // .turn_vel_kd(curr_kd)
+        //     .timeout(2.6_sec) |
+        //   run;
+
+        // drivetrain.setBrakeMode(pros::v5::MotorBrake::hold);
+        // RobotSetPose(48, 48, 0);
+        // mb.turnTo(47, 47).timeout(3.0_sec) | run;
+
+        controller.rumble(".");
+
+        const auto end_time = from_msec(pros::millis());
+
+        const auto time_difference = end_time - start_time;
+
+        std::cout << "final error was "
+                  << target_theta - RobotGetPose().orientation.convert(deg)
+                  << std::endl;
+
+        // clang-format off
+        std::cout << "position: "
+				  << RobotGetPose().x.convert(in) << " "
+                  << RobotGetPose().y.convert(in) << " "
+                  << RobotGetPose().orientation.convert(deg) << std::endl;
+        // clang-format on
+
+        std::cout << "took " << time_difference.convert(sec)
+                  << " time to finish turn" << std::endl;
+
+        while (
+          !controller.get_digital_new_release(pros::E_CONTROLLER_DIGITAL_A)) {
+            if (controller.get_digital_new_release(
+                  pros::E_CONTROLLER_DIGITAL_LEFT)) {
+                target_theta -= target_theta_delta;
+                std::cout << "decreased to " << target_theta << std::endl;
+            }
+            if (controller.get_digital_new_release(
+                  pros::E_CONTROLLER_DIGITAL_RIGHT)) {
+                target_theta += target_theta_delta;
+                std::cout << "increased to " << target_theta << std::endl;
+            }
+
+            if (controller.get_digital_new_release(controls::DOWN)) {
+                curr_ki -= ki_delta;
+                std::cout << "ki - to " << curr_ki << std::endl;
+            }
+            if (controller.get_digital_new_release(controls::UP)) {
+                curr_ki += ki_delta;
+                std::cout << "ki + to " << curr_ki << std::endl;
+            }
+
+            if (controller.get_digital_new_release(
+                  pros::E_CONTROLLER_DIGITAL_L2)) {
+                curr_kp -= kp_delta;
+                std::cout << "decreased kp to " << curr_kp << std::endl;
+            }
+            if (controller.get_digital_new_release(
+                  pros::E_CONTROLLER_DIGITAL_L1)) {
+                curr_kp += kp_delta;
+                std::cout << "increased kp to " << curr_kp << std::endl;
+            }
+
+            if (controller.get_digital_new_release(
+                  pros::E_CONTROLLER_DIGITAL_R2)) {
+                curr_kd -= kd_delta;
+                std::cout << "decreased kd to " << curr_kd << std::endl;
+            }
+            if (controller.get_digital_new_release(
+                  pros::E_CONTROLLER_DIGITAL_R1)) {
+                curr_kd += kd_delta;
+                std::cout << "increased kd to " << curr_kd << std::endl;
+            }
+
+            pros::delay(10);
+        }
+    }
+}
+
+// void odom_offset_tuning() {
+//     sideways_odom_rotation.set_position(0);
+//     forwards_odom_rotation.set_position(0);
+//     pros::delay(10);
+//
+//     double last_sideways_rotation = sideways_odom_rotation.get_position();
+//     double last_forwards_rotation = forwards_odom_rotation.get_position();
+//     Angle last_angle = arc_pose_tracker.getAngle();
+//
+//     auto get_offset =
+//       [](double distance_delta, Length wheel_diameter, Angle angle_delta) {
+//           const double rotations = (distance_delta * deg / 100.0) / rot;
+//
+//           const Length measured = rotations * (wheel_diameter * M_PI);
+//           return measured / to_stRad(angle_delta);
+//       };
+//
+//     Time last_measurement_time = now();
+//
+//     while (true) {
+//         velocity_drivetrain.moveArcade(0_inps, 3.0_radps);
+//         // left_motors.move_voltage(-12000 * pct);
+//         // right_motors.move_voltage(12000 * pct);
+//
+//         // units::V2Position deltas = { forwards_tracker.getDelta(),
+//         //                              sideways_tracker.getDelta() };
+//         // Angle delta_theta = imu_tracker.getDelta();
+//         //
+//         // units::V2Position offsets = deltas / to_stRad(delta_theta);
+//
+//         // gets offsets every 0.2 seconds
+//         if (blazing::timeoutDone(0.2_sec, last_measurement_time)) {
+//             last_measurement_time = now();
+//             Angle angle_delta = arc_pose_tracker.getAngle() - last_angle;
+//             last_angle = arc_pose_tracker.getAngle();
+//
+//             double curr_forwards_rotation =
+//               forwards_odom_rotation.get_position();
+//             double curr_sideways_rotation =
+//               sideways_odom_rotation.get_position();
+//
+//             double forwards_delta =
+//               curr_forwards_rotation - last_forwards_rotation;
+//             double sideways_delta =
+//               curr_sideways_rotation - last_sideways_rotation;
+//
+//             last_forwards_rotation = curr_forwards_rotation;
+//             last_sideways_rotation = curr_sideways_rotation;
+//
+//             units::V2Position offsets = {
+//                 get_offset(forwards_delta, 1.991_in, angle_delta),
+//                 get_offset(sideways_delta, 1.991_in, angle_delta)
+//             };
+//
+//             std::cout << offsets.x.convert(in) << " " <<
+//             offsets.y.convert(in)
+//                       << std::endl;
+//         }
+//
+//         pros::delay(20);
+//     }
+// }
+
+// }
+
+void findImuOrientation() {
+    pros::imu_orientation_e_t imu_orientation = imu.get_physical_orientation();
+
+    if (imu_orientation == pros::E_IMU_X_DOWN)
+        std::cout << "E_IMU_X_DOWN" << std::endl;
+    if (imu_orientation == pros::E_IMU_Y_DOWN)
+        std::cout << "E_IMU_Y_DOWN" << std::endl;
+    if (imu_orientation == pros::E_IMU_Z_DOWN)
+        std::cout << "E_IMU_Z_DOWN" << std::endl;
+    if (imu_orientation == pros::E_IMU_X_UP)
+        std::cout << "E_IMU_X_UP" << std::endl;
+    if (imu_orientation == pros::E_IMU_Y_UP)
+        std::cout << "E_IMU_Y_UP" << std::endl;
+    if (imu_orientation == pros::E_IMU_Z_UP)
+        std::cout << "E_IMU_Z_UP" << std::endl;
+}
+
+void opcontrol() {
     arc_pose_tracker.setPose({ -23.6_in, 0_in, 0_stDeg });
     pros::Task([] {
         while (true) {
@@ -1624,111 +1637,37 @@ void opcontrol() {
                              pos.x.convert(in),
                              pos.y.convert(in),
                              theta.convert(deg));
-            pros::delay(30);
+
+            // pros::lcd::print(
+            //   2,
+            //   "%.2f   %.2f",
+            //   (velocity_drivetrain.getDrivetrainVelocities().right_vel -
+            //    velocity_drivetrain.getDrivetrainVelocities().left_vel) /
+            //     track_width,
+            //   -from_degps(imu.get_gyro_rate().z));
+
+            FLinearVelocity rotation_velocity =
+              toLinear(from_degps(forwards_odom_rotation.get_velocity()),
+                       1.991_in);
+
+            pros::lcd::print(1,
+                             "%.5f",
+                             ((drivetrain.getDrivetrainVelocities().right_vel +
+                               drivetrain.getDrivetrainVelocities().left_vel) /
+                              2)
+                               .internal());
+
+            // pros::lcd::print(2, "%.5f", rotation_velocity.internal());
+            pros::lcd::print(2, "%.5f", rotation_velocity.internal());
+            pros::delay(100);
         }
     });
+    // findImuOrientation();
+    // path_follow_test();
 
-    // pros::delay(5000);
-    // angular_kv_ks_tuner();
-    path_follow_test();
+    // long_goal_to_match_test();
 
-    // TODO: add left/right control to vel controller directly
-    // arc_pose_tracker.setPose({ -23.6_in, 0_in, 0_stDeg });
-
-    // odom_offset_tuning();
-
-    // while (true) {
-    //     // Arcade control scheme
-    //     // velocity_drivetrain.setBrakeMode(pros::MotorBrake::hold);
-    //
-    //     double dir = master.get_analog(ANALOG_LEFT_Y) / 127.0;
-    //     double turn = -master.get_analog(ANALOG_RIGHT_X) / 127.0;
-    //
-    //     DifferentialSpeeds target { dir * max_velocity,
-    //                                 turn * (max_velocity / 5.25_in) * rad };
-    //     velocity_drivetrain.moveArcade(target.linear_velocity,
-    //                                    target.angular_velocity);
-    //
-    //     if (master.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_X)) {
-    //         printDrivetrainData();
-    //     }
-    //
-    //     pros::delay(20); // Run for 20 ms then update
-    // }
-
-    // using namespace lyfast::sysid;
-    //
-    // std::vector<DifferentialVoltageCommand> test_commands = {
-    //     { 0.1_volt, 0.1_volt, 1000_msec },
-    //     { 0.0_volt, 0.0_volt, 2000_msec, false },
-    //     { -0.1_volt, -0.1_volt, 1000_msec },
-    //     { 0.0_volt, 0.0_volt, 2000_msec, false },
-    //     { 0.2_volt, 0.2_volt, 1000_msec },
-    //     { 0.0_volt, 0.0_volt, 2000_msec, false },
-    //     { -0.2_volt, -0.2_volt, 1000_msec },
-    //     { 0.0_volt, 0.0_volt, 2000_msec, false },
-    //     { 0.3_volt, 0.3_volt, 1000_msec },
-    //     { 0.0_volt, 0.0_volt, 2000_msec, false },
-    //     { -0.3_volt, -0.3_volt, 1000_msec },
-    //     { 0.0_volt, 0.0_volt, 2000_msec, false },
-    //     { 0.4_volt, 0.4_volt, 1000_msec },
-    //     { 0.0_volt, 0.0_volt, 2000_msec, false },
-    //     { -0.4_volt, -0.4_volt, 1000_msec },
-    //     { 0.0_volt, 0.0_volt, 2000_msec, false },
-    //     { 0.5_volt, 0.5_volt, 1000_msec },
-    //     { 0.0_volt, 0.0_volt, 2000_msec, false },
-    //     { -0.5_volt, -0.5_volt, 1000_msec },
-    //     { 0.0_volt, 0.0_volt, 2000_msec, false },
-    //     { 0.6_volt, 0.6_volt, 1000_msec },
-    //     { 0.0_volt, 0.0_volt, 2000_msec, false },
-    //     { -0.6_volt, -0.6_volt, 1000_msec },
-    //     { 0.0_volt, 0.0_volt, 2000_msec, false },
-    //     { 0.7_volt, 0.7_volt, 1000_msec },
-    //     { 0.0_volt, 0.0_volt, 2000_msec, false },
-    //     { -0.7_volt, -0.7_volt, 1000_msec },
-    //     { 0.0_volt, 0.0_volt, 2000_msec, false },
-    //     { 0.8_volt, 0.8_volt, 1000_msec },
-    //     { 0.0_volt, 0.0_volt, 2000_msec, false },
-    //     { -0.8_volt, -0.8_volt, 1000_msec },
-    //     { 0.0_volt, 0.0_volt, 2000_msec, false },
-    //     { 0.9_volt, 0.9_volt, 1000_msec },
-    //     { 0.0_volt, 0.0_volt, 2000_msec, false },
-    //     { -0.9_volt, -0.9_volt, 1000_msec },
-    //     { 0.0_volt, 0.0_volt, 2000_msec, false },
-    //     { 1.0_volt, 1.0_volt, 1000_msec },
-    //     { 0.0_volt, 0.0_volt, 2000_msec, false },
-    //     { -1.0_volt, -1.0_volt, 1000_msec },
-    //     { 0.0_volt, 0.0_volt, 2000_msec, false },
-    // };
-    // velocity_drivetrain.setBrakeMode(pros::MotorBrake::hold);
-    //
-    // auto data =
-    //   lyfast::sysid::DifferentialUtils::generateData(test_commands,
-    //                                                  velocity_drivetrain,
-    //                                                  10_msec,
-    //                                                  true);
-    // velocity_drivetrain.moveTank(0_volt, 0_volt);
-    // pros::delay(10000);
-    // lyfast::sysid::DifferentialUtils::printData(data, 10_msec);
-
-    // for (auto [left_voltage, right_voltage, duration, record] :
-    // test_commands) {
-    //     velocity_drivetrain.moveTank(left_voltage, right_voltage);
-    //
-    //     pros::delay(to_msec(duration));
-    // }
-    //
-    // std::cout << "raw data: " << std::endl;
-    // AngularMotorGroupUtils::printDataAsLatex(raw_data);
-    //
-    // std::cout << "filtered data: " << std::endl;
-    // AngularMotorGroupUtils::printDataAsLatex(filtered_data);
-    //
-    // std::cout << "extra data (torque, current): " << std::endl;
-    // printPairQuantitiesAsLatex(extra_data);
-    //
-    // std::cout << "power data: " << std::endl;
-    // printQuantityVectorAsLatex(power_data);
-    // std::cout << "tick based vel data: " << std::endl;
-    // printQuantityVectorAsLatex(tick_based_vel_data);
+    // moveToTest();
+    // drive_vel_pid_tuning();
+    turn_vel_pid_tuning();
 }

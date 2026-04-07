@@ -176,7 +176,7 @@ class TrackingImu {
 
         m_delta = from_stDeg(result);
         // specific to z down orientation
-        m_angular_velocity = -sensor->get_gyro_rate().z * degps;
+        m_angular_velocity = -from_degps(sensor->get_gyro_rate().z);
     }
 
     TrackingImu(pros::Imu* sensor)

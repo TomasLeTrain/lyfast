@@ -66,6 +66,14 @@ void LTVUnicycleController::setSimpleQMatrix(std::array<float, 2> Q) {
     precomputeforwardsAngleFeedback();
 }
 
+// Q matrix determined by bryson's rule
+void LTVUnicycleController::setSimpleRMatrix(std::array<float, 2> R) {
+    m_simple_R = R;
+
+    // need to recompute when cost changes
+    precomputeforwardsAngleFeedback();
+}
+
 // R matrix determined by bryson's rule
 void LTVUnicycleController::setRMatrix(std::array<float, 2> R) {
     m_R = R;
@@ -77,7 +85,7 @@ void LTVUnicycleController::precomputeforwardsAngleFeedback() {
     std::cout << "LQR:computing forwards angle" << std::endl;
 
     const Eigen::Matrix2f Q = MakeCostMatrix(m_simple_Q); // states x states
-    const Eigen::Matrix2f R = MakeCostMatrix(m_R); // inputs x inputs
+    const Eigen::Matrix2f R = MakeCostMatrix(m_simple_R); // inputs x inputs
 
     // states x states
     const Eigen::Matrix2f A {
@@ -201,7 +209,8 @@ void LTVUnicycleController::compute() {
 
     const units::Pose error_pose(local_error, angle_error);
 
-    DifferentialSpeeds feedback_velocities;
+    DifferentialSpeeds feedback_velocities { LinearVelocity(0),
+                                             AngularVelocity(0) };
 
     // velocity low enough that sideways correction is not possible, just focus
     // on forwards and sideways
@@ -236,13 +245,15 @@ DifferentialSpeeds LTVUnicycleController::update(PathPoseFeedbackT state,
 LTVUnicycleController::LTVUnicycleController() {}
 
 LTVUnicycleController::LTVUnicycleController(std::array<float, 3> Q,
-                                             std::array<float, 2> simple_Q,
                                              std::array<float, 2> R,
+                                             std::array<float, 2> simple_Q,
+                                             std::array<float, 2> simple_R,
                                              Time input_delay,
                                              LinearVelocity minimum_velocity)
     : m_Q(Q),
-      m_simple_Q(simple_Q),
       m_R(R),
+      m_simple_Q(simple_Q),
+      m_simple_R(simple_R),
       m_input_delay(input_delay),
       m_minimum_velocity(minimum_velocity) {
     precomputeforwardsAngleFeedback();
@@ -253,6 +264,7 @@ LTVUnicycleController::LTVUnicycleController(std::array<float, 3> Q,
                                              Time input_delay,
                                              LinearVelocity minimum_velocity)
     : LTVUnicycleController(Q,
+                            R,
                             { Q[0], Q[2] },
                             R,
                             input_delay,

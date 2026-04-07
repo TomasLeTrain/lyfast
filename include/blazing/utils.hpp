@@ -16,6 +16,11 @@ enum class AngularDirection {
     RIGHT
 };
 
+struct TargetFeedType {
+    bool feedforward = true;
+    bool feedback = true;
+};
+
 template<typename floatType>
 struct LeftRightSpeedsT {
     ConvertFloatType<LinearVelocity, floatType> left_vel;

@@ -35,7 +35,7 @@ template<typename ControllersType,
          typename TrackerType,
          typename TolerancesType>
     requires poseTracker<TrackerType> && forwardTravelTracker<TrackerType> &&
-               VelocityArcadeDrivetrain<DrivetrainType> &&
+               VelocityArcadeFeedtypeDrivetrain<DrivetrainType> &&
                hasPathPoseFeedback<ControllersType>
 class PathFollow : public Motion<ControllersType,
                                  DrivetrainType,
@@ -93,7 +93,7 @@ class PathFollow : public Motion<ControllersType,
         // reverses heading if neccesary
         auto applyHeadingReversal = [&](Angle angle) -> Angle {
             return reversed ? reverseAngle(angle) : angle;
-        }();
+        };
 
         const units::V2Position position = this->tracker->getPosition();
         const Angle heading = this->tracker->getAngle();
@@ -306,6 +306,12 @@ class PathFollow : public Motion<ControllersType,
     // changer methods
     motionChangerMsg PathFollow& reverse() {
         this->reversed = true;
+
+        return *this;
+    }
+
+    motionChangerMsg PathFollow& setReverse(bool reversed) {
+        this->reversed = reversed;
 
         return *this;
     }

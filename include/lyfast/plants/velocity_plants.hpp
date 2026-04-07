@@ -204,7 +204,7 @@ class DrivetrainVelocityPlant {
 
     std::variant<LeftRightVoltages, DifferentialSpeeds> m_target =
       LeftRightVoltages { 0_volt, 0_volt };
-    LeftRightVoltages m_commanded_voltages;
+    LeftRightVoltages m_commanded_voltages { 0_volt, 0_volt };
 
     uint32_t m_last_update_timestamp;
 

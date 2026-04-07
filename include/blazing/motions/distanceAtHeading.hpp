@@ -202,11 +202,7 @@ class distanceAtHeading
         // only evaluate velocity based if we have all the requirements
         if constexpr (hasLinearVelocityFeedback<ControllersType> &&
                       hasAngularVelocityFeedback<ControllersType> &&
-                      TankDrivetrain<DrivetrainType> &&
-                      // has velocity feedforward
-                      requires(ControllersType controller) {
-                          controller.velocity_feedforward;
-                      }) {
+                      VelocityArcadeDrivetrain<DrivetrainType>) {
             if (m_velocity_based) {
                 LinearVelocity linear_vel =
                   this->controllers.linear_velocity_feedback.update(
@@ -248,41 +244,45 @@ class distanceAtHeading
 
                 DifferentialSpeeds target { linear_vel, angular_vel };
 
-                // pass velocities into feedforward
-                auto [left_voltage, right_voltage] =
-                  this->controllers.velocity_feedforward.update(target,
-                                                                delta_time);
-
-                // TODO: apply voltage clamp/slew? probably not
-
-                auto [left_vel, right_vel] =
-                  this->drivetrain->getDrivetrainVelocities();
-                auto [actual_volt_left, actual_volt_right] =
-                  this->drivetrain->getDrivetrainVoltages();
-
-                // std::cout << std::fixed;
-                // std::cout << std::setprecision(5);
-                //
-                // std::cout << "dist/lin/ang/drive_left/drive_right/tv_l/tv_r/"
-                //              "av_l/av_r/x/y/theta/t_err: "
-                //           << linear_error.internal() << " "
-                //           << target.linear_velocity.internal() << " "
-                //           << target.angular_velocity.internal() << " "
-                //           << left_vel.internal() << " " <<
-                //           right_vel.internal()
-                //           << " " << left_voltage.internal() << " "
-                //           << right_voltage.internal() << " "
-                //           << actual_volt_left.internal() << " "
-                //           << actual_volt_right.internal() << " "
-                //           << position.x.convert(in) << " "
-                //           << position.y.convert(in) << " "
-                //           << projected_cte_error.convert(in) << " "
-                //           << angular_error.internal() << std::endl;
-
-                this->drivetrain->moveTank(left_voltage, right_voltage);
-
-                // we return here, so none of the below code executes
+                this->drivetrain->moveArcade(target.linear_velocity,
+                                             target.angular_velocity);
                 return result;
+
+                // pass velocities into feedforward
+                // auto [left_voltage, right_voltage] =
+                //   this->controllers.velocity_feedforward.update(target,
+                //                                                 delta_time);
+                //
+                // // TODO: apply voltage clamp/slew? probably not
+                //
+                // auto [left_vel, right_vel] =
+                //   this->drivetrain->getDrivetrainVelocities();
+                // auto [actual_volt_left, actual_volt_right] =
+                //   this->drivetrain->getDrivetrainVoltages();
+                //
+                // // std::cout << std::fixed;
+                // // std::cout << std::setprecision(5);
+                // //
+                // // std::cout << "dist/lin/ang/drive_left/drive_right/tv_l/tv_r/"
+                // //              "av_l/av_r/x/y/theta/t_err: "
+                // //           << linear_error.internal() << " "
+                // //           << target.linear_velocity.internal() << " "
+                // //           << target.angular_velocity.internal() << " "
+                // //           << left_vel.internal() << " " <<
+                // //           right_vel.internal()
+                // //           << " " << left_voltage.internal() << " "
+                // //           << right_voltage.internal() << " "
+                // //           << actual_volt_left.internal() << " "
+                // //           << actual_volt_right.internal() << " "
+                // //           << position.x.convert(in) << " "
+                // //           << position.y.convert(in) << " "
+                // //           << projected_cte_error.convert(in) << " "
+                // //           << angular_error.internal() << std::endl;
+                //
+                // this->drivetrain->moveTank(left_voltage, right_voltage);
+                //
+                // // we return here, so none of the below code executes
+                // return result;
             } else {
                 // assert to warn user?
                 // assert("want to use velocity but don't have requirements!");

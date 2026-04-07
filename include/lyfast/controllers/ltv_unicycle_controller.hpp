@@ -2,6 +2,7 @@
 
 #include "blazing/utils.hpp"
 #include "lyfast/controllers/path_pose_feedback.hpp"
+#include "units/Angle.hpp"
 #include "units/Pose.hpp"
 #include "units/units.hpp"
 
@@ -14,7 +15,7 @@ struct LTVUnicycleController {
     // stores state of the system
     struct State {
         units::Pose pose;
-        DifferentialSpeeds velocities;
+        DifferentialSpeeds velocities { LinearVelocity(0), AngularVelocity(0) };
 
         // allow convinient convertion
         static State
@@ -37,8 +38,9 @@ struct LTVUnicycleController {
     std::array<float, 4> m_simpler_feedback;
 
     std::array<float, 3> m_Q;
-    std::array<float, 2> m_simple_Q;
     std::array<float, 2> m_R;
+    std::array<float, 2> m_simple_Q;
+    std::array<float, 2> m_simple_R;
 
     FTime m_input_delay = 0_msec;
     LinearVelocity m_minimum_velocity = 0_mps;
@@ -57,6 +59,7 @@ struct LTVUnicycleController {
 
     // [x, theta] -> Q matrix determined by bryson's rule
     void setSimpleQMatrix(std::array<float, 2> Q);
+    void setSimpleRMatrix(std::array<float, 2> R);
 
     // R matrix determined by bryson's rule
     void setRMatrix(std::array<float, 2> R);
@@ -74,8 +77,9 @@ struct LTVUnicycleController {
     LTVUnicycleController();
 
     LTVUnicycleController(std::array<float, 3> Q,
-                          std::array<float, 2> simple_Q,
                           std::array<float, 2> R,
+                          std::array<float, 2> simple_Q,
+                          std::array<float, 2> simple_R,
                           Time input_delay = 0_msec,
                           LinearVelocity minimum_velocity = 0_mps);
 
