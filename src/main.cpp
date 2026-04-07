@@ -157,30 +157,32 @@ lyfast::DifferentialVelocityControllerParams vel_controller_params {
 		// .left_Kv = 0.46 * volt / mps,
 		.left_Kv = 0.46 * volt / mps,
 		.left_Ka = 0.09 * volt / mps2,
-		// .left_low_target_Kv = 0.4 * volt / mps,
-		// .left_low_target_Ka = 0.0 * volt / mps2,
+		.left_low_target_Kv = 0.4 * volt / mps,
+		.left_low_target_Ka = 0.0 * volt / mps2,
 		.left_Ks = 0.08 * volt,
 
 		// .right_Kv = 0.49 * volt / mps,
 		.right_Kv = 0.47 * volt / mps,
 		.right_Ka = 0.09 * volt / mps2,
-		// .right_low_target_Kv = 0.42 * volt / mps,
-		// .right_low_target_Ka = 0.0 * volt / mps2,
+		.right_low_target_Kv = 0.4 * volt / mps,
+		.right_low_target_Ka = 0.0 * volt / mps2,
 		.right_Ks = 0.08 * volt,
 
 		.Ka_delta_time = 20_msec,
-		.low_target_threshold = 2_inps
+		.low_target_threshold = 3_inps
 	},
 	.angular = {
 		.left_Kv = 0.90 * volt / mps,
-		.left_Ka = 0.11 * volt / mps2,
-		.left_low_target_Kv = 0.80 * volt / mps,
+		// .left_Ka = 0.11 * volt / mps2,
+		.left_Ka = 0.07 * volt / mps2,
+		.left_low_target_Kv = 0.5 * volt / mps,
 		.left_low_target_Ka = 0.0 * volt / mps2,
 		.left_Ks = 0.08 * volt,
 
 		.right_Kv = 0.90 * volt / mps,
-		.right_Ka = 0.11 * volt / mps2,
-		.right_low_target_Kv = 0.80 * volt / mps,
+		// .right_Ka = 0.11 * volt / mps2,
+		.right_Ka = 0.07 * volt / mps2,
+		.right_low_target_Kv = 0.5 * volt / mps,
 		.right_low_target_Ka = 0.0 * volt / mps2,
 		.right_Ks = 0.08 * volt,
 
@@ -313,9 +315,13 @@ PID<Angle, Voltage> angular_pid(2.5,
                                 Voltage(1.0 / 127.0));
 
 // tolerance stuff
-Tolerances linearTolerances(100_msec,
-                            ErrorTolerance { 0.7_in },
+// Tolerances linearTolerances(100_msec,
+//                             ErrorTolerance { 0.7_in },
+//                             VelocityTolerance { 400_inps });
+Tolerances linearTolerances(100_sec,
+                            ErrorTolerance { 0.0_in },
                             VelocityTolerance { 400_inps });
+
 // HalfCircleTolerance { 1_in });
 
 Tolerances angularTolerances(40_msec,
@@ -393,9 +399,9 @@ lyfast::PathPoseFeedbackController<decltype(lqr_controller)>
 // path_pose_feedback_controller(no_feedback_controller);
 
 PID<Angle, AngularVelocity>
-  linear_angular_vel_pid(14.00,
+  linear_angular_vel_pid(0.00,
                          0.0,
-                         15.5,
+                         0.0,
                          to_stRad(10_stDeg), // windup range
                          76, // restrict max vel
                          std::nullopt, // derivative alpha
@@ -404,10 +410,10 @@ PID<Angle, AngularVelocity>
                          1_radps);
 
 PID<Angle, AngularVelocity> turn_heading_vel_pid(
-  5.000,
+  10.100,
   // 0.01,
   0.0,
-  0.000,
+  0.600,
   // 19.000,
   //                       // 0.01,
   //                       0.0,
@@ -430,7 +436,8 @@ LinearSlewController linear_slew { std::nullopt, 0.2_volt };
 // AngularSlewController angular_slew(0.8_volt);
 AngularSlewController angular_slew {};
 
-lyfast::mpFeedback<Length> linear_mp_feedback { 70_inps, 110_inps2 };
+lyfast::mpFeedback<Length>
+  linear_mp_feedback(70_inps, 110_inps2, 0.3_in, 1_inps / 1_in);
 
 LinearVelocityFeedbackController<decltype(linear_mp_feedback)>
   linear_mp_feedback_controller(linear_mp_feedback);
@@ -515,8 +522,9 @@ double angular_linear_func(Angle angle) {
     //
     // defined on the range [0,pi/2]
     auto func = [](double x) -> double {
-        double a = 0.93;
-        return std::exp(-a * x) * (1 - (2 / M_PI) * x);
+        return 1.0;
+        // double a = 0.93;
+        // return std::exp(-a * x) * (1 - (2 / M_PI) * x);
     };
 
     // makes this function apply on the range [0,pi]
@@ -1077,12 +1085,14 @@ void initialize() {
 
     startTimeCriticalTask();
 
+    async.init();
+
     forwards_odom_rotation.set_data_rate(5);
     forwards_odom_rotation.set_data_rate(5);
     imu.set_data_rate(5);
 
     mb.setTurnToModifier([](auto turnTo) {
-		std::cout << "modifying" << std::endl;
+        std::cout << "modifying" << std::endl;
         std::ignore =
           turnTo
             ->velocity_based(true)
@@ -1091,7 +1101,7 @@ void initialize() {
             // .withVelocityFeedforwardController(turn_vel_controller)
             .timeout(3_sec);
 
-		std::cout << "did stuff prob" << std::endl;
+        std::cout << "did stuff prob" << std::endl;
     });
 
     mb.setArcModifier([](auto arc) -> auto {
@@ -1145,7 +1155,8 @@ void drive_vel_pid_tuning() {
     Length target_distance = 24_in;
     Length target_distance_delta = 8_in;
 
-    Length target_lateral_distance = 2_in;
+    // Length target_lateral_distance = 2_in;
+    Length target_lateral_distance = 0_in;
 
     double curr_kp =
       linear_angular_vel_pid.get_kp() / linear_angular_vel_pid.UKP;
@@ -1170,15 +1181,16 @@ void drive_vel_pid_tuning() {
     bool reversed = false;
 
     units::V2Position start_position = { 0_in, 0_in };
-    units::V2Position target_position =
-      start_position +
-      units::V2Position { target_distance, target_lateral_distance };
 
     drivetrain.setBrakeMode(pros::MotorBrake::hold);
 
     std::cout << std::fixed << std::setprecision(3);
 
     while (true) {
+        units::V2Position target_position =
+          start_position +
+          units::V2Position { target_distance, target_lateral_distance };
+
         drivetrain.setBrakeMode(pros::MotorBrake::hold);
         if (!reversed)
             RobotSetPose({ start_position, 0_stDeg });
@@ -1206,6 +1218,7 @@ void drive_vel_pid_tuning() {
                 .turn_vel_kp(curr_kp)
                 .turn_vel_ki(curr_ki)
                 .turn_vel_kd(curr_kd)
+                .timeout(3.3_sec)
 
                 //
                 // .k_lat(0)
@@ -1668,6 +1681,6 @@ void opcontrol() {
     // long_goal_to_match_test();
 
     // moveToTest();
-    // drive_vel_pid_tuning();
-    turn_vel_pid_tuning();
+    drive_vel_pid_tuning();
+    // turn_vel_pid_tuning();
 }
