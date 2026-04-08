@@ -575,8 +575,8 @@ class DifferentialVelocityController {
                                        .angular = converted_angular_velocity },
                                      feed_type);
 
-        // std::cout << "target: " << target_linear_velocity.internal() << " "
-        //           << converted_angular_velocity.internal() << " " << std::endl;
+        std::cout << "target: " << target_linear_velocity.internal() << " "
+                  << converted_angular_velocity.internal() << " " << std::endl;
     }
 
     LeftRightVoltages update(LeftRightSpeeds measurement, Time duration) {
@@ -592,9 +592,9 @@ class DifferentialVelocityController {
                                     duration);
 
         LeftRightVoltages result = { left_voltage, right_voltage };
-        // std::cout << "fb: " << linear.internal() << " " << angular.internal()
-        //           << " " << result.left_voltage.internal() << " "
-        //           << result.right_voltage.internal() << " " << std::endl;
+        std::cout << "fb: " << linear.internal() << " " << angular.internal()
+                  << " " << result.left_voltage.internal() << " "
+                  << result.right_voltage.internal() << " " << std::endl;
 
         return result;
     }

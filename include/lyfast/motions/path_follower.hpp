@@ -165,6 +165,8 @@ class PathFollow : public Motion<ControllersType,
 
         // TODO: add option for custom settling conditions (different
         // control law maybe)
+        // TODO: change tolerance to use forwards distance and/or half circle
+        // dist
 
         // points used for tolerances
         const mp::MotionPoint& curve_endpoint =

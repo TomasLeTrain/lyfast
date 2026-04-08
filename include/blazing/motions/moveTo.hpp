@@ -216,6 +216,8 @@ class moveTo
             if (m_velocity_based) {
                 LinearVelocity linear_vel =
                   this->controllers.linear_velocity_feedback.update(
+                    // -(units::max(0_in, units::abs(linear_error) - 0.1_in) *
+                    //   units::sgn(linear_error)),
                     -linear_error,
                     0_in,
                     delta_time);
@@ -267,9 +269,6 @@ class moveTo
 
                 DifferentialSpeeds target { linear_vel, angular_vel };
 
-                this->drivetrain->moveArcade(target.linear_velocity,
-                                             target.angular_velocity);
-
                 auto [left_vel, right_vel] =
                   this->drivetrain->getDrivetrainVelocities();
                 auto [actual_volt_left, actual_volt_right] =
@@ -296,6 +295,20 @@ class moveTo
                   << " " << heading.convert(deg) << " "
                   << angular_error.internal() << std::endl;
 
+                // this->drivetrain->moveArcade(target.linear_velocity,
+                //                              target.angular_velocity);
+                // update feedforward vel
+                this->drivetrain->moveArcade(
+                  target.linear_velocity,
+                  target.angular_velocity,
+                  TargetFeedType { .feedforward = true, .feedback = false });
+
+                // update feedback vel
+                this->drivetrain->moveArcade(
+                  target.linear_velocity,
+                  target.angular_velocity,
+                  TargetFeedType { .feedforward = false, .feedback = true });
+
                 return result;
                 //
                 // this->drivetrain->moveTank(left_voltage, right_voltage);
@@ -307,6 +320,7 @@ class moveTo
                 // assert("want to use velocity but don't have requirements!");
             }
         }
+        std::cout << "should never be called!" << std::endl;
 
         // calculate outputs
         Voltage angular_output =
