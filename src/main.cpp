@@ -342,14 +342,10 @@ PID<Angle, Voltage> angular_pid(2.5,
                                 Voltage(1.0 / 127.0));
 
 // tolerance stuff
-// Tolerances linearTolerances(100_msec,
-//                             ErrorTolerance { 0.7_in },
-//                             VelocityTolerance { 400_inps });
-Tolerances linearTolerances(100_sec,
-                            ErrorTolerance { 0.0_in },
-                            VelocityTolerance { 400_inps });
-
-// HalfCircleTolerance { 1_in });
+Tolerances linearTolerances(100_msec,
+                            ErrorTolerance { 0.7_in },
+                            VelocityTolerance { 400_inps }
+);
 
 Tolerances angularTolerances(40_msec,
                              ErrorTolerance { 2.25_stDeg },

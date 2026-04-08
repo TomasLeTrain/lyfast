@@ -21,6 +21,7 @@ struct PathFollowState {
     std::optional<Time> last_time;
     Time start_time;
     Length start_distance;
+    int last_reference_idx;
 };
 
 enum PathFollowParameterizationType {
@@ -60,12 +61,16 @@ class PathFollow : public Motion<ControllersType,
     std::shared_ptr<mp::Trajectory> target_trajectory;
 
     std::optional<Time> m_timeout = std::nullopt;
-    Length close_threshold = 4_in;
 
     PathFollowParameterizationType m_parameterization_type =
       closest_point_based;
     // look ahead one iteration at a time
     std::variant<Length, Time> m_lookahead = 20_msec;
+
+    // maximum distance the lookahead point can deviate from the previous
+    // done to prevent skipping entire sections of the path in case of
+    // intersections
+    Length m_max_lookahead_dist = 10_in;
 
   public:
     int getLoopDelayTime() override {
@@ -75,11 +80,10 @@ class PathFollow : public Motion<ControllersType,
 
     std::optional<motionExecutionResult> execute() override {
         if (!m_state.has_value()) {
-            m_state = {
-                .last_time = now(),
-                .start_time = now(),
-                .start_distance = this->tracker->getForwardTravel(),
-            };
+            m_state = { .last_time = now(),
+                        .start_time = now(),
+                        .start_distance = this->tracker->getForwardTravel(),
+                        .last_reference_idx = 0 };
             // done to prevent values like delta_time being 0
             return std::nullopt;
         }
@@ -89,6 +93,8 @@ class PathFollow : public Motion<ControllersType,
 
         const Time delta_time = deltaTime(state.last_time);
         const Time elapsed_motion_time = now() - state.start_time;
+
+        double reverse_multiplier = reversed ? -1.0 : 1.0;
 
         // reverses heading if neccesary
         auto applyHeadingReversal = [&](Angle angle) -> Angle {
@@ -104,22 +110,28 @@ class PathFollow : public Motion<ControllersType,
                 return target_trajectory->indexByTime(elapsed_motion_time);
             } else if (m_parameterization_type == distance_based) {
                 // distance based
-                return target_trajectory->indexByDistance(units::max(
+                const Length distance_traveled = units::max(
                   0_in,
-                  this->tracker->getForwardTravel() - state.start_distance));
+                  reverse_multiplier *
+                    (this->tracker->getForwardTravel() - state.start_distance));
+                return target_trajectory->indexByDistance(distance_traveled);
             } else if (m_parameterization_type == closest_point_based) {
                 // closest point based
-                // TODO: add max lookahead dist to avoid skipping whole path
-                return target_trajectory->indexByClosestPoint(position);
+                return target_trajectory->indexByClosestPoint(
+                  position,
+                  state.last_reference_idx,
+                  m_max_lookahead_dist);
             } else {
                 // no parameterization method?
                 return -1;
             }
         }();
 
+        state.last_reference_idx = reference_idx;
+
         // next direct point after current reference. used as fallback on
         // certain cases relating to lookahead
-        int fixed_next_reference =
+        const int fixed_next_reference =
           target_trajectory->sanitizeIndex(reference_idx + 1);
 
         // in case there is no lookahead we use the next index point
@@ -159,30 +171,29 @@ class PathFollow : public Motion<ControllersType,
           lookahead_motion_point.calculateSpeeds();
 
         // reverse linear vels if needed
-        double reverse_multiplier = reversed ? -1.0 : 1.0;
         reference_speeds.linear_velocity *= reverse_multiplier;
         lookahead_reference_speeds.linear_velocity *= reverse_multiplier;
 
         // TODO: add option for custom settling conditions (different
         // control law maybe)
-        // TODO: change tolerance to use forwards distance and/or half circle
-        // dist
-
-        // points used for tolerances
-        const mp::MotionPoint& curve_endpoint =
-          target_trajectory->getMotionEndPoint();
-        const Angle curve_endpoint_heading = curve_endpoint.heading;
-        const Length distance_to_end =
-          curve_endpoint.point.distanceTo(position);
 
         // update tolerances
-        this->tolerances.linearErrorToleranceUpdate(distance_to_end);
+        {
+            const auto distance_to_end = target_trajectory->getTotalDistance() -
+                                         reference_motion_point.arc_length;
+            this->tolerances.linearErrorToleranceUpdate(distance_to_end);
+        }
         this->tolerances.linearVelocityToleranceUpdate(
           this->tracker->getLinearVelocity());
-        this->tolerances.linearHalfcircleToleranceUpdate(
-          position,
-          curve_endpoint.point,
-          curve_endpoint_heading);
+        {
+            const auto curve_endpoint_pose =
+              target_trajectory->getMotionEndPoint().pose();
+
+            this->tolerances.linearHalfcircleToleranceUpdate(
+              position,
+              curve_endpoint_pose,
+              curve_endpoint_pose.orientation);
+        }
 
         result.finished = false;
 
@@ -327,11 +338,6 @@ class PathFollow : public Motion<ControllersType,
     motionChangerMsg PathFollow&
     parameterization(PathFollowParameterizationType parameterization_type) {
         this->m_parameterization_type = parameterization_type;
-        return *this;
-    }
-
-    motionChangerMsg PathFollow& closeThreshold(Length threshold) {
-        this->close_threshold = threshold;
         return *this;
     }
 

@@ -417,14 +417,14 @@ int Trajectory::indexByTime(FTime time, int start_ind) const {
 
 int Trajectory::indexByClosestPoint(geometry::Point point,
                                     int start_ind,
-                                    FLength max_look_dist,
+                                    FLength max_lookahead_dist,
                                     FLength resolution) const {
     FLength best = Length(INFINITY);
     int result = 0;
 
     FLength original_start_dist = m_points[start_ind].arc_length;
     // either some max look dist or look until the end of the array
-    FLength original_end_dist = units::min(original_start_dist + max_look_dist,
+    FLength original_end_dist = units::min(original_start_dist + max_lookahead_dist,
                                            // guarantee last point is visited
                                            // index should get clamped
                                            getTotalDistance() + 2 * resolution);

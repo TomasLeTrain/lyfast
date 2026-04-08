@@ -177,9 +177,9 @@ class moveTo
         this->tolerances.linearVelocityToleranceUpdate(
           this->tracker->getLinearVelocity());
         // TODO: does half circle exit make sense here?
-        this->tolerances.linearHalfcircleToleranceUpdate(position,
-                                                         target_point,
-                                                         target_heading);
+        // this->tolerances.linearHalfcircleToleranceUpdate(position,
+        //                                                  target_point,
+        //                                                  target_heading);
 
         result.finished = false;
 
@@ -494,6 +494,9 @@ class moveTo
         return *this;
     }
 
+    // target an x coordinate
+    // can set a custom x to settle to, which allows setting a target to aim at
+    // with heading (the normal target point) but settle to a different x coord
     motionChangerMsg moveTo&
     only_x(bool only_x,
            std::optional<Length> custom_x_settling = std::nullopt) {
@@ -503,6 +506,9 @@ class moveTo
         return *this;
     }
 
+    // target an y coordinate
+    // can set a custom y to settle to, which allows setting a target to aim at
+    // with heading (the normal target point) but settle to a different y coord
     motionChangerMsg moveTo&
     only_y(bool only_y,
            std::optional<Length> custom_y_settling = std::nullopt) {

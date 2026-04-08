@@ -162,7 +162,7 @@ class Trajectory {
     // may no neccesarily increase precision (can get to within index precision)
     int indexByClosestPoint(geometry::Point point,
                             int start_ind = 0,
-                            FLength max_dist = Length(INFINITY),
+                            FLength max_lookahead_dist = FLength(INFINITY),
                             FLength resolution = 1_in) const;
 
     // return total arc length of the path
