@@ -211,6 +211,8 @@ class PathFollow : public Motion<ControllersType,
         if constexpr (hasChainLinearTolerance<TolerancesType>) {
             result.inChainTolerance =
               this->tolerances.chain_linear.withinTolerance();
+
+            this->tolerances.chain_linear.finished();
         }
 
         // check timeout

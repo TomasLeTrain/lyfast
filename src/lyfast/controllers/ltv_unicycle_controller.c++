@@ -82,7 +82,7 @@ void LTVUnicycleController::setRMatrix(std::array<float, 2> R) {
 }
 
 void LTVUnicycleController::precomputeforwardsAngleFeedback() {
-    std::cout << "LQR:computing forwards angle" << std::endl;
+    // std::cout << "LQR:computing forwards angle" << std::endl;
 
     const Eigen::Matrix2f Q = MakeCostMatrix(m_simple_Q); // states x states
     const Eigen::Matrix2f R = MakeCostMatrix(m_simple_R); // inputs x inputs
@@ -127,7 +127,7 @@ void LTVUnicycleController::precomputeforwardsAngleFeedback() {
 
 DifferentialSpeeds
 LTVUnicycleController::forwardsAngleCompute(units::Pose error_pose) {
-    std::cout << "LQR:using forwards angle" << std::endl;
+    // std::cout << "LQR:using forwards angle" << std::endl;
     const Eigen::Vector2f error(error_pose.x.internal(),
                                 error_pose.orientation.internal());
 

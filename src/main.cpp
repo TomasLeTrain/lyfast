@@ -522,7 +522,7 @@ Controllers controllers(
 //   .chain_duration = 1_sec, .chain_error { 6_in },
 
 // avoids a division by zero
-ChainedExecutor chain(5_msec);
+AsyncExecutor chain;
 
 // custom cos-like func
 double angular_linear_func(Angle angle) {

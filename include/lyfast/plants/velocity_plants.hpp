@@ -190,7 +190,6 @@ class LinearMotorGroupVelocityPlant {
 // controls drivetrain with two modes: voltage and velocity.
 // velocity gets handled by the given controller
 
-// TODO: mutex
 class DrivetrainVelocityPlant {
   protected:
     pros::Mutex m_mutex;
@@ -222,6 +221,11 @@ class DrivetrainVelocityPlant {
   public:
     const DifferentialVelocityController& getController() {
         return m_controller;
+    }
+
+    void changeController(DifferentialVelocityController new_controller) {
+        std::lock_guard lock(m_mutex);
+        m_controller = new_controller;
     }
 
     void resetController() {
@@ -282,6 +286,12 @@ class DrivetrainVelocityPlant {
         if (m_measurement.has_value()) return m_measurement.value();
         // no mutex since it does not interact with this object directly (filter
         // assumed to be thread safe)
+
+        // no filters, no measurements (assumed measurements are updated
+        // manually)
+        if (m_left_filter == nullptr || m_right_filter == nullptr)
+            return { 0_inps, 0_inps };
+
         return {
             toLinear(m_left_filter->getPredictedState(), m_wheel_diameter),
             toLinear(m_right_filter->getPredictedState(), m_wheel_diameter),

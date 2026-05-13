@@ -95,8 +95,10 @@ void Trajectory::compute() {
     backwardsPass();
     printf("backwards pass:%llu\n", pros::c::micros() - start_time);
 
-    for (size_t i = 0; i < getNumPoints(); i++) {
-        m_debug_info[i].final_vels = getPoint(i).vel;
+    if (m_debug_enabled) {
+        for (size_t i = 0; i < getNumPoints(); i++) {
+            m_debug_info[i].final_vels = getPoint(i).vel;
+        }
     }
 
     setTravelTimes();
@@ -424,10 +426,11 @@ int Trajectory::indexByClosestPoint(geometry::Point point,
 
     FLength original_start_dist = m_points[start_ind].arc_length;
     // either some max look dist or look until the end of the array
-    FLength original_end_dist = units::min(original_start_dist + max_lookahead_dist,
-                                           // guarantee last point is visited
-                                           // index should get clamped
-                                           getTotalDistance() + 2 * resolution);
+    FLength original_end_dist =
+      units::min(original_start_dist + max_lookahead_dist,
+                 // guarantee last point is visited
+                 // index should get clamped
+                 getTotalDistance() + 2 * resolution);
 
     FLength start_dist = original_start_dist;
     FLength end_dist = original_end_dist;
